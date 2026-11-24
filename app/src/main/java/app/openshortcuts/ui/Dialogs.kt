@@ -374,3 +374,78 @@ fun VariableChips(names: List<String>, onInsert: (String) -> Unit) {
         }
     }
 }
+
+@Composable
+fun NewShortcutDialog(onDismiss: () -> Unit, onNew: () -> Unit, onImport: () -> Unit) {
+    DuoDialog(onDismiss) {
+        DialogTitle("New Shortcut")
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            ChoiceRow("Start from scratch", false, "plus", Tint.Blue.color(), onNew)
+            ChoiceRow("Import a shortcut file", false, "down", Tint.Gray.color(), onImport)
+        }
+    }
+}
+
+/** Actions worth naming before someone adds a shortcut they were sent. */
+private val SENSITIVE = mapOf(
+    app.openshortcuts.model.ActionType.END_WHATSAPP_CALL to "end WhatsApp calls",
+    app.openshortcuts.model.ActionType.END_PHONE_CALL to "end phone calls",
+    app.openshortcuts.model.ActionType.DND to "change Do Not Disturb",
+    app.openshortcuts.model.ActionType.RINGER to "change the ringer",
+    app.openshortcuts.model.ActionType.BRIGHTNESS to "change brightness",
+    app.openshortcuts.model.ActionType.OPEN_URL to "open web links",
+    app.openshortcuts.model.ActionType.OPEN_APP to "open apps",
+    app.openshortcuts.model.ActionType.COPY to "change the clipboard",
+    app.openshortcuts.model.ActionType.RUN_SHORTCUT to "run your other shortcuts",
+)
+
+/** Like Apple's "Add Shortcut" sheet: show what it does before it's added. */
+@Composable
+fun ImportDialog(imp: app.openshortcuts.model.Portable.Imported, onCancel: () -> Unit, onAdd: () -> Unit) {
+    val c = Theme.c
+    val s = imp.shortcut
+    DuoDialog(onCancel) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconTile(s.glyph, s.tint.color(), size = 44.dp)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(s.name, style = Theme.t.title, color = c.ink)
+                Text("${s.actions.size} action${if (s.actions.size == 1) "" else "s"}", style = Theme.t.small, color = c.ink2)
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+        Column(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(c.bg).padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            s.actions.filterNot { it.type.isMarker }.take(10).forEach { a ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconTile(a.type.glyph, a.type.tint.color(), size = 22.dp)
+                    Spacer(Modifier.width(10.dp))
+                    Text(a.type.title, style = Theme.t.body, color = c.ink)
+                }
+            }
+            val more = s.actions.count { !it.type.isMarker } - 10
+            if (more > 0) Text("and $more more", style = Theme.t.small, color = c.ink2)
+        }
+        val can = s.actions.mapNotNull { SENSITIVE[it.type] }.distinct()
+        if (can.isNotEmpty()) {
+            Spacer(Modifier.height(12.dp))
+            Row(verticalAlignment = Alignment.Top) {
+                Glyph("info", c.danger, size = 20.dp)
+                Spacer(Modifier.width(8.dp))
+                Text("This shortcut can ${can.joinToString()}. Only add shortcuts from people you trust.",
+                    style = Theme.t.small, color = c.ink)
+            }
+        }
+        if (imp.unknownActions > 0) {
+            Spacer(Modifier.height(8.dp))
+            Text("${imp.unknownActions} action${if (imp.unknownActions == 1) " isn't" else "s aren't"} supported by this version and will be left out.",
+                style = Theme.t.small, color = c.ink2)
+        }
+        Spacer(Modifier.height(18.dp))
+        PrimaryButton("Add Shortcut", Modifier.fillMaxWidth(), onClick = onAdd)
+        Spacer(Modifier.height(8.dp))
+        QuietButton("Don't Add", Modifier.fillMaxWidth(), onClick = onCancel)
+    }
+}

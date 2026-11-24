@@ -12,6 +12,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -58,6 +59,24 @@ class MainActivity : ComponentActivity() {
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
         setContent { ShortcutsTheme { App() } }
+        if (savedInstanceState == null) receive(intent)
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        receive(intent)
+    }
+
+    /** A shortcut file opened with, or shared to, the app. */
+    private fun receive(intent: android.content.Intent?) {
+        val uri = when (intent?.action) {
+            android.content.Intent.ACTION_VIEW -> intent.data
+            android.content.Intent.ACTION_SEND -> androidx.core.content.IntentCompat.getParcelableExtra(
+                intent, android.content.Intent.EXTRA_STREAM, android.net.Uri::class.java,
+            )
+            else -> null
+        } ?: return
+        app.openshortcuts.model.Portable.receive(this, uri)
     }
 }
 
@@ -69,6 +88,12 @@ private fun App() {
     var tab by remember { mutableIntStateOf(0) }
     var resumeTick by remember { mutableIntStateOf(0) }
     var newAuto by remember { mutableStateOf(false) }
+    var newShortcut by remember { mutableStateOf(false) }
+    val incoming by app.openshortcuts.model.Portable.incoming.collectAsStateWithLifecycle()
+    val importError by app.openshortcuts.model.Portable.importError.collectAsStateWithLifecycle()
+    val pickFile = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
+    ) { uri -> uri?.let { app.openshortcuts.model.Portable.receive(ctx, it) } }
     val runs = remember { RunController(ctx.applicationContext) }
 
     LifecycleResumeEffect(Unit) { resumeTick++; onPauseOrDispose { } }
@@ -109,10 +134,7 @@ private fun App() {
                 lib = lib, tab = tab, runs = runs, missingSetup = missingSetup,
                 onTab = { tab = it },
                 onNew = {
-                    if (tab == 0) {
-                        val s = Shortcut(name = "New Shortcut", tint = Tint.entries.random(), glyph = "layers")
-                        Store.upsert(s); push(Route.Editor(s.id))
-                    } else newAuto = true
+                    if (tab == 0) newShortcut = true else newAuto = true
                 },
                 onEdit = { push(Route.Editor(it.id)) },
                 onAutomation = { push(Route.Auto(it.id)) },
@@ -148,6 +170,35 @@ private fun App() {
         val a = Automation(kind = kind, shortcutId = "", callMinutes = 45,
             windowStart = 23 * 60, windowEnd = 5 * 60, warnFirst = !kind.event)
         Store.upsert(a); push(Route.Auto(a.id))
+    }
+    if (newShortcut) app.openshortcuts.ui.NewShortcutDialog(
+        onDismiss = { newShortcut = false },
+        onNew = {
+            newShortcut = false
+            val s = Shortcut(name = "New Shortcut", tint = Tint.entries.random(), glyph = "layers")
+            Store.upsert(s); push(Route.Editor(s.id))
+        },
+        onImport = { newShortcut = false; pickFile.launch(arrayOf("*/*")) },
+    )
+    incoming?.let { imp ->
+        app.openshortcuts.ui.ImportDialog(
+            imp,
+            onCancel = { app.openshortcuts.model.Portable.incoming.value = null },
+            onAdd = {
+                app.openshortcuts.model.Portable.incoming.value = null
+                Store.upsert(imp.shortcut)
+                stack = listOf(Route.Home); tab = 0
+                push(Route.Editor(imp.shortcut.id))
+            },
+        )
+    }
+    importError?.let { msg ->
+        app.openshortcuts.ui.DuoDialog({ app.openshortcuts.model.Portable.importError.value = null }) {
+            app.openshortcuts.ui.DialogTitle("Couldn't import", msg)
+            app.openshortcuts.ui.PrimaryButton("OK", androidx.compose.ui.Modifier.fillMaxWidth()) {
+                app.openshortcuts.model.Portable.importError.value = null
+            }
+        }
     }
     runs.prompt?.let { (p, _) -> app.openshortcuts.ui.PromptDialog(p) { runs.answer(it) } }
     runs.result?.let { r -> ResultDialog(r, onDismiss = { runs.result = null }, onSetup = { push(Route.Setup) }) }

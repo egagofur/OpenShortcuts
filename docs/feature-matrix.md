@@ -123,8 +123,8 @@ Apple has hundreds of actions. This table compares by area and names what OpenSh
 
 | Apple feature | OpenShortcuts | Notes / Android route |
 |---|---|---|
-| Share as iCloud link | 🟡 | Share sends a readable text recipe, but it can't be imported back |
-| Export / import a file ("Anyone", "People Who Know Me") | ❌ | `.openshortcut` JSON file plus an import screen. **Easy** |
+| Share as iCloud link | 🟡 | Share sends a `.openshortcut` file plus a readable recipe; no web link |
+| Export / import a file ("Anyone", "People Who Know Me") | ✅ | `.openshortcut` file. Import from the share sheet, "Open with", or + → Import; you review the actions and warnings before adding |
 | Import questions (asked when someone adds a shared shortcut) | ❌ | |
 | Gallery of ready-made shortcuts | 🟡 | 4 starter shortcuts and 2 starter automations; no browsable gallery |
 | Sync across devices | ❌ | Would need an account or Google Drive; the app is offline-only today |
@@ -141,7 +141,7 @@ Apple has hundreds of actions. This table compares by area and names what OpenSh
 | 2. Ways to run | 5 | 0 | 4 | 4 |
 | 3. Triggers (Apple's 20) | 4 | 3 | 10 | 3 |
 | 4. Action areas | 0 of 17 fully | 9 | 8 | 0 |
-| 5. Sharing and sync | 2 | 2 | 4 | 1 |
+| 5. Sharing and sync | 3 | 2 | 3 | 1 |
 
 OpenShortcuts covers the core editor and the night-time use case. The biggest gaps are ways to run a shortcut, event triggers, and variables and loops.
 
@@ -152,5 +152,5 @@ Ordered by value for the effort:
 1. ~~**Ways to run:** Home Screen icon, Quick Settings tile, long-press app shortcuts.~~ Done. Widget is still open.
 2. ~~**Triggers through the listener host:** Charger, Battery Level, Do Not Disturb, Wi-Fi, WhatsApp message.~~ Done. Still open: Bluetooth, Wi-Fi by network name, SMS.
 3. ~~**Scripting:** variables, Repeat, Choose from Menu, Ask for Input.~~ Done. Still open: lists, Repeat with Each, dictionaries.
-4. **Export / import file:** makes shortcuts shareable, which a public repo needs if it's going to spread.
+4. ~~**Export / import file.**~~ Done.
 5. **Lock Screen and Speak Text actions:** useful in bedtime routines.

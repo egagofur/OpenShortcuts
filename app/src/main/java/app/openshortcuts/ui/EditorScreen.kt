@@ -216,13 +216,8 @@ fun EditorScreen(shortcut: Shortcut, runs: RunController, onBack: () -> Unit, on
                     running = runs.running == s.id,
                     onUndo = draft::undo, onRedo = draft::redo,
                     onInfo = { details = true },
-                    onShare = {
-                        ctx.startActivity(Intent.createChooser(
-                            Intent(Intent.ACTION_SEND).setType("text/plain")
-                                .putExtra(Intent.EXTRA_SUBJECT, s.name).putExtra(Intent.EXTRA_TEXT, s.describe(ctx)),
-                            "Share ${s.name}",
-                        ))
-                    },
+                    // A .openshortcut file anyone with the app can add, plus a readable recipe.
+                    onShare = { ctx.startActivity(app.openshortcuts.model.Portable.shareIntent(ctx, s, s.describe(ctx))) },
                     onRun = { if (runs.running == s.id) runs.stop() else runs.run(s) },
                     onAdd = { type ->
                         view.confirm()
