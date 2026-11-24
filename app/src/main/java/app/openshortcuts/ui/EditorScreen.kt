@@ -89,29 +89,29 @@ private class Draft(initial: Shortcut) {
     fun actions(f: (MutableList<Action>) -> Unit) = set(value.copy(actions = value.actions.toMutableList().also(f)))
 }
 
-/** Indices of the If / Otherwise / End If markers that belong together. */
+/** Indices of an opener and its markers (If/Otherwise/End If, Repeat/End Repeat, Menu/Options/End Menu). */
 private fun blockOf(actions: List<Action>, index: Int): List<Int> {
+    val t = actions[index].type
+    val openerType = if (t.opensBlock) t else t.opener ?: return listOf(index)
     var start = index
-    if (actions[index].type != ActionType.IF) {
+    if (!t.opensBlock) {
         var depth = 0
         start = -1
         for (i in index - 1 downTo 0) {
-            when (actions[i].type) {
-                ActionType.END_IF -> depth++
-                ActionType.IF -> if (depth == 0) { start = i; break } else depth--
-                else -> Unit
-            }
+            val u = actions[i].type
+            if (u == openerType.closer) depth++
+            else if (u == openerType) { if (depth == 0) { start = i; break } else depth-- }
         }
         if (start < 0) return listOf(index)
     }
     val out = mutableListOf(start)
     var depth = 0
     for (i in start + 1 until actions.size) {
-        when (actions[i].type) {
-            ActionType.IF -> depth++
-            ActionType.OTHERWISE -> if (depth == 0) out += i
-            ActionType.END_IF -> if (depth == 0) { out += i; break } else depth--
-            else -> Unit
+        val u = actions[i].type
+        when {
+            u == openerType -> depth++
+            u.opener == openerType && u.isMidBlock -> if (depth == 0) out += i
+            u == openerType.closer -> if (depth == 0) { out += i; break } else depth--
         }
     }
     return out
@@ -151,7 +151,8 @@ fun EditorScreen(shortcut: Shortcut, runs: RunController, onBack: () -> Unit, on
                 LazyColumn(
                     state = list,
                     modifier = Modifier.fillMaxSize()
-                        .windowInsetsPadding(WindowInsets.topBar.only(WindowInsetsSides.Top + WindowInsetsSides.Start)),
+                        .windowInsetsPadding(WindowInsets.topBar.only(WindowInsetsSides.Top + WindowInsetsSides.Start))
+                        .windowInsetsPadding(WindowInsets.ime.only(WindowInsetsSides.Bottom)),
                     contentPadding = PaddingValues(start = 18.dp, end = 4.dp, bottom = SHEET_COLLAPSED + 40.dp),
                 ) {
                     item(key = "header") {
@@ -183,8 +184,9 @@ fun EditorScreen(shortcut: Shortcut, runs: RunController, onBack: () -> Unit, on
                                 onRemove = {
                                     view.tick()
                                     draft.actions { l ->
-                                        val idx = if (a.type == ActionType.OTHERWISE) listOf(i) else
-                                            if (a.type == ActionType.IF || a.type == ActionType.END_IF) blockOf(l, i) else listOf(i)
+                                        // Removing an option or Otherwise keeps the block; removing its start or end removes all markers.
+                                        val idx = if (a.type.isMidBlock) listOf(i) else
+                                            if (a.type.opensBlock || a.type.closesBlock) blockOf(l, i) else listOf(i)
                                         idx.sortedDescending().forEach { l.removeAt(it) }
                                     }
                                 },
@@ -226,7 +228,16 @@ fun EditorScreen(shortcut: Shortcut, runs: RunController, onBack: () -> Unit, on
                         view.confirm()
                         draft.actions { l ->
                             l += Action(type = type)
-                            if (type == ActionType.IF) { l += Action(type = ActionType.OTHERWISE); l += Action(type = ActionType.END_IF) }
+                            when (type) {
+                                ActionType.IF -> { l += Action(type = ActionType.OTHERWISE); l += Action(type = ActionType.END_IF) }
+                                ActionType.REPEAT -> l += Action(type = ActionType.END_REPEAT)
+                                ActionType.MENU -> {
+                                    l += Action(type = ActionType.CASE, params = mapOf("label" to "Option 1"))
+                                    l += Action(type = ActionType.CASE, params = mapOf("label" to "Option 2"))
+                                    l += Action(type = ActionType.END_MENU)
+                                }
+                                else -> Unit
+                            }
                         }
                         scope.launch { list.animateScrollToItem(list.layoutInfo.totalItemsCount) }
                     },
@@ -341,6 +352,7 @@ private fun ActionCard(
             if (body != null) {
                 Box(Modifier.fillMaxWidth().height(1.dp).background(c.hairline))
                 var text by remember(action.id) { mutableStateOf(action.p("body")) }
+                var focused by remember { mutableStateOf(false) }
                 Box(Modifier.padding(horizontal = 18.dp, vertical = 16.dp).fillMaxWidth()) {
                     if (text.isEmpty()) Text(body.placeholder, style = Theme.t.body.copy(fontSize = 17.sp), color = c.ink3)
                     BasicTextField(
@@ -348,8 +360,11 @@ private fun ActionCard(
                         onValueChange = { text = it; onBody(it) },
                         textStyle = Theme.t.body.copy(fontSize = 17.sp, color = c.ink),
                         cursorBrush = SolidColor(c.accent),
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().onFocusChanged { focused = it.isFocused },
                     )
+                }
+                if (focused) Box(Modifier.padding(start = 18.dp, end = 18.dp, bottom = 14.dp)) {
+                    VariableChips(app.openshortcuts.model.variableNames(all)) { text += it; onBody(text) }
                 }
             }
         }
@@ -407,6 +422,8 @@ private fun ActionSheet(
         scope.launch { progress.snapTo(shown) }
     }
     val h = SHEET_COLLAPSED + (expandedH - SHEET_COLLAPSED) * progress.value
+    // Typing inside a card: the keyboard owns the bottom, the sheet steps away so the field stays visible.
+    if (WindowInsets.isImeVisible && progress.targetValue == 0f) return
 
     Column(
         modifier
@@ -490,7 +507,7 @@ private fun ToolButton(glyph: String, label: String, enabled: Boolean, onClick: 
 private fun Catalog(query: String, alpha: Float, onPick: (ActionType) -> Unit) {
     val c = Theme.c
     val q = query.trim().lowercase()
-    val types = ActionType.entries.filter { it != ActionType.OTHERWISE && it != ActionType.END_IF }
+    val types = ActionType.entries.filter { !it.isMarker }
         .filter { q.isEmpty() || it.title.lowercase().contains(q) || it.summary.lowercase().contains(q) || it.category.title.lowercase().contains(q) || keywords(it).any { k -> k.startsWith(q) } }
     LazyColumn(
         Modifier.fillMaxSize().padding(top = 8.dp),
@@ -538,6 +555,11 @@ private fun keywords(t: ActionType): List<String> = when (t) {
     ActionType.FLASHLIGHT -> listOf("senter", "torch")
     ActionType.NOTIFY -> listOf("notifikasi", "alert")
     ActionType.BATTERY -> listOf("baterai")
+    ActionType.REPEAT -> listOf("ulang", "loop", "berulang")
+    ActionType.MENU -> listOf("menu", "pilih", "pilihan", "choose")
+    ActionType.ASK -> listOf("tanya", "input", "masukan", "prompt")
+    ActionType.SET_VARIABLE, ActionType.GET_VARIABLE -> listOf("variabel", "variable", "simpan")
+    ActionType.COPY -> listOf("salin", "clipboard", "copy")
     else -> emptyList()
 }
 

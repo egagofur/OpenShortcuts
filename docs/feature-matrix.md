@@ -18,15 +18,15 @@ The **Android route** column says how a missing feature would be built. "Listene
 | Apple feature | OpenShortcuts | Notes / Android route |
 |---|---|---|
 | Sentence-style actions with editable tokens | ✅ | Blue pills open a picker, slider or text field |
-| Magic variables (any earlier action's output) | 🟡 | Only "previous result" can be used as input |
-| Special variables: Clipboard, Current Date, Shortcut Input, Ask Each Time | ❌ | All possible |
-| Set Variable / Add to Variable | ❌ | |
+| Magic variables (any earlier action's output) | 🟡 | "Previous result" as input, plus named variables; not every earlier output yet |
+| Special variables: Clipboard, Current Date, Shortcut Input, Ask Each Time | 🟡 | {Shortcut Input}, {Current Date}, {Current Time}, {Clipboard} (while the app is open), {Repeat Index}, {Menu Result}; no Ask Each Time |
+| Set Variable / Add to Variable | 🟡 | Set Variable and Get Variable; use {Name} in any text. No Add to Variable (lists) |
 | If / Otherwise / End If | ✅ | Can test Battery Level, Hour, Charging, Previous Result, WhatsApp Call |
-| Repeat / Repeat with Each, Repeat Item / Index | ❌ | |
-| Choose from Menu | ❌ | |
+| Repeat / Repeat with Each, Repeat Item / Index | 🟡 | Repeat N times with {Repeat Index}; no Repeat with Each (needs lists) |
+| Choose from Menu | ✅ | Options are cards; duplicate one to add more |
 | Lists, Find and Filter actions | ❌ | |
 | Dictionaries, Get Dictionary Value, Parsing JSON | ❌ | |
-| Ask for Input | ❌ | |
+| Ask for Input | ✅ | Text or number. Needs the app open; automations stop with a clear message |
 | Show Alert | ❌ | |
 | Show Notification | ✅ | |
 | Show Result / Show Content | ✅ | Dialog in the app, notification when in the background |
@@ -109,14 +109,14 @@ Apple has hundreds of actions. This table compares by area and names what OpenSh
 | Lock / screen | Lock Screen | ❌ | Accessibility service (global lock action) |
 | Apps | Open App, app intents | ✅ Open app | ❌ Close app (not possible), App Actions |
 | Web | Open URLs, Get Contents of URL, Search Web | ✅ Open URL | ❌ HTTP requests (needs internet permission) |
-| Text | Text, Speak, Translate, Dictate | ✅ Text | ❌ Speak Text (built-in TextToSpeech, easy) |
+| Text | Text, Speak, Translate, Dictate, Copy | ✅ Text, Copy to Clipboard | ❌ Speak Text (built-in TextToSpeech, easy) |
 | Sharing | Share, Copy to Clipboard, Send Message, Mail | ❌ | Share sheet, clipboard, SMS / WhatsApp deep links |
 | Calendar / Reminders | Add event, Get upcoming events | ❌ | Calendar provider (permission) |
 | Location / Maps | Get current location, directions, weather | ❌ | LocationManager; weather needs internet |
 | Documents / files | Save File, Get File, PDF, QR code | ❌ | Storage Access Framework |
 | Photos / camera | Take Photo, Get Latest Photos | ❌ | MediaStore |
 | Health | Log health sample | ❌ | Health Connect |
-| Scripting | Wait, If, Repeat, Menu, Variables, Run Shortcut, Stop | 🟡 Wait, If, Run Shortcut, Stop | See section 1 |
+| Scripting | Wait, If, Repeat, Menu, Variables, Run Shortcut, Stop | 🟡 Wait, If, Repeat, Menu, Ask, Variables, Run Shortcut, Stop | Lists and dictionaries missing |
 | Apple Intelligence | Use Model, Get Current Weather | ❌ | Gemini Nano where available |
 
 ## 5. Sharing, Gallery and sync
@@ -137,7 +137,7 @@ Apple has hundreds of actions. This table compares by area and names what OpenSh
 
 | Section | ✅ Done | 🟡 Partly done | ❌ Possible on Android | ⛔ Not possible |
 |---|---|---|---|---|
-| 1. Building | 11 | 2 | 12 | 0 |
+| 1. Building | 13 | 6 | 6 | 0 |
 | 2. Ways to run | 5 | 0 | 4 | 4 |
 | 3. Triggers (Apple's 20) | 4 | 3 | 10 | 3 |
 | 4. Action areas | 0 of 17 fully | 9 | 8 | 0 |
@@ -151,6 +151,6 @@ Ordered by value for the effort:
 
 1. ~~**Ways to run:** Home Screen icon, Quick Settings tile, long-press app shortcuts.~~ Done. Widget is still open.
 2. ~~**Triggers through the listener host:** Charger, Battery Level, Do Not Disturb, Wi-Fi, WhatsApp message.~~ Done. Still open: Bluetooth, Wi-Fi by network name, SMS.
-3. **Scripting:** variables (Set/Get, Clipboard, Current Date), Repeat, Choose from Menu, Ask for Input. Brings the editor close to Apple's.
+3. ~~**Scripting:** variables, Repeat, Choose from Menu, Ask for Input.~~ Done. Still open: lists, Repeat with Each, dictionaries.
 4. **Export / import file:** makes shortcuts shareable, which a public repo needs if it's going to spread.
 5. **Lock Screen and Speak Text actions:** useful in bedtime routines.

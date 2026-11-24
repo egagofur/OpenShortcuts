@@ -149,5 +149,6 @@ private fun App() {
             windowStart = 23 * 60, windowEnd = 5 * 60, warnFirst = !kind.event)
         Store.upsert(a); push(Route.Auto(a.id))
     }
+    runs.prompt?.let { (p, _) -> app.openshortcuts.ui.PromptDialog(p) { runs.answer(it) } }
     runs.result?.let { r -> ResultDialog(r, onDismiss = { runs.result = null }, onSetup = { push(Route.Setup) }) }
 }

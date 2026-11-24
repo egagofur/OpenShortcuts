@@ -94,6 +94,45 @@ enum class ActionType(
     ),
     OTHERWISE("Otherwise", "Otherwise", Category.Scripting, Tint.Gray, "branch"),
     END_IF("End If", "End If", Category.Scripting, Tint.Gray, "branch"),
+    REPEAT(
+        "Repeat", "Repeat {count} times", Category.Scripting, Tint.Gray, "repeat",
+        listOf(ParamSpec("count", ParamKind.NUMBER, "3", min = 1, max = 1000)),
+        summary = "Runs the actions inside again and again. {Repeat Index} counts from 1.",
+    ),
+    END_REPEAT("End Repeat", "End Repeat", Category.Scripting, Tint.Gray, "repeat"),
+    MENU(
+        "Choose from Menu", "Choose from menu {prompt}", Category.Scripting, Tint.Teal, "menu",
+        listOf(ParamSpec("prompt", ParamKind.TEXT, "Choose", placeholder = "Prompt")),
+        output = "Menu Result",
+        summary = "Asks you to pick an option, then runs that option's actions.",
+    ),
+    CASE(
+        "Menu Option", "Option {label}", Category.Scripting, Tint.Teal, "menu",
+        listOf(ParamSpec("label", ParamKind.TEXT, "Option", placeholder = "Label")),
+    ),
+    END_MENU("End Menu", "End Menu", Category.Scripting, Tint.Teal, "menu"),
+    ASK(
+        "Ask for Input", "Ask for {kind} with {prompt}", Category.Scripting, Tint.Blue, "quote",
+        listOf(
+            ParamSpec("kind", ParamKind.CHOICE, "Text", listOf("Text", "Number")),
+            ParamSpec("prompt", ParamKind.TEXT, "How long?", placeholder = "Prompt"),
+        ),
+        output = "Provided Input",
+        summary = "Shows a text box while the shortcut runs.",
+    ),
+    SET_VARIABLE(
+        "Set Variable", "Set variable {name} to {value}", Category.Scripting, Tint.Orange, "braces",
+        listOf(
+            ParamSpec("name", ParamKind.TEXT, "My Variable", placeholder = "Name"),
+            ParamSpec("value", ParamKind.INPUT, "@prev", placeholder = "Value"),
+        ),
+        summary = "Saves a value you can use later as {Name} in any text.",
+    ),
+    GET_VARIABLE(
+        "Get Variable", "Get variable {name}", Category.Scripting, Tint.Orange, "braces",
+        listOf(ParamSpec("name", ParamKind.TEXT, "My Variable", placeholder = "Name")),
+        output = "Variable",
+    ),
     STOP("Stop This Shortcut", "Stop this shortcut", Category.Scripting, Tint.Gray, "stop"),
     RUN_SHORTCUT(
         "Run Shortcut", "Run {shortcut}", Category.Scripting, Tint.Purple, "layers",
@@ -116,16 +155,33 @@ enum class ActionType(
         "Show Result", "Show {input}", Category.Text, Tint.Yellow, "quote",
         listOf(ParamSpec("input", ParamKind.INPUT, "@prev", placeholder = "Text")),
     ),
+    COPY(
+        "Copy to Clipboard", "Copy {input} to clipboard", Category.Text, Tint.Blue, "copy",
+        listOf(ParamSpec("input", ParamKind.INPUT, "@prev", placeholder = "Text")),
+    ),
     NOTIFY(
         "Show Notification", "Show notification {body}", Category.Text, Tint.Red, "bell",
         listOf(ParamSpec("body", ParamKind.TEXT, "Hello", placeholder = "Message")),
     );
 
-    /** Indentation behaviour for the control-flow family. */
-    val opensBlock get() = this == IF
-    val isMidBlock get() = this == OTHERWISE
-    val closesBlock get() = this == END_IF
+    /** Control-flow blocks: opener, optional middles, closer. */
+    val opensBlock get() = this == IF || this == REPEAT || this == MENU
+    val isMidBlock get() = this == OTHERWISE || this == CASE
+    val closesBlock get() = this == END_IF || this == END_REPEAT || this == END_MENU
+    /** Markers the editor inserts and removes together with their opener. */
+    val isMarker get() = isMidBlock || closesBlock
+    val closer: ActionType? get() = when (this) { IF -> END_IF; REPEAT -> END_REPEAT; MENU -> END_MENU; else -> null }
+    val opener: ActionType? get() = when (this) {
+        OTHERWISE, END_IF -> IF; END_REPEAT -> REPEAT; CASE, END_MENU -> MENU; else -> null
+    }
 }
+
+/** Names you can drop into any text as {Name}. */
+val BUILT_IN_VARIABLES = listOf("Shortcut Input", "Previous Result", "Current Date", "Current Time", "Clipboard", "Repeat Index", "Menu Result")
+
+fun variableNames(actions: List<Action>): List<String> =
+    (BUILT_IN_VARIABLES + actions.filter { it.type == ActionType.SET_VARIABLE }.map { it.p("name").trim() })
+        .filter { it.isNotEmpty() }.distinct()
 
 data class Action(
     val id: String = UUID.randomUUID().toString(),

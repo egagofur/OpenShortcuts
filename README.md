@@ -13,13 +13,13 @@ It started with one problem: falling asleep on a WhatsApp call and waking up to 
 ## What it does
 
 - **Shortcuts as sentences.** Every action reads like a sentence with blue tokens you tap to change: “Turn **On** Do Not Disturb”, “Set brightness to **10%**”.
-- **If / Otherwise / End If**, Wait, Run Shortcut, Show Result, and the output of one action feeding the next.
+- **Scripting**: If / Otherwise, Repeat, Choose from Menu, Ask for Input, Set / Get Variable, Wait, Run Shortcut. Put `{Current Time}`, `{Shortcut Input}` or your own `{Variable}` in any text.
 - **Automations**
   - *Time of day*: daily, weekdays, or any days you pick.
   - *WhatsApp call runs long*: “when a call lasts 45 min, only between 23:00 and 05:00”.
   - *WhatsApp message* (from anyone, or a contact or group you name), *Charger*, *Battery level*, *Do Not Disturb*, *Wi-Fi*.
   - Optional one-minute warning with **Snooze 30 min / Not now / Run now**, so it never hangs up on you while you're awake.
-- **21 actions**: end a WhatsApp call, end a phone call, Do Not Disturb, ringer mode, pause/play media, volume, brightness, flashlight, vibrate, battery level, open app, open URL, text, notifications and more.
+- **25 actions**: end a WhatsApp call, end a phone call, Do Not Disturb, ringer mode, pause/play media, volume, brightness, flashlight, vibrate, battery level, open app, open URL, text, notifications and more.
 - **Run from anywhere**: a Home Screen icon per shortcut, a Quick Settings tile, and the app icon's long-press menu (also shown in launcher search).
 - Search for actions in English or Indonesian (“tutup telepon”, “tidur”).
 - Light and dark mode, follows your system text size.

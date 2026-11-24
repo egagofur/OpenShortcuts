@@ -2,6 +2,8 @@ package app.openshortcuts.engine
 
 import android.annotation.SuppressLint
 import android.app.NotificationManager
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.hardware.camera2.CameraCharacteristics
@@ -21,7 +23,9 @@ import app.openshortcuts.model.Action
 import app.openshortcuts.model.ActionType
 import app.openshortcuts.model.Shortcut
 import app.openshortcuts.model.Store
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import java.util.Calendar
 
 object Runner {
@@ -33,48 +37,146 @@ object Runner {
         val error: String? = null,
     )
 
-    private class Frame(val parentActive: Boolean, val cond: Boolean, var inElse: Boolean = false) {
-        val active get() = parentActive && (if (inElse) !cond else cond)
+    /** Questions a running shortcut asks the person. `null` answer = they cancelled. */
+    sealed interface Prompt {
+        data class Menu(val title: String, val options: List<String>) : Prompt
+        data class Input(val title: String, val number: Boolean) : Prompt
     }
 
     private class Stop : Exception()
 
-    /** `foreground` = the app is on screen, so Show results go to a dialog instead of a notification. */
-    suspend fun run(context: Context, shortcut: Shortcut, foreground: Boolean, depth: Int = 0, input: String = ""): Result {
+    private class Block(val mids: List<Int>, val end: Int)
+
+    private class State(
+        val ctx: Context,
+        val actions: List<Action>,
+        val blocks: Map<Int, Block>,
+        val depth: Int,
+        val ask: (suspend (Prompt) -> String?)?,
+        val foreground: Boolean,
+    ) {
         val shown = mutableListOf<String>()
         val log = mutableListOf<String>()
-        // Shortcut Input (e.g. the WhatsApp message text) is the first "previous result".
-        var prev = input
-        val stack = ArrayDeque<Frame>()
-        fun active() = stack.lastOrNull()?.active ?: true
-
-        try {
-            for (a in shortcut.actions) {
-                when (a.type) {
-                    ActionType.IF -> { stack.addLast(Frame(active(), active() && evaluate(context, a, prev))); continue }
-                    ActionType.OTHERWISE -> { stack.lastOrNull()?.inElse = true; continue }
-                    ActionType.END_IF -> { stack.removeLastOrNull(); continue }
-                    else -> Unit
-                }
-                if (!active()) continue
-                prev = step(context, a, prev, depth, shown, log)
-            }
-        } catch (_: Stop) {
-            log += "Stopped"
-        } catch (e: Exception) {
-            return Result(shortcut.name, shown, log, e.message ?: e.javaClass.simpleName)
-        }
-        if (!foreground) shown.forEach { Notifs.result(context, shortcut.name, it) }
-        return Result(shortcut.name, shown, log)
+        val vars = HashMap<String, String>()
+        var prev = ""
     }
+
+    /** Match every If / Repeat / Menu with its middles and end. Unclosed blocks run to the end. */
+    private fun structure(actions: List<Action>): Map<Int, Block> {
+        val out = HashMap<Int, Block>()
+        val open = ArrayDeque<Pair<Int, MutableList<Int>>>()
+        actions.forEachIndexed { i, a ->
+            when {
+                a.type.opensBlock -> open.addLast(i to mutableListOf())
+                a.type.isMidBlock -> open.lastOrNull { actions[it.first].type == a.type.opener }?.second?.add(i)
+                a.type.closesBlock -> {
+                    val idx = open.indexOfLast { actions[it.first].type == a.type.opener }
+                    if (idx >= 0) {
+                        // Anything opened inside and never closed ends here too.
+                        while (open.size > idx + 1) open.removeLast().let { (o, m) -> out[o] = Block(m, i) }
+                        open.removeLast().let { (o, m) -> out[o] = Block(m, i) }
+                    }
+                }
+            }
+        }
+        open.forEach { (o, m) -> out[o] = Block(m, actions.size) }
+        return out
+    }
+
+    /**
+     * `foreground` = the app is on screen, so Show results go to a dialog instead of a notification.
+     * `input` is the Shortcut Input (a WhatsApp message, a battery level…).
+     * `ask` shows menus and text boxes; without it, actions that ask fail with a clear message.
+     */
+    suspend fun run(
+        context: Context, shortcut: Shortcut, foreground: Boolean, depth: Int = 0, input: String = "",
+        ask: (suspend (Prompt) -> String?)? = null,
+    ): Result {
+        val st = State(context, shortcut.actions, structure(shortcut.actions), depth, ask, foreground)
+        st.prev = input
+        st.vars["Shortcut Input"] = input
+        try {
+            exec(st, 0, st.actions.size)
+        } catch (_: Stop) {
+            st.log += "Stopped"
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return Result(shortcut.name, st.shown, st.log, e.message ?: e.javaClass.simpleName)
+        }
+        if (!foreground) st.shown.forEach { Notifs.result(context, shortcut.name, it) }
+        return Result(shortcut.name, st.shown, st.log)
+    }
+
+    private suspend fun exec(st: State, from: Int, to: Int) {
+        var i = from
+        while (i < to) {
+            currentCoroutineContext().ensureActive()
+            val a = st.actions[i]
+            val b = st.blocks[i]
+            when (a.type) {
+                ActionType.IF -> {
+                    b ?: return
+                    val otherwise = b.mids.firstOrNull()
+                    if (evaluate(st, a)) exec(st, i + 1, otherwise ?: b.end)
+                    else if (otherwise != null) exec(st, otherwise + 1, b.end)
+                    i = b.end + 1
+                }
+                ActionType.REPEAT -> {
+                    b ?: return
+                    val n = (fill(st, a.p("count")).trim().toIntOrNull() ?: 1).coerceIn(0, 1000)
+                    for (k in 1..n) {
+                        st.vars["Repeat Index"] = "$k"
+                        exec(st, i + 1, b.end)
+                    }
+                    i = b.end + 1
+                }
+                ActionType.MENU -> {
+                    b ?: return
+                    val labels = b.mids.map { fill(st, st.actions[it].p("label")) }
+                    if (labels.isEmpty()) fail("Add an option to “Choose from Menu”.")
+                    val ask = st.ask ?: fail("“Choose from Menu” needs you to answer. Run this shortcut from the app.")
+                    val pick = ask(Prompt.Menu(fill(st, a.p("prompt")), labels)) ?: throw Stop()
+                    val at = labels.indexOf(pick).coerceAtLeast(0)
+                    st.vars["Menu Result"] = pick
+                    st.prev = pick
+                    exec(st, b.mids[at] + 1, b.mids.getOrNull(at + 1) ?: b.end)
+                    i = b.end + 1
+                }
+                // Stray markers (e.g. an End If without its If) do nothing.
+                ActionType.OTHERWISE, ActionType.END_IF, ActionType.END_REPEAT, ActionType.CASE, ActionType.END_MENU -> i++
+                else -> {
+                    st.prev = step(st, a)
+                    i++
+                }
+            }
+        }
+    }
+
+    /** Replace {Name} with variables; unknown names stay as typed. */
+    private fun fill(st: State, text: String): String = Regex("\\{([^{}]+)\\}").replace(text) { m ->
+        val name = m.groupValues[1].trim()
+        st.vars[name] ?: special(st, name) ?: m.value
+    }
+
+    private fun special(st: State, name: String): String? = when (name) {
+        "Previous Result" -> st.prev
+        "Current Date" -> java.text.DateFormat.getDateInstance(java.text.DateFormat.LONG).format(java.util.Date())
+        "Current Time" -> android.text.format.DateFormat.getTimeFormat(st.ctx).format(java.util.Date())
+        // Android only lets the app on screen read the clipboard.
+        "Clipboard" -> runCatching {
+            st.ctx.getSystemService(ClipboardManager::class.java).primaryClip?.getItemAt(0)?.coerceToText(st.ctx)?.toString()
+        }.getOrNull().orEmpty()
+        else -> null
+    }
+
+    private fun input(st: State, a: Action, key: String) = a.p(key).let { if (it == "@prev") st.prev else fill(st, it) }
 
     private fun fail(msg: String): Nothing = throw IllegalStateException(msg)
 
     @SuppressLint("MissingPermission")
-    private suspend fun step(
-        ctx: Context, a: Action, prev: String, depth: Int,
-        shown: MutableList<String>, log: MutableList<String>,
-    ): String {
+    private suspend fun step(st: State, a: Action): String {
+        val ctx = st.ctx; val prev = st.prev; val depth = st.depth; val shown = st.shown; val log = st.log
         val audio = ctx.getSystemService(AudioManager::class.java)
         val nm = ctx.getSystemService(NotificationManager::class.java)
         return when (a.type) {
@@ -171,7 +273,7 @@ object Runner {
             ActionType.RUN_SHORTCUT -> {
                 if (depth >= 4) fail("Shortcuts are nested too deeply.")
                 val child = Store.shortcut(a.p("shortcut")) ?: fail("Choose a shortcut to run.")
-                val r = run(ctx, child, foreground = true, depth = depth + 1)
+                val r = run(ctx, child, foreground = true, depth = depth + 1, input = prev, ask = st.ask)
                 shown += r.shown; log += r.log
                 r.error?.let { fail(it) }
                 r.shown.lastOrNull() ?: prev
@@ -183,19 +285,35 @@ object Runner {
                 prev
             }
             ActionType.OPEN_URL -> {
-                ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(a.p("url"))).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(fill(st, a.p("url")))).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                 prev
             }
-            ActionType.TEXT -> a.p("body")
+            ActionType.TEXT -> fill(st, a.p("body"))
             ActionType.SHOW -> {
-                val text = a.p("input").let { if (it == "@prev") prev else it }
+                val text = input(st, a, "input")
                 shown += text.ifBlank { "(empty)" }
                 text
             }
             ActionType.NOTIFY -> {
-                Notifs.result(ctx, "OpenShortcuts", a.p("body")); prev
+                Notifs.result(ctx, "OpenShortcuts", fill(st, a.p("body"))); prev
             }
-            ActionType.IF, ActionType.OTHERWISE, ActionType.END_IF -> prev
+            ActionType.ASK -> {
+                val ask = st.ask ?: fail("“Ask for Input” needs you to answer. Run this shortcut from the app.")
+                ask(Prompt.Input(fill(st, a.p("prompt")), a.p("kind") == "Number")) ?: throw Stop()
+            }
+            ActionType.SET_VARIABLE -> {
+                val name = a.p("name").trim().ifEmpty { fail("Give the variable a name.") }
+                st.vars[name] = input(st, a, "value")
+                prev
+            }
+            ActionType.GET_VARIABLE -> a.p("name").trim().let { st.vars[it] ?: special(st, it) ?: "" }
+            ActionType.COPY -> {
+                val text = input(st, a, "input")
+                ctx.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("OpenShortcuts", text))
+                text
+            }
+            ActionType.IF, ActionType.OTHERWISE, ActionType.END_IF, ActionType.REPEAT, ActionType.END_REPEAT,
+            ActionType.MENU, ActionType.CASE, ActionType.END_MENU -> prev
         }
     }
 
@@ -204,7 +322,8 @@ object Runner {
 
     fun charging(ctx: Context) = ctx.getSystemService(BatteryManager::class.java).isCharging
 
-    private fun evaluate(ctx: Context, a: Action, prev: String): Boolean {
+    private fun evaluate(st: State, a: Action): Boolean {
+        val ctx = st.ctx; val prev = st.prev
         val lhs = when (a.p("subject")) {
             "Battery Level" -> battery(ctx).toString()
             "Hour" -> Calendar.getInstance().get(Calendar.HOUR_OF_DAY).toString()
@@ -212,7 +331,7 @@ object Runner {
             "WhatsApp Call" -> if (CallWatcher.callActive) "yes" else "no"
             else -> prev
         }
-        val rhs = a.p("value")
+        val rhs = fill(st, a.p("value"))
         fun norm(s: String) = when (s.trim().lowercase()) { "true", "on", "ya", "yes", "active" -> "yes"; "false", "off", "tidak", "no" -> "no"; else -> s.trim().lowercase() }
         val ln = lhs.trim().toDoubleOrNull(); val rn = rhs.trim().toDoubleOrNull()
         return when (a.p("op")) {

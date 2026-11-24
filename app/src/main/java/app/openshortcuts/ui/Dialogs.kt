@@ -53,6 +53,7 @@ import app.openshortcuts.model.ParamSpec
 import app.openshortcuts.model.Shortcut
 import app.openshortcuts.model.Store
 import app.openshortcuts.model.Tint
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -63,13 +64,23 @@ class RunController(private val ctx: Context) {
     var running by mutableStateOf<String?>(null); private set
     var done by mutableStateOf<String?>(null); private set
     var result by mutableStateOf<Runner.Result?>(null)
+    /** A question the running shortcut is waiting on (Choose from Menu, Ask for Input). */
+    var prompt by mutableStateOf<Pair<Runner.Prompt, CompletableDeferred<String?>>?>(null); private set
     private var job: Job? = null
+
+    private val ask: suspend (Runner.Prompt) -> String? = { p ->
+        val answer = CompletableDeferred<String?>()
+        prompt = p to answer
+        try { answer.await() } finally { prompt = null }
+    }
+
+    fun answer(value: String?) { prompt?.second?.complete(value) }
 
     fun run(s: Shortcut) {
         if (running != null) return
         running = s.id
         job = (ctx.applicationContext as ShortcutsApp).scope.launch {
-            val r = try { Runner.run(ctx, s, foreground = true) } finally { running = null }
+            val r = try { Runner.run(ctx, s, foreground = true, ask = ask) } finally { running = null }
             if (r.error != null || r.shown.isNotEmpty()) result = r
             else {
                 done = s.id
@@ -79,7 +90,7 @@ class RunController(private val ctx: Context) {
         }
     }
 
-    fun stop() { job?.cancel(); running = null }
+    fun stop() { job?.cancel(); answer(null); running = null }
 }
 
 @Composable
@@ -170,6 +181,11 @@ fun ParamDialog(a: Action, spec: ParamSpec, owner: Shortcut, index: Int, onDismi
             ParamKind.TEXT, ParamKind.TIME -> {
                 var v by remember { mutableStateOf(a.p(spec.key)) }
                 Field(v, { v = it }, spec.placeholder)
+                // Names aren't templates; everything else can mix in variables.
+                if (spec.key != "name") {
+                    Spacer(Modifier.height(10.dp))
+                    VariableChips(app.openshortcuts.model.variableNames(owner.actions)) { v += it }
+                }
                 Spacer(Modifier.height(16.dp))
                 PrimaryButton("Done", Modifier.fillMaxWidth()) { onDone(v) }
             }
@@ -201,6 +217,8 @@ fun ParamDialog(a: Action, spec: ParamSpec, owner: Shortcut, index: Int, onDismi
                 Spacer(Modifier.height(6.dp))
                 var v by remember { mutableStateOf(a.p(spec.key).takeIf { it != "@prev" }.orEmpty()) }
                 Field(v, { v = it }, "Text", autofocus = false)
+                Spacer(Modifier.height(10.dp))
+                VariableChips(app.openshortcuts.model.variableNames(owner.actions)) { v += it }
                 Spacer(Modifier.height(16.dp))
                 PrimaryButton("Use this text", Modifier.fillMaxWidth()) { onDone(v) }
             }
@@ -306,6 +324,53 @@ fun NewAutomationDialog(onDismiss: () -> Unit, onPick: (app.openshortcuts.model.
                 app.openshortcuts.model.TriggerKind.Dnd to "Do Not Disturb",
                 app.openshortcuts.model.TriggerKind.WiFi to "Wi-Fi",
             ).forEach { (k, label) -> ChoiceRow(label, false, k.glyph(), k.tint().color()) { onPick(k) } }
+        }
+    }
+}
+
+/** Shown while a shortcut waits for an answer. Dismissing stops the shortcut. */
+@Composable
+fun PromptDialog(p: Runner.Prompt, onAnswer: (String?) -> Unit) {
+    DuoDialog(onDismiss = { onAnswer(null) }) {
+        when (p) {
+            is Runner.Prompt.Menu -> {
+                DialogTitle(p.title)
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    p.options.forEach { o -> ChoiceRow(o, false) { onAnswer(o) } }
+                }
+                Spacer(Modifier.height(12.dp))
+                QuietButton("Cancel", Modifier.fillMaxWidth()) { onAnswer(null) }
+            }
+            is Runner.Prompt.Input -> {
+                DialogTitle(p.title)
+                var v by remember { mutableStateOf("") }
+                Field(v, { v = if (p.number) it.filter { c -> c.isDigit() || c == '.' || c == '-' } else it }, if (p.number) "Number" else "Text", number = p.number)
+                Spacer(Modifier.height(16.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    QuietButton("Cancel", Modifier.weight(1f)) { onAnswer(null) }
+                    PrimaryButton("Done", Modifier.weight(1f)) { onAnswer(v) }
+                }
+            }
+        }
+    }
+}
+
+/** Tap to insert {Name} into the text being edited. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun VariableChips(names: List<String>, onInsert: (String) -> Unit) {
+    val c = Theme.c
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        names.forEach { n ->
+            Row(
+                Modifier.pressable(scale = 0.95f, label = "Insert $n") { onInsert("{$n}") }
+                    .clip(RoundedCornerShape(10.dp)).background(c.accentWash).padding(horizontal = 9.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Glyph("braces", c.accent, size = 14.dp)
+                Spacer(Modifier.width(4.dp))
+                Text(n, style = Theme.t.small, color = c.accent)
+            }
         }
     }
 }
