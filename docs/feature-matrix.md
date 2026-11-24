@@ -20,12 +20,12 @@ The **Android route** column says how a missing feature would be built. "Listene
 | Sentence-style actions with editable tokens | ✅ | Blue pills open a picker, slider or text field |
 | Magic variables (any earlier action's output) | 🟡 | "Previous result" as input, plus named variables; not every earlier output yet |
 | Special variables: Clipboard, Current Date, Shortcut Input, Ask Each Time | 🟡 | {Shortcut Input}, {Current Date}, {Current Time}, {Clipboard} (while the app is open), {Repeat Index}, {Menu Result}; no Ask Each Time |
-| Set Variable / Add to Variable | 🟡 | Set Variable and Get Variable; use {Name} in any text. No Add to Variable (lists) |
+| Set Variable / Add to Variable | ✅ | Set, Get and Add to Variable (builds a list); {Name} works in any text |
 | If / Otherwise / End If | ✅ | Can test Battery Level, Hour, Charging, Previous Result, WhatsApp Call |
-| Repeat / Repeat with Each, Repeat Item / Index | 🟡 | Repeat N times with {Repeat Index}; no Repeat with Each (needs lists) |
+| Repeat / Repeat with Each, Repeat Item / Index | ✅ | Repeat N times and Repeat with Each, with {Repeat Index} and {Repeat Item} |
 | Choose from Menu | ✅ | Options are cards; duplicate one to add more |
-| Lists, Find and Filter actions | ❌ | |
-| Dictionaries, Get Dictionary Value, Parsing JSON | ❌ | |
+| Lists, Find and Filter actions | 🟡 | List, Get Item from List, Count, Choose from List (a list is one item per line); no Find/Filter yet |
+| Dictionaries, Get Dictionary Value, Parsing JSON | ✅ | Dictionary, Get/Set Dictionary Value with dot paths (user.name, items.0.title) |
 | Ask for Input | ✅ | Text or number. Needs the app open; automations stop with a clear message |
 | Show Alert | ❌ | |
 | Show Notification | ✅ | |
@@ -116,7 +116,7 @@ Apple has hundreds of actions. This table compares by area and names what OpenSh
 | Documents / files | Save File, Get File, PDF, QR code | ❌ | Storage Access Framework |
 | Photos / camera | Take Photo, Get Latest Photos | ❌ | MediaStore |
 | Health | Log health sample | ❌ | Health Connect |
-| Scripting | Wait, If, Repeat, Menu, Variables, Run Shortcut, Stop | 🟡 Wait, If, Repeat, Menu, Ask, Variables, Run Shortcut, Stop | Lists and dictionaries missing |
+| Scripting | Wait, If, Repeat, Menu, Variables, Run Shortcut, Stop | ✅ Wait, If, Repeat, Repeat with Each, Menu, List, Ask, Variables, Dictionaries, Run Shortcut, Stop and Output | Find/Filter still missing |
 | Apple Intelligence | Use Model, Get Current Weather | ❌ | Gemini Nano where available |
 
 ## 5. Sharing, Gallery and sync
@@ -137,7 +137,7 @@ Apple has hundreds of actions. This table compares by area and names what OpenSh
 
 | Section | ✅ Done | 🟡 Partly done | ❌ Possible on Android | ⛔ Not possible |
 |---|---|---|---|---|
-| 1. Building | 13 | 6 | 6 | 0 |
+| 1. Building | 16 | 5 | 4 | 0 |
 | 2. Ways to run | 5 | 0 | 4 | 4 |
 | 3. Triggers (Apple's 20) | 4 | 3 | 10 | 3 |
 | 4. Action areas | 1 of 17 fully | 10 | 6 | 0 |
@@ -154,3 +154,7 @@ Ordered by value for the effort:
 3. ~~**Scripting:** variables, Repeat, Choose from Menu, Ask for Input.~~ Done. Still open: lists, Repeat with Each, dictionaries.
 4. ~~**Export / import file.**~~ Done.
 5. ~~**Lock Screen and Speak Text actions.**~~ Done.
+
+## Data & text pack (added after the macOS analysis)
+
+Replace, Split, Combine, Match and Change Case of text; Get Numbers / URLs / Phone Numbers / Emails from Input; List, Get Item, Count, Choose from List, Repeat with Each, Add to Variable; Dictionary, Get / Set Dictionary Value; Calculate, Round, Random Number; Date, Adjust Date, Format Date, Time Between Dates; Comment, Stop and Output. If can now test contains, does not contain, begins with, ends with, matches (regex), has any value and has no value. See `apple-shortcuts-mac-analysis.md` for what's next.

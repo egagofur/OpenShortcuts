@@ -13,13 +13,14 @@ It started with one problem: falling asleep on a WhatsApp call and waking up to 
 ## What it does
 
 - **Shortcuts as sentences.** Every action reads like a sentence with blue tokens you tap to change: “Turn **On** Do Not Disturb”, “Set brightness to **10%**”.
-- **Scripting**: If / Otherwise, Repeat, Choose from Menu, Ask for Input, Set / Get Variable, Wait, Run Shortcut. Put `{Current Time}`, `{Shortcut Input}` or your own `{Variable}` in any text.
+- **Scripting**: If / Otherwise (with contains, begins with, matches…), Repeat, Repeat with Each, Choose from Menu or List, Ask for Input, Set / Get / Add to Variable, Wait, Run Shortcut, Stop and Output.
+- **Data**: replace, split, combine, match and change case of text; pull numbers, links, phone numbers or emails out of text; lists, dictionaries (JSON), calculate, round, random numbers, dates and date math. Put `{Current Time}`, `{Shortcut Input}` or your own `{Variable}` in any text.
 - **Automations**
   - *Time of day*: daily, weekdays, or any days you pick.
   - *WhatsApp call runs long*: “when a call lasts 45 min, only between 23:00 and 05:00”.
   - *WhatsApp message* (from anyone, or a contact or group you name), *Charger*, *Battery level*, *Do Not Disturb*, *Wi-Fi*.
   - Optional one-minute warning with **Snooze 30 min / Not now / Run now**, so it never hangs up on you while you're awake.
-- **29 actions**: end a WhatsApp call, reply to or send a WhatsApp message, end a phone call, lock the screen, speak text, Do Not Disturb, ringer mode, pause/play media, volume, brightness, flashlight, vibrate, battery level, open app, open URL, text, notifications and more.
+- **53 actions**: end a WhatsApp call, reply to or send a WhatsApp message, end a phone call, lock the screen, speak text, Do Not Disturb, ringer mode, pause/play media, volume, brightness, flashlight, vibrate, battery level, open app, open URL, text, notifications and more.
 - **Run from anywhere**: a Home Screen icon per shortcut, a Quick Settings tile, and the app icon's long-press menu (also shown in launcher search).
 - **Share shortcuts as files**: Share sends a `.openshortcut` file. Whoever opens it sees every action, and a warning for things like ending calls, before tapping Add Shortcut.
 - Search for actions in English or Indonesian (“tutup telepon”, “tidur”).

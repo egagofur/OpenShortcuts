@@ -145,8 +145,20 @@ object Runner {
                     exec(st, b.mids[at] + 1, b.mids.getOrNull(at + 1) ?: b.end)
                     i = b.end + 1
                 }
+                ActionType.REPEAT_EACH -> {
+                    b ?: return
+                    val items = Data.lines(input(st, a, "input"))
+                    items.forEachIndexed { k, item ->
+                        st.vars["Repeat Item"] = item
+                        st.vars["Repeat Index"] = "${k + 1}"
+                        st.prev = item
+                        exec(st, i + 1, b.end)
+                    }
+                    i = b.end + 1
+                }
                 // Stray markers (e.g. an End If without its If) do nothing.
-                ActionType.OTHERWISE, ActionType.END_IF, ActionType.END_REPEAT, ActionType.CASE, ActionType.END_MENU -> i++
+                ActionType.OTHERWISE, ActionType.END_IF, ActionType.END_REPEAT, ActionType.CASE, ActionType.END_MENU,
+                ActionType.END_EACH -> i++
                 else -> {
                     st.prev = step(st, a)
                     i++
@@ -338,8 +350,53 @@ object Runner {
                 ctx.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("OpenShortcuts", text))
                 text
             }
+            // --- Text ---
+            ActionType.REPLACE_TEXT -> {
+                val find = fill(st, a.p("find"))
+                if (a.p("mode") == "regex") regex(find)
+                Data.replace(input(st, a, "input"), find, fill(st, a.p("with")), a.p("mode") == "regex")
+            }
+            ActionType.SPLIT_TEXT -> Data.split(input(st, a, "input"), a.p("by"))
+            ActionType.COMBINE_TEXT -> Data.combine(input(st, a, "input"), a.p("with"))
+            ActionType.MATCH_TEXT -> fill(st, a.p("pattern")).let { regex(it); Data.match(input(st, a, "input"), it) }
+            ActionType.CHANGE_CASE -> Data.changeCase(input(st, a, "input"), a.p("case"))
+            ActionType.EXTRACT -> Data.extract(input(st, a, "input"), a.p("what"))
+            // --- Lists & dictionaries ---
+            ActionType.LIST -> Data.lines(fill(st, a.p("body"))).joinToString("\n")
+            ActionType.GET_ITEM -> Data.item(input(st, a, "input"), fill(st, a.p("which")))
+            ActionType.COUNT -> Data.count(input(st, a, "input"), a.p("what")).toString()
+            ActionType.CHOOSE_LIST -> {
+                val items = Data.lines(input(st, a, "input"))
+                if (items.isEmpty()) fail("“Choose from List” got an empty list.")
+                val ask = st.ask ?: fail("“Choose from List” needs you to answer. Run this shortcut from the app.")
+                ask(Prompt.Menu(fill(st, a.p("prompt")), items)) ?: throw Stop()
+            }
+            ActionType.ADD_TO_VARIABLE -> {
+                val name = a.p("name").trim().ifEmpty { fail("Give the variable a name.") }
+                st.vars[name] = Data.append(st.vars[name].orEmpty(), input(st, a, "value"))
+                prev
+            }
+            ActionType.DICTIONARY -> Data.dictionary(fill(st, a.p("body")))
+            ActionType.GET_VALUE -> Data.getValue(input(st, a, "input"), fill(st, a.p("key")).trim())
+            ActionType.SET_VALUE -> Data.setValue(input(st, a, "input"), fill(st, a.p("key")).trim(), fill(st, a.p("value")))
+            // --- Numbers & dates ---
+            ActionType.CALCULATE -> Data.number(Data.calculate(fill(st, a.p("expression"))))
+            ActionType.ROUND -> Data.round(input(st, a, "input"), a.p("places").toIntOrNull() ?: 0)
+            ActionType.RANDOM -> Data.random(fill(st, a.p("min")), fill(st, a.p("max")))
+            ActionType.DATE -> Data.date(fill(st, a.p("value")))
+            ActionType.ADJUST_DATE -> Data.adjust(input(st, a, "input"), a.p("op"), fill(st, a.p("amount")), a.p("unit"))
+            ActionType.FORMAT_DATE -> Data.format(input(st, a, "input"), a.p("style"))
+            ActionType.TIME_BETWEEN -> Data.between(input(st, a, "input"), fill(st, a.p("other")), a.p("unit"))
+            // --- Scripting extras ---
+            ActionType.COMMENT -> prev
+            ActionType.STOP_OUTPUT -> {
+                val out = input(st, a, "input")
+                shown += out.ifBlank { "(empty)" }
+                st.prev = out
+                throw Stop()
+            }
             ActionType.IF, ActionType.OTHERWISE, ActionType.END_IF, ActionType.REPEAT, ActionType.END_REPEAT,
-            ActionType.MENU, ActionType.CASE, ActionType.END_MENU -> prev
+            ActionType.MENU, ActionType.CASE, ActionType.END_MENU, ActionType.REPEAT_EACH, ActionType.END_EACH -> prev
         }
     }
 
@@ -412,6 +469,9 @@ object Runner {
 
     fun charging(ctx: Context) = ctx.getSystemService(BatteryManager::class.java).isCharging
 
+    private fun regex(p: String): Regex =
+        runCatching { Regex(p) }.getOrElse { fail("“$p” isn't a valid regular expression.") }
+
     private fun evaluate(st: State, a: Action): Boolean {
         val ctx = st.ctx; val prev = st.prev
         val lhs = when (a.p("subject")) {
@@ -419,6 +479,7 @@ object Runner {
             "Hour" -> Calendar.getInstance().get(Calendar.HOUR_OF_DAY).toString()
             "Charging" -> if (charging(ctx)) "yes" else "no"
             "WhatsApp Call" -> if (CallWatcher.callActive) "yes" else "no"
+            "Shortcut Input" -> st.vars["Shortcut Input"].orEmpty()
             else -> prev
         }
         val rhs = fill(st, a.p("value"))
@@ -428,6 +489,13 @@ object Runner {
             "is below" -> ln != null && rn != null && ln < rn
             "is above" -> ln != null && rn != null && ln > rn
             "is not" -> norm(lhs) != norm(rhs)
+            "contains" -> lhs.contains(rhs.trim(), ignoreCase = true)
+            "does not contain" -> !lhs.contains(rhs.trim(), ignoreCase = true)
+            "begins with" -> lhs.trim().startsWith(rhs.trim(), ignoreCase = true)
+            "ends with" -> lhs.trim().endsWith(rhs.trim(), ignoreCase = true)
+            "matches" -> regex(rhs).containsMatchIn(lhs)
+            "has any value" -> lhs.isNotBlank()
+            "has no value" -> lhs.isBlank()
             else -> norm(lhs) == norm(rhs)
         }
     }

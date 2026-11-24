@@ -226,6 +226,7 @@ fun EditorScreen(shortcut: Shortcut, runs: RunController, onBack: () -> Unit, on
                             when (type) {
                                 ActionType.IF -> { l += Action(type = ActionType.OTHERWISE); l += Action(type = ActionType.END_IF) }
                                 ActionType.REPEAT -> l += Action(type = ActionType.END_REPEAT)
+                                ActionType.REPEAT_EACH -> l += Action(type = ActionType.END_EACH)
                                 ActionType.MENU -> {
                                     l += Action(type = ActionType.CASE, params = mapOf("label" to "Option 1"))
                                     l += Action(type = ActionType.CASE, params = mapOf("label" to "Option 2"))
@@ -550,6 +551,18 @@ private fun keywords(t: ActionType): List<String> = when (t) {
     ActionType.FLASHLIGHT -> listOf("senter", "torch")
     ActionType.NOTIFY -> listOf("notifikasi", "alert")
     ActionType.BATTERY -> listOf("baterai")
+    ActionType.REPLACE_TEXT -> listOf("ganti", "replace", "teks")
+    ActionType.SPLIT_TEXT -> listOf("pisah", "split", "pecah")
+    ActionType.COMBINE_TEXT -> listOf("gabung", "join", "combine")
+    ActionType.MATCH_TEXT -> listOf("regex", "cari", "match", "cocok")
+    ActionType.CHANGE_CASE -> listOf("huruf", "kapital", "besar", "kecil", "case")
+    ActionType.EXTRACT -> listOf("ambil", "angka", "nomor", "link", "email", "url")
+    ActionType.LIST, ActionType.GET_ITEM, ActionType.COUNT, ActionType.CHOOSE_LIST -> listOf("daftar", "list", "item", "hitung", "pilih")
+    ActionType.REPEAT_EACH -> listOf("ulang", "setiap", "each", "loop")
+    ActionType.DICTIONARY, ActionType.GET_VALUE, ActionType.SET_VALUE -> listOf("json", "kamus", "dictionary", "key")
+    ActionType.CALCULATE, ActionType.ROUND, ActionType.RANDOM -> listOf("hitung", "kalkulator", "math", "angka", "acak", "bulat")
+    ActionType.DATE, ActionType.ADJUST_DATE, ActionType.FORMAT_DATE, ActionType.TIME_BETWEEN -> listOf("tanggal", "waktu", "jam", "hari", "date")
+    ActionType.COMMENT -> listOf("catatan", "komentar", "note")
     ActionType.REPLY_WHATSAPP -> listOf("balas", "reply", "whatsapp", "wa", "pesan", "auto")
     ActionType.SEND_WHATSAPP -> listOf("kirim", "send", "whatsapp", "wa", "pesan", "chat")
     ActionType.LOCK -> listOf("kunci", "layar", "lock", "screen off", "matikan")

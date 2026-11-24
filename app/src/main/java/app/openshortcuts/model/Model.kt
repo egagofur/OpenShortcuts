@@ -18,7 +18,7 @@ data class ParamSpec(
 
 enum class Category(val title: String) {
     Calls("Calls"), Messages("WhatsApp Messages"), Sleep("Sleep & Focus"), Device("Device"),
-    Scripting("Scripting"), Apps("Apps & Web"), Text("Text & Results"),
+    Scripting("Scripting"), Text("Text & Results"), Lists("Lists & Dictionaries"), Math("Numbers & Dates"), Apps("Apps & Web"),
 }
 
 /** Tint names map to palette colours in the UI layer. */
@@ -108,8 +108,9 @@ enum class ActionType(
         "If", "If {subject} {op} {value}", Category.Scripting, Tint.Gray, "branch",
         listOf(
             ParamSpec("subject", ParamKind.CHOICE, "Battery Level",
-                listOf("Battery Level", "Hour", "Charging", "Previous Result", "WhatsApp Call")),
-            ParamSpec("op", ParamKind.CHOICE, "is below", listOf("is", "is not", "is below", "is above")),
+                listOf("Previous Result", "Shortcut Input", "Battery Level", "Hour", "Charging", "WhatsApp Call")),
+            ParamSpec("op", ParamKind.CHOICE, "is below",
+                listOf("is", "is not", "is below", "is above", "contains", "does not contain", "begins with", "ends with", "matches", "has any value", "has no value")),
             ParamSpec("value", ParamKind.TEXT, "20", placeholder = "Value"),
         ),
     ),
@@ -154,6 +155,131 @@ enum class ActionType(
         listOf(ParamSpec("name", ParamKind.TEXT, "My Variable", placeholder = "Name")),
         output = "Variable",
     ),
+    // --- Text ---
+    REPLACE_TEXT(
+        "Replace Text", "Replace {find} with {with} in {input} using {mode}", Category.Text, Tint.Yellow, "text",
+        listOf(ParamSpec("find", ParamKind.TEXT, "", placeholder = "Find"), ParamSpec("with", ParamKind.TEXT, "", placeholder = "Replacement"), ParamSpec("input", ParamKind.INPUT, "@prev", placeholder = "Input"),
+            ParamSpec("mode", ParamKind.CHOICE, "text", listOf("text", "regex"))),
+        output = "Updated Text",
+    ),
+    SPLIT_TEXT(
+        "Split Text", "Split {input} by {by}", Category.Text, Tint.Yellow, "text",
+        listOf(ParamSpec("input", ParamKind.INPUT, "@prev", placeholder = "Input"), ParamSpec("by", ParamKind.CHOICE, "new lines", listOf("new lines", "spaces", "commas", "semicolons", "characters"))),
+        output = "Split Text", summary = "Turns text into a list, one item per line.",
+    ),
+    COMBINE_TEXT(
+        "Combine Text", "Combine {input} with {with}", Category.Text, Tint.Yellow, "text",
+        listOf(ParamSpec("input", ParamKind.INPUT, "@prev", placeholder = "Input"), ParamSpec("with", ParamKind.CHOICE, "spaces", listOf("new lines", "spaces", "commas", "nothing"))),
+        output = "Combined Text",
+    ),
+    MATCH_TEXT(
+        "Match Text", "Match {pattern} in {input}", Category.Text, Tint.Yellow, "text",
+        listOf(ParamSpec("pattern", ParamKind.TEXT, "\\d+", placeholder = "Regular expression"), ParamSpec("input", ParamKind.INPUT, "@prev", placeholder = "Input")),
+        output = "Matches", summary = "Finds everything that matches a regular expression.",
+    ),
+    CHANGE_CASE(
+        "Change Case", "Change {input} to {case}", Category.Text, Tint.Yellow, "text",
+        listOf(ParamSpec("input", ParamKind.INPUT, "@prev", placeholder = "Input"), ParamSpec("case", ParamKind.CHOICE, "UPPERCASE", listOf("UPPERCASE", "lowercase", "Title Case", "Sentence case"))),
+        output = "Updated Text",
+    ),
+    EXTRACT(
+        "Get from Input", "Get {what} from {input}", Category.Text, Tint.Yellow, "text",
+        listOf(ParamSpec("what", ParamKind.CHOICE, "Numbers", listOf("Numbers", "URLs", "Phone Numbers", "Email Addresses")), ParamSpec("input", ParamKind.INPUT, "@prev", placeholder = "Input")),
+        output = "Found Items", summary = "Pulls numbers, links, phone numbers or emails out of text.",
+    ),
+    // --- Lists & dictionaries ---
+    LIST(
+        "List", "List", Category.Lists, Tint.Orange, "menu",
+        listOf(ParamSpec("body", ParamKind.TEXT, "", placeholder = "One item per line")),
+        output = "List",
+    ),
+    GET_ITEM(
+        "Get Item from List", "Get item {which} from {input}", Category.Lists, Tint.Orange, "menu",
+        listOf(ParamSpec("which", ParamKind.TEXT, "1", placeholder = "1, last or random"), ParamSpec("input", ParamKind.INPUT, "@prev", placeholder = "Input")),
+        output = "Item from List",
+    ),
+    CHOOSE_LIST(
+        "Choose from List", "Choose from {input} {prompt}", Category.Lists, Tint.Orange, "menu",
+        listOf(ParamSpec("input", ParamKind.INPUT, "@prev", placeholder = "Input"), ParamSpec("prompt", ParamKind.TEXT, "Choose an item", placeholder = "Prompt")),
+        output = "Chosen Item",
+    ),
+    COUNT(
+        "Count", "Count {what} in {input}", Category.Lists, Tint.Orange, "menu",
+        listOf(ParamSpec("what", ParamKind.CHOICE, "items", listOf("items", "characters", "words")), ParamSpec("input", ParamKind.INPUT, "@prev", placeholder = "Input")),
+        output = "Count",
+    ),
+    REPEAT_EACH(
+        "Repeat with Each", "Repeat with each item in {input}", Category.Lists, Tint.Gray, "repeat",
+        listOf(ParamSpec("input", ParamKind.INPUT, "@prev", placeholder = "Input")), summary = "Runs the actions inside once per line. {Repeat Item} is the current item.",
+    ),
+    END_EACH("End Repeat", "End Repeat", Category.Lists, Tint.Gray, "repeat"),
+    ADD_TO_VARIABLE(
+        "Add to Variable", "Add {value} to variable {name}", Category.Lists, Tint.Orange, "braces",
+        listOf(ParamSpec("value", ParamKind.INPUT, "@prev", placeholder = "Value"), ParamSpec("name", ParamKind.TEXT, "My List", placeholder = "Name")),
+        summary = "Adds a line to a variable, building a list.",
+    ),
+    DICTIONARY(
+        "Dictionary", "Dictionary", Category.Lists, Tint.Orange, "braces",
+        listOf(ParamSpec("body", ParamKind.TEXT, "name: value", placeholder = "key: value, one per line")),
+        output = "Dictionary",
+    ),
+    GET_VALUE(
+        "Get Dictionary Value", "Get value for {key} in {input}", Category.Lists, Tint.Orange, "braces",
+        listOf(ParamSpec("key", ParamKind.TEXT, "name", placeholder = "Key (blank = all keys)"), ParamSpec("input", ParamKind.INPUT, "@prev", placeholder = "Input")),
+        output = "Dictionary Value", summary = "Reads a key from a dictionary or JSON, e.g. user.name or items.0.title.",
+    ),
+    SET_VALUE(
+        "Set Dictionary Value", "Set {key} to {value} in {input}", Category.Lists, Tint.Orange, "braces",
+        listOf(ParamSpec("key", ParamKind.TEXT, "name", placeholder = "Key"), ParamSpec("value", ParamKind.TEXT, "", placeholder = "Value"), ParamSpec("input", ParamKind.INPUT, "@prev", placeholder = "Input")),
+        output = "Dictionary",
+    ),
+    // --- Numbers & dates ---
+    CALCULATE(
+        "Calculate", "Calculate {expression}", Category.Math, Tint.Gray, "calc",
+        listOf(ParamSpec("expression", ParamKind.TEXT, "{Previous Result} * 2", placeholder = "e.g. {Repeat Index} * 10")),
+        output = "Result", summary = "Works out + − × ÷ % ^ and brackets. Variables can go inside.",
+    ),
+    ROUND(
+        "Round Number", "Round {input} to {places} decimals", Category.Math, Tint.Gray, "calc",
+        listOf(ParamSpec("input", ParamKind.INPUT, "@prev", placeholder = "Input"), ParamSpec("places", ParamKind.NUMBER, "0", min = 0, max = 6)),
+        output = "Rounded Number",
+    ),
+    RANDOM(
+        "Random Number", "Random number between {min} and {max}", Category.Math, Tint.Gray, "calc",
+        listOf(ParamSpec("min", ParamKind.TEXT, "1"), ParamSpec("max", ParamKind.TEXT, "100")),
+        output = "Random Number",
+    ),
+    DATE(
+        "Date", "Date {value}", Category.Math, Tint.Red, "calendar",
+        listOf(ParamSpec("value", ParamKind.TEXT, "now", placeholder = "now, tomorrow, 23:00, 2026-12-31")),
+        output = "Date",
+    ),
+    ADJUST_DATE(
+        "Adjust Date", "{op} {amount} {unit} to {input}", Category.Math, Tint.Red, "calendar",
+        listOf(ParamSpec("op", ParamKind.CHOICE, "Add", listOf("Add", "Subtract")), ParamSpec("amount", ParamKind.TEXT, "1"),
+            ParamSpec("unit", ParamKind.CHOICE, "days", listOf("minutes", "hours", "days", "weeks", "months", "years")), ParamSpec("input", ParamKind.INPUT, "@prev", placeholder = "Input")),
+        output = "Adjusted Date",
+    ),
+    FORMAT_DATE(
+        "Format Date", "Format {input} as {style}", Category.Math, Tint.Red, "calendar",
+        listOf(ParamSpec("input", ParamKind.INPUT, "@prev", placeholder = "Input"), ParamSpec("style", ParamKind.CHOICE, "Long", listOf("Long", "Short", "Time", "Day name", "yyyy-MM-dd", "ISO 8601"))),
+        output = "Formatted Date",
+    ),
+    TIME_BETWEEN(
+        "Get Time Between Dates", "Get time between {input} and {other} in {unit}", Category.Math, Tint.Red, "calendar",
+        listOf(ParamSpec("input", ParamKind.INPUT, "@prev", placeholder = "Input"), ParamSpec("other", ParamKind.TEXT, "now"),
+            ParamSpec("unit", ParamKind.CHOICE, "minutes", listOf("seconds", "minutes", "hours", "days", "weeks", "months", "years"))),
+        output = "Time Between",
+    ),
+    // --- Scripting extras ---
+    COMMENT(
+        "Comment", "Comment", Category.Scripting, Tint.Gray, "text",
+        listOf(ParamSpec("body", ParamKind.TEXT, "", placeholder = "Notes for yourself")), summary = "Does nothing; leaves a note in the shortcut.",
+    ),
+    STOP_OUTPUT(
+        "Stop and Output", "Stop and output {input}", Category.Scripting, Tint.Gray, "stop",
+        listOf(ParamSpec("input", ParamKind.INPUT, "@prev", placeholder = "Input")), summary = "Ends the shortcut and shows the value (or returns it to Run Shortcut).",
+    ),
     STOP("Stop This Shortcut", "Stop this shortcut", Category.Scripting, Tint.Gray, "stop"),
     RUN_SHORTCUT(
         "Run Shortcut", "Run {shortcut}", Category.Scripting, Tint.Purple, "layers",
@@ -191,19 +317,19 @@ enum class ActionType(
     );
 
     /** Control-flow blocks: opener, optional middles, closer. */
-    val opensBlock get() = this == IF || this == REPEAT || this == MENU
+    val opensBlock get() = this == IF || this == REPEAT || this == MENU || this == REPEAT_EACH
     val isMidBlock get() = this == OTHERWISE || this == CASE
-    val closesBlock get() = this == END_IF || this == END_REPEAT || this == END_MENU
+    val closesBlock get() = this == END_IF || this == END_REPEAT || this == END_MENU || this == END_EACH
     /** Markers the editor inserts and removes together with their opener. */
     val isMarker get() = isMidBlock || closesBlock
-    val closer: ActionType? get() = when (this) { IF -> END_IF; REPEAT -> END_REPEAT; MENU -> END_MENU; else -> null }
+    val closer: ActionType? get() = when (this) { IF -> END_IF; REPEAT -> END_REPEAT; MENU -> END_MENU; REPEAT_EACH -> END_EACH; else -> null }
     val opener: ActionType? get() = when (this) {
-        OTHERWISE, END_IF -> IF; END_REPEAT -> REPEAT; CASE, END_MENU -> MENU; else -> null
+        OTHERWISE, END_IF -> IF; END_REPEAT -> REPEAT; CASE, END_MENU -> MENU; END_EACH -> REPEAT_EACH; else -> null
     }
 }
 
 /** Names you can drop into any text as {Name}. */
-val BUILT_IN_VARIABLES = listOf("Shortcut Input", "Message Sender", "Message Chat", "Previous Result", "Current Date", "Current Time", "Clipboard", "Repeat Index", "Menu Result")
+val BUILT_IN_VARIABLES = listOf("Shortcut Input", "Message Sender", "Message Chat", "Previous Result", "Current Date", "Current Time", "Clipboard", "Repeat Index", "Repeat Item", "Menu Result")
 
 fun variableNames(actions: List<Action>): List<String> =
     (BUILT_IN_VARIABLES + actions.filter { it.type == ActionType.SET_VARIABLE }.map { it.p("name").trim() })
