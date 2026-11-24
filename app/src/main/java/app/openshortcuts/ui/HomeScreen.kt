@@ -1,0 +1,273 @@
+package app.openshortcuts.ui
+
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import app.openshortcuts.engine.Perm
+import app.openshortcuts.model.Automation
+import app.openshortcuts.model.Library
+import app.openshortcuts.model.Shortcut
+import app.openshortcuts.model.TriggerKind
+import app.openshortcuts.model.daysLabel
+import app.openshortcuts.model.hhmm
+
+@Composable
+fun HomeScreen(
+    lib: Library,
+    tab: Int,
+    runs: RunController,
+    missingSetup: List<Perm>,
+    onTab: (Int) -> Unit,
+    onNew: () -> Unit,
+    onEdit: (Shortcut) -> Unit,
+    onAutomation: (Automation) -> Unit,
+    onToggle: (Automation) -> Unit,
+    onSetup: () -> Unit,
+) {
+    val c = Theme.c
+    Row(Modifier.fillMaxSize().background(c.bg)) {
+        Box(Modifier.weight(1f).fillMaxSize()) {
+            val bottomPad = 112.dp
+            AnimatedContent(
+                targetState = tab,
+                transitionSpec = { fadeIn(tween(160)) togetherWith fadeOut(tween(100)) },
+                label = "tab",
+            ) { t ->
+                if (t == 0) ShortcutGrid(lib, runs, missingSetup, bottomPad, onEdit, onSetup)
+                else AutomationList(lib, bottomPad, onAutomation, onToggle)
+            }
+            TabBar(
+                tab = tab, onTab = onTab,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Start))
+                    .padding(start = 16.dp, bottom = 16.dp),
+            )
+        }
+        Rail(
+            { GlassCircle("plus", if (tab == 0) "New shortcut" else "New automation", onClick = onNew) },
+            { GlassCircle("sliders", "Setup", onClick = onSetup) },
+        )
+    }
+}
+
+@Composable
+private fun Header(title: String, sub: String) {
+    val c = Theme.c
+    Column(Modifier.padding(top = 18.dp, bottom = 18.dp)) {
+        Text(title, style = Theme.t.large, color = c.ink)
+        Spacer(Modifier.height(2.dp))
+        Text(sub, style = Theme.t.small, color = c.ink2)
+    }
+}
+
+@Composable
+private fun ShortcutGrid(
+    lib: Library, runs: RunController, missing: List<Perm>, bottomPad: androidx.compose.ui.unit.Dp,
+    onEdit: (Shortcut) -> Unit, onSetup: () -> Unit,
+) {
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(2),
+        modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.topBar.only(WindowInsetsSides.Top + WindowInsetsSides.Start)),
+        contentPadding = PaddingValues(start = Dimens.gutter, end = 4.dp, bottom = bottomPad),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        item(span = { GridItemSpan(2) }) {
+            Header("All Shortcuts", if (lib.shortcuts.size == 1) "1 shortcut" else "${lib.shortcuts.size} shortcuts")
+        }
+        if (missing.isNotEmpty()) item(span = { GridItemSpan(2) }) { SetupBanner(missing, onSetup) }
+        items(lib.shortcuts, key = { it.id }) { s ->
+            ShortcutTile(s, running = runs.running == s.id, done = runs.done == s.id,
+                onRun = { runs.run(s) }, onEdit = { onEdit(s) })
+        }
+        if (lib.shortcuts.isEmpty()) item(span = { GridItemSpan(2) }) {
+            Text("Tap + to make your first shortcut.", style = Theme.t.body, color = Theme.c.ink2)
+        }
+    }
+}
+
+@Composable
+private fun SetupBanner(missing: List<Perm>, onSetup: () -> Unit) {
+    val c = Theme.c
+    Card(Modifier.fillMaxWidth().pressable(onClick = onSetup, label = "Open setup")) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconTile("phoneOff", app.openshortcuts.model.Tint.Green.color(), size = 34.dp)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Finish setup", style = Theme.t.label, color = c.ink)
+                Text(
+                    if (Perm.CallAccess in missing) "Allow notification access so OpenShortcuts can hang up WhatsApp calls."
+                    else "${missing.size} permission${if (missing.size > 1) "s" else ""} still needed for your shortcuts.",
+                    style = Theme.t.small, color = c.ink2,
+                )
+            }
+            Glyph("chevronRight", c.ink3, size = 18.dp)
+        }
+    }
+}
+
+@Composable
+private fun ShortcutTile(s: Shortcut, running: Boolean, done: Boolean, onRun: () -> Unit, onEdit: () -> Unit) {
+    val base = s.tint.color()
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(108.dp)
+            .pressable(label = "Run ${s.name}", onLongClick = onEdit, onClick = onRun)
+            .clip(RoundedCornerShape(22.dp))
+            .background(base),
+    ) {
+        AnimatedContent(
+            targetState = when { running -> "timer"; done -> "check"; else -> s.glyph },
+            transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(120)) },
+            modifier = Modifier.padding(14.dp),
+            label = "tileGlyph",
+        ) { g -> Glyph(g, Color.White, size = 26.dp) }
+        Box(
+            Modifier
+                .align(Alignment.TopEnd)
+                .padding(8.dp)
+                .size(40.dp)
+                .pressable(scale = 0.9f, label = "Edit ${s.name}", onClick = onEdit),
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(Modifier.size(28.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.24f)), contentAlignment = Alignment.Center) {
+                Glyph("more", Color.White, size = 18.dp)
+            }
+        }
+        Text(
+            s.name,
+            style = Theme.t.label.copy(fontSize = 16.sp, lineHeight = 20.sp),
+            color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.align(Alignment.BottomStart).padding(14.dp),
+        )
+    }
+}
+
+@Composable
+private fun AutomationList(lib: Library, bottomPad: androidx.compose.ui.unit.Dp, onOpen: (Automation) -> Unit, onToggle: (Automation) -> Unit) {
+    val c = Theme.c
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.topBar.only(WindowInsetsSides.Top + WindowInsetsSides.Start)),
+        contentPadding = PaddingValues(start = Dimens.gutter, end = 4.dp, bottom = bottomPad),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        item { Header("Automation", "Runs shortcuts for you, even while you sleep") }
+        items(lib.automations, key = { it.id }) { a ->
+            val target = lib.shortcuts.firstOrNull { it.id == a.shortcutId }
+            Card(Modifier.fillMaxWidth().pressable(label = "Edit automation", onClick = { onOpen(a) })) {
+                Row(Modifier.padding(start = 16.dp, end = 12.dp, top = 14.dp, bottom = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    IconTile(if (a.kind == TriggerKind.Time) "clock" else "phone",
+                        (if (a.kind == TriggerKind.Time) app.openshortcuts.model.Tint.Blue else app.openshortcuts.model.Tint.Green).color(),
+                        size = 34.dp)
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(a.headline(), style = Theme.t.label, color = c.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            target?.let { "Run ${it.name}" } ?: "Choose a shortcut",
+                            style = Theme.t.small, color = if (target == null) c.danger else c.ink2,
+                        )
+                    }
+                    Switch(
+                        checked = a.enabled, onCheckedChange = { onToggle(a) },
+                        colors = SwitchDefaults.colors(
+                            checkedTrackColor = c.positive, checkedThumbColor = Color.White,
+                            uncheckedTrackColor = c.fill, uncheckedThumbColor = c.ink3, uncheckedBorderColor = c.fill,
+                        ),
+                    )
+                }
+            }
+        }
+        if (lib.automations.isEmpty()) item {
+            Text("Tap + to run a shortcut at a time, or when a WhatsApp call runs late.", style = Theme.t.body, color = c.ink2)
+        }
+    }
+}
+
+fun Automation.headline(): String = when (kind) {
+    TriggerKind.Time -> "At ${timeOfDay.hhmm()}, ${days.daysLabel().lowercase()}"
+    TriggerKind.WhatsAppCallLong -> "WhatsApp call over $callMinutes min, ${windowStart.hhmm()}–${windowEnd.hhmm()}"
+}
+
+/** Floating segmented control, same material as the editor's bottom sheet. */
+@Composable
+private fun TabBar(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Modifier) {
+    val c = Theme.c
+    val labels = listOf("Shortcuts", "Automation")
+    var segW by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    val density = LocalDensity.current
+    val x by animateDpAsState(with(density) { (segW * tab).toDp() }, Motion.settle(), label = "seg")
+    Box(
+        modifier
+            .shadow(if (c.dark) 0.dp else 18.dp, RoundedCornerShape(30.dp), ambientColor = c.shadow, spotColor = c.shadow)
+            .clip(RoundedCornerShape(30.dp))
+            .background(c.raised)
+            .padding(5.dp),
+    ) {
+        if (segW > 0) Box(
+            Modifier.offset(x = x).width(with(density) { segW.toDp() }).height(48.dp)
+                .clip(RoundedCornerShape(25.dp)).background(c.fill),
+        )
+        Row {
+            labels.forEachIndexed { i, l ->
+                Box(
+                    Modifier
+                        .height(48.dp)
+                        .width(124.dp)
+                        .onSizeChanged { if (i == 0) segW = it.width }
+                        .pressable(scale = 0.96f, label = l, role = androidx.compose.ui.semantics.Role.Tab) { onTab(i) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(l, style = Theme.t.label, color = if (tab == i) c.ink else c.ink2)
+                }
+            }
+        }
+    }
+}
