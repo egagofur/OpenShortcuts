@@ -90,6 +90,12 @@ object Notifs {
         nm(ctx).notify(warnId(a.id), n)
     }
 
+    /** A notification that opens [intent] when tapped (for screens Android won't let us open from the background). */
+    fun openLater(ctx: Context, title: String, text: String, intent: Intent) {
+        val pi = PendingIntent.getActivity(ctx, intent.toUri(0).hashCode(), intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        nm(ctx).notify(intent.toUri(0).hashCode(), base(ctx, CH_WARN).setContentTitle(title).setContentText(text).setContentIntent(pi).build())
+    }
+
     fun cancelWarn(ctx: Context, id: String) = nm(ctx).cancel(warnId(id))
     private fun warnId(id: String) = ("warn$id").hashCode()
 }

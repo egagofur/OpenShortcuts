@@ -19,7 +19,7 @@ It started with one problem: falling asleep on a WhatsApp call and waking up to 
   - *WhatsApp call runs long*: “when a call lasts 45 min, only between 23:00 and 05:00”.
   - *WhatsApp message* (from anyone, or a contact or group you name), *Charger*, *Battery level*, *Do Not Disturb*, *Wi-Fi*.
   - Optional one-minute warning with **Snooze 30 min / Not now / Run now**, so it never hangs up on you while you're awake.
-- **27 actions**: end a WhatsApp call, end a phone call, lock the screen, speak text, Do Not Disturb, ringer mode, pause/play media, volume, brightness, flashlight, vibrate, battery level, open app, open URL, text, notifications and more.
+- **29 actions**: end a WhatsApp call, reply to or send a WhatsApp message, end a phone call, lock the screen, speak text, Do Not Disturb, ringer mode, pause/play media, volume, brightness, flashlight, vibrate, battery level, open app, open URL, text, notifications and more.
 - **Run from anywhere**: a Home Screen icon per shortcut, a Quick Settings tile, and the app icon's long-press menu (also shown in launcher search).
 - **Share shortcuts as files**: Share sends a `.openshortcut` file. Whoever opens it sees every action, and a warning for things like ending calls, before tapping Add Shortcut.
 - Search for actions in English or Indonesian (“tutup telepon”, “tidur”).
@@ -34,6 +34,13 @@ The layout borrows from the folded “iPhone Duo” cover-screen concepts: a rig
   <img src="docs/screenshots/phone-editor-dark.png" width="200" alt="Editor in dark mode on a tall phone, controls at the bottom">
   <img src="docs/screenshots/warning.png" width="260" alt="Warning notification: Still on the call? with Snooze, Not now and Run now">
 </p>
+
+## Sending WhatsApp messages
+
+- **Reply on WhatsApp** answers a chat through the Reply button on WhatsApp's own notification. It works with the screen locked and needs no extra permission. Pair it with the *WhatsApp message* trigger: `{Message Sender}`, `{Message Chat}` and the message text (`{Shortcut Input}`) are filled in. Each chat gets at most one automatic run per minute, and your own replies never trigger it again.
+- **Send WhatsApp Message** opens a chat with any number and your text typed in. You tap Send, or turn on the optional auto-send service and it presses Send for you (phone must be unlocked). Numbers starting with 0 get your SIM's country code.
+
+Android doesn't let apps send WhatsApp messages directly the way WhatsApp's iPhone Shortcuts actions do, so these are the reliable routes.
 
 ## How ending a WhatsApp call works
 
@@ -59,6 +66,7 @@ Open **Setup** (the sliders button) and allow what your shortcuts use:
 | Alarms & reminders | Running automations on the exact minute |
 | Unrestricted battery | Keeping night automations alive |
 | Accessibility (optional) | The Lock Screen action only. The service listens to no events and can't read the screen |
+| Accessibility: WhatsApp auto-send (optional) | Pressing Send for “Send WhatsApp … automatically”. A separate service that can only see WhatsApp |
 
 On Xiaomi, Oppo, Vivo and Samsung phones, also turn on **Autostart / background activity** for OpenShortcuts in the phone's own settings.
 

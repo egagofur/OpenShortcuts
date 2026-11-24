@@ -24,7 +24,8 @@ enum class Perm(val title: String, val why: String, val runtime: String? = null)
     PhoneCalls("Phone calls", "Ends regular cellular calls.", Manifest.permission.ANSWER_PHONE_CALLS),
     Alarms("Alarms & reminders", "Runs automations at the exact minute you set."),
     Battery("Unrestricted battery", "Stops the system from putting automations to sleep overnight."),
-    Accessibility("Lock screen", "Turn on OpenShortcuts under Accessibility to use the Lock Screen action. It reads nothing on screen.");
+    Accessibility("Lock screen", "Turn on OpenShortcuts under Accessibility to use the Lock Screen action. It reads nothing on screen."),
+    AutoSend("Automatic WhatsApp sending", "Optional. Lets “Send WhatsApp … automatically” press Send for you. It can only see WhatsApp, and only acts on a message your shortcut just typed.");
 
     fun granted(ctx: Context): Boolean = when (this) {
         CallAccess -> CallWatcher.isEnabled(ctx)
@@ -35,6 +36,7 @@ enum class Perm(val title: String, val why: String, val runtime: String? = null)
         Alarms -> Build.VERSION.SDK_INT < 31 || ctx.getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
         Battery -> ctx.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(ctx.packageName)
         Accessibility -> LockService.isEnabled(ctx)
+        AutoSend -> SendService.isEnabled(ctx)
     }
 
     /** Settings screen for the special-access ones. */
@@ -52,14 +54,19 @@ enum class Perm(val title: String, val why: String, val runtime: String? = null)
             Alarms -> Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, pkg)
             @Suppress("BatteryLife")
             Battery -> Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, pkg)
-            Accessibility -> Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+            Accessibility, AutoSend -> Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
             else -> Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, pkg)
         }
     }
 
     companion object {
+        fun forAction(a: app.openshortcuts.model.Action): List<Perm> = when (a.type) {
+            ActionType.SEND_WHATSAPP -> if (a.p("mode") == "automatically") listOf(AutoSend) else emptyList()
+            else -> forAction(a.type)
+        }
+
         fun forAction(t: ActionType): List<Perm> = when (t) {
-            ActionType.END_WHATSAPP_CALL -> listOf(CallAccess)
+            ActionType.END_WHATSAPP_CALL, ActionType.REPLY_WHATSAPP -> listOf(CallAccess)
             ActionType.END_PHONE_CALL -> listOf(PhoneCalls)
             ActionType.DND, ActionType.RINGER -> listOf(Dnd)
             ActionType.BRIGHTNESS -> listOf(WriteSettings)
@@ -69,6 +76,6 @@ enum class Perm(val title: String, val why: String, val runtime: String? = null)
         }
 
         fun missing(ctx: Context, s: Shortcut): List<Perm> =
-            s.actions.flatMap { forAction(it.type) }.distinct().filterNot { it.granted(ctx) }
+            s.actions.flatMap { forAction(it) }.distinct().filterNot { it.granted(ctx) }
     }
 }

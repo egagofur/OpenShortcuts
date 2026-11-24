@@ -110,7 +110,7 @@ Apple has hundreds of actions. This table compares by area and names what OpenSh
 | Apps | Open App, app intents | ✅ Open app | ❌ Close app (not possible), App Actions |
 | Web | Open URLs, Get Contents of URL, Search Web | ✅ Open URL | ❌ HTTP requests (needs internet permission) |
 | Text | Text, Speak, Translate, Dictate, Copy | ✅ Text, Speak Text, Copy to Clipboard | ❌ Speak Text (built-in TextToSpeech, easy) |
-| Sharing | Share, Copy to Clipboard, Send Message, Mail | ❌ | Share sheet, clipboard, SMS / WhatsApp deep links |
+| Sharing / messages | Share, Copy to Clipboard, Send Message, Mail | 🟡 Reply on WhatsApp (from the notification, works while locked), Send WhatsApp Message (you tap Send, or automatic with opt-in Accessibility), Copy | No SMS or email yet |
 | Calendar / Reminders | Add event, Get upcoming events | ❌ | Calendar provider (permission) |
 | Location / Maps | Get current location, directions, weather | ❌ | LocationManager; weather needs internet |
 | Documents / files | Save File, Get File, PDF, QR code | ❌ | Storage Access Framework |
@@ -140,7 +140,7 @@ Apple has hundreds of actions. This table compares by area and names what OpenSh
 | 1. Building | 13 | 6 | 6 | 0 |
 | 2. Ways to run | 5 | 0 | 4 | 4 |
 | 3. Triggers (Apple's 20) | 4 | 3 | 10 | 3 |
-| 4. Action areas | 1 of 17 fully | 9 | 7 | 0 |
+| 4. Action areas | 1 of 17 fully | 10 | 6 | 0 |
 | 5. Sharing and sync | 3 | 2 | 3 | 1 |
 
 OpenShortcuts covers the core editor and the night-time use case. The biggest gaps are ways to run a shortcut, event triggers, and variables and loops.

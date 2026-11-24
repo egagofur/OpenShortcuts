@@ -33,6 +33,11 @@ class CallActivity : Activity() {
 
 class CallActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action == "REPLY") {
+            val text = android.app.RemoteInput.getResultsFromIntent(intent)?.getCharSequence("key_text_reply")
+            Log.i(FakeCall.TAG, "REPLY to ${intent.getStringExtra("from")}: $text")
+            return
+        }
         Log.i(FakeCall.TAG, "ACTION ${intent.action} pressed")
         context.getSystemService(NotificationManager::class.java).cancel(FakeCall.ID)
     }
@@ -56,6 +61,13 @@ object FakeCall {
             .setSmallIcon(Icon.createWithResource(ctx, android.R.drawable.sym_action_chat))
             .setCategory(Notification.CATEGORY_MESSAGE)
             .setStyle(Notification.MessagingStyle(me).addMessage(text, System.currentTimeMillis(), sender))
+            .addAction(
+                Notification.Action.Builder(null, "Reply",
+                    PendingIntent.getBroadcast(ctx, from.hashCode(),
+                        Intent(ctx, CallActionReceiver::class.java).setAction("REPLY").putExtra("from", from),
+                        PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT),
+                ).addRemoteInput(android.app.RemoteInput.Builder("key_text_reply").setLabel("Reply").build()).build(),
+            )
             .build()
         nm.notify(from.hashCode(), n)
         Log.i(TAG, "message from $from")
@@ -82,5 +94,43 @@ object FakeCall {
         }
         nm.notify(ID, b.build())
         Log.i(TAG, "posted $mode")
+    }
+}
+
+/** Stand-in for WhatsApp's chat screen opened by whatsapp://send?phone=…&text=… */
+class ChatActivity : Activity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        val uri = intent.data
+        val phone = uri?.getQueryParameter("phone").orEmpty()
+        val box = android.widget.LinearLayout(this).apply { orientation = android.widget.LinearLayout.HORIZONTAL; setPadding(32, 200, 32, 32) }
+        val entry = android.widget.EditText(this).apply {
+            id = R.id.entry
+            setText(uri?.getQueryParameter("text").orEmpty())
+            layoutParams = android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        val send = android.widget.ImageButton(this).apply {
+            id = R.id.send
+            contentDescription = "Send"
+            setImageResource(android.R.drawable.ic_menu_send)
+            setOnClickListener {
+                Log.i(FakeCall.TAG, "SENT to $phone: ${entry.text}")
+                entry.setText("")
+            }
+        }
+        box.addView(entry); box.addView(send)
+        setContentView(box)
+        this.entry = entry
+        Log.i(FakeCall.TAG, "chat opened for $phone")
+    }
+
+    private var entry: android.widget.EditText? = null
+
+    // Like WhatsApp: a second link while the chat is open fills in the new message.
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        entry?.setText(intent.data?.getQueryParameter("text").orEmpty())
+        Log.i(FakeCall.TAG, "chat reopened for ${intent.data?.getQueryParameter("phone")}")
     }
 }

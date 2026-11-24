@@ -122,6 +122,41 @@ class CallWatcher : NotificationListenerService() {
             return runCatching { action.actionIntent.send(); EndResult.Ended }.getOrDefault(EndResult.Failed)
         }
 
+        enum class ReplyResult { Sent, NoMessage, NotConnected, NoReplyButton }
+
+        /**
+         * Reply through the Reply button on WhatsApp's message notification (works while locked).
+         * `chat` matches the chat or sender name; blank = the newest message.
+         */
+        fun replyWhatsApp(ctx: Context, chat: String, text: String): ReplyResult {
+            val svc = instance ?: return ReplyResult.NotConnected
+            val all = runCatching { svc.activeNotifications }.getOrNull().orEmpty().filter {
+                it.packageName in WHATSAPP && !isCallNotification(it) &&
+                    it.notification.flags and Notification.FLAG_GROUP_SUMMARY == 0
+            }
+            fun names(sbn: StatusBarNotification): List<String> {
+                val n = sbn.notification
+                val style = androidx.core.app.NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(n)
+                return listOfNotNull(
+                    n.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString(),
+                    n.extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)?.toString(),
+                    style?.conversationTitle?.toString(),
+                    style?.messages?.lastOrNull()?.person?.name?.toString(),
+                )
+            }
+            val target = all.filter { sbn -> chat.isBlank() || names(sbn).any { it.contains(chat.trim(), true) } }
+                .maxByOrNull { it.postTime } ?: return ReplyResult.NoMessage
+            val n = target.notification
+            val action = (n.actions.orEmpty().toList() + Notification.WearableExtender(n).actions)
+                .firstOrNull { it.remoteInputs?.isNotEmpty() == true } ?: return ReplyResult.NoReplyButton
+            val results = android.os.Bundle().apply { action.remoteInputs.forEach { putCharSequence(it.resultKey, text) } }
+            val fill = android.content.Intent()
+            android.app.RemoteInput.addResultsToIntent(action.remoteInputs, fill, results)
+            Log.i(TAG, "replying via \"${action.title}\"")
+            action.actionIntent.send(ctx, 0, fill)
+            return ReplyResult.Sent
+        }
+
         /** Ask the system to bind us again after the process was killed. */
         fun rebind(context: Context) {
             runCatching { NotificationListenerService.requestRebind(ComponentName(context, CallWatcher::class.java)) }

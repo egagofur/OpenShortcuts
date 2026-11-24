@@ -17,7 +17,7 @@ data class ParamSpec(
 )
 
 enum class Category(val title: String) {
-    Calls("Calls"), Sleep("Sleep & Focus"), Device("Device"),
+    Calls("Calls"), Messages("WhatsApp Messages"), Sleep("Sleep & Focus"), Device("Device"),
     Scripting("Scripting"), Apps("Apps & Web"), Text("Text & Results"),
 }
 
@@ -45,6 +45,23 @@ enum class ActionType(
     END_PHONE_CALL(
         "End Phone Call", "End phone call", Category.Calls, Tint.Green, "phoneOff",
         summary = "Hangs up a regular cellular call.",
+    ),
+    REPLY_WHATSAPP(
+        "Reply on WhatsApp", "Reply on WhatsApp to {chat}", Category.Messages, Tint.Green, "quote",
+        listOf(
+            ParamSpec("chat", ParamKind.TEXT, "{Message Chat}", placeholder = "Latest chat"),
+            ParamSpec("body", ParamKind.TEXT, "Lagi tidur, besok aku kabari ya.", placeholder = "Reply"),
+        ),
+        summary = "Replies through WhatsApp's notification, even when the phone is locked. The chat needs an unread message notification.",
+    ),
+    SEND_WHATSAPP(
+        "Send WhatsApp Message", "Send WhatsApp to {number} {mode}", Category.Messages, Tint.Green, "send",
+        listOf(
+            ParamSpec("number", ParamKind.TEXT, "", placeholder = "Phone number"),
+            ParamSpec("mode", ParamKind.CHOICE, "and let me tap Send", listOf("and let me tap Send", "automatically")),
+            ParamSpec("body", ParamKind.TEXT, "", placeholder = "Message"),
+        ),
+        summary = "Opens the chat with your message typed in. \"Automatically\" also presses Send (needs Accessibility, phone unlocked).",
     ),
     DND(
         "Do Not Disturb", "Turn {state} Do Not Disturb", Category.Sleep, Tint.Indigo, "moon",
@@ -186,7 +203,7 @@ enum class ActionType(
 }
 
 /** Names you can drop into any text as {Name}. */
-val BUILT_IN_VARIABLES = listOf("Shortcut Input", "Previous Result", "Current Date", "Current Time", "Clipboard", "Repeat Index", "Menu Result")
+val BUILT_IN_VARIABLES = listOf("Shortcut Input", "Message Sender", "Message Chat", "Previous Result", "Current Date", "Current Time", "Clipboard", "Repeat Index", "Menu Result")
 
 fun variableNames(actions: List<Action>): List<String> =
     (BUILT_IN_VARIABLES + actions.filter { it.type == ActionType.SET_VARIABLE }.map { it.p("name").trim() })

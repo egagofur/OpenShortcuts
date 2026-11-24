@@ -1,3 +1,4 @@
 <resources>
     <string name="lock_service_description">Lets the Lock Screen action lock your phone. OpenShortcuts doesn\'t read or change anything on your screen.</string>
+    <string name="send_service_description">Lets \"Send WhatsApp … automatically\" press Send for you. It can only see WhatsApp, and only acts on a message your shortcut just typed. Leave it off if you prefer to tap Send yourself.</string>
 </resources>

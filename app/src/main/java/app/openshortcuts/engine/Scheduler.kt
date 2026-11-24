@@ -139,8 +139,10 @@ object Scheduler {
     }
 
     /** Event triggers run now, or warn first; the input waits in prefs across the warning. */
-    fun fireEvent(ctx: Context, a: Automation, input: String) {
-        inputs(ctx).edit().putString(a.id, input).apply()
+    fun fireEvent(ctx: Context, a: Automation, input: String, vars: Map<String, String> = emptyMap()) {
+        // Input and trigger variables wait in prefs across the one-minute warning.
+        val saved = org.json.JSONObject().put("input", input).put("vars", org.json.JSONObject(vars as Map<*, *>))
+        inputs(ctx).edit().putString(a.id, saved.toString()).apply()
         if (a.warnFirst) handle(ctx, "warn", a) else runNow(ctx, a)
     }
 
@@ -150,11 +152,13 @@ object Scheduler {
         Notifs.cancelWarn(ctx, a.id)
         cancel(ctx, "run", a.id); cancel(ctx, "warn", a.id)
         val s = Store.shortcut(a.shortcutId) ?: return null
-        val input = inputs(ctx).getString(a.id, "").orEmpty()
+        val saved = runCatching { org.json.JSONObject(inputs(ctx).getString(a.id, "{}")!!) }.getOrDefault(org.json.JSONObject())
         inputs(ctx).edit().remove(a.id).apply()
+        val input = saved.optString("input")
+        val vars = saved.optJSONObject("vars")?.let { o -> o.keys().asSequence().associateWith { o.getString(it) } }.orEmpty()
         val app = ctx.applicationContext as ShortcutsApp
         return app.scope.launch {
-            val r = Runner.run(ctx, s, foreground = app.inForeground, input = input)
+            val r = Runner.run(ctx, s, foreground = app.inForeground, input = input, vars = vars)
             Notifs.ran(ctx, r)
         }
     }

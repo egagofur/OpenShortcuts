@@ -91,9 +91,11 @@ object Runner {
     suspend fun run(
         context: Context, shortcut: Shortcut, foreground: Boolean, depth: Int = 0, input: String = "",
         ask: (suspend (Prompt) -> String?)? = null,
+        vars: Map<String, String> = emptyMap(),
     ): Result {
         val st = State(context, shortcut.actions, structure(shortcut.actions), depth, ask, foreground)
         st.prev = input
+        st.vars.putAll(vars)
         st.vars["Shortcut Input"] = input
         try {
             exec(st, 0, st.actions.size)
@@ -259,6 +261,21 @@ object Runner {
                 cm.setTorchMode(id, a.p("state") == "On")
                 prev
             }
+            ActionType.REPLY_WHATSAPP -> {
+                val text = fill(st, a.p("body")).trim().ifEmpty { fail("Type the reply.") }
+                val chat = fill(st, a.p("chat")).trim()
+                when (CallWatcher.replyWhatsApp(ctx, chat, text)) {
+                    CallWatcher.Companion.ReplyResult.Sent -> log += "Replied on WhatsApp"
+                    CallWatcher.Companion.ReplyResult.NoMessage -> log += "No WhatsApp message${if (chat.isNotEmpty()) " from $chat" else ""} to reply to"
+                    CallWatcher.Companion.ReplyResult.NoReplyButton -> fail("WhatsApp's notification has no Reply button.")
+                    CallWatcher.Companion.ReplyResult.NotConnected -> fail("Allow notification access so OpenShortcuts can reply on WhatsApp.")
+                }
+                text
+            }
+            ActionType.SEND_WHATSAPP -> {
+                sendWhatsApp(st, fill(st, a.p("number")), fill(st, a.p("body")), auto = a.p("mode") == "automatically")
+                prev
+            }
             ActionType.LOCK -> {
                 if (!LockService.lock()) fail("Allow lock screen access: turn on OpenShortcuts under Accessibility.")
                 prev
@@ -282,7 +299,7 @@ object Runner {
             ActionType.RUN_SHORTCUT -> {
                 if (depth >= 4) fail("Shortcuts are nested too deeply.")
                 val child = Store.shortcut(a.p("shortcut")) ?: fail("Choose a shortcut to run.")
-                val r = run(ctx, child, foreground = true, depth = depth + 1, input = prev, ask = st.ask)
+                val r = run(ctx, child, foreground = true, depth = depth + 1, input = prev, ask = st.ask, vars = st.vars)
                 shown += r.shown; log += r.log
                 r.error?.let { fail(it) }
                 r.shown.lastOrNull() ?: prev
@@ -324,6 +341,42 @@ object Runner {
             ActionType.IF, ActionType.OTHERWISE, ActionType.END_IF, ActionType.REPEAT, ActionType.END_REPEAT,
             ActionType.MENU, ActionType.CASE, ActionType.END_MENU -> prev
         }
+    }
+
+    /** Digits with country code. A local 08… number gets the SIM's country code (Indonesia: 62). */
+    private fun waNumber(ctx: Context, raw: String): String {
+        val digits = raw.filter(Char::isDigit)
+        if (digits.length < 8) fail("Enter a phone number with country code, e.g. 62812…")
+        if (!digits.startsWith("0")) return digits
+        val iso = runCatching { ctx.getSystemService(android.telephony.TelephonyManager::class.java).simCountryIso }.getOrNull().orEmpty().lowercase()
+        val code = mapOf("id" to "62", "my" to "60", "sg" to "65", "ph" to "63", "th" to "66", "vn" to "84", "in" to "91", "gb" to "44", "au" to "61")[iso]
+            ?: fail("Add the country code to the number, e.g. 62812… instead of 0812…")
+        return code + digits.drop(1)
+    }
+
+    private suspend fun sendWhatsApp(st: State, number: String, text: String, auto: Boolean) {
+        val ctx = st.ctx
+        if (text.isBlank()) fail("Type the message to send.")
+        val pkg = CallWatcher.WHATSAPP.firstOrNull { p ->
+            runCatching { ctx.packageManager.getPackageInfo(p, 0) }.isSuccess
+        } ?: fail("WhatsApp isn't installed.")
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("whatsapp://send?phone=${waNumber(ctx, number)}&text=${Uri.encode(text)}"))
+            .setPackage(pkg).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (auto && !SendService.isEnabled(ctx)) fail("Allow automatic WhatsApp sending: turn on “OpenShortcuts WhatsApp auto-send” under Accessibility.")
+        // Android blocks background apps from opening screens unless an accessibility service is on;
+        // then the best we can do is a notification that opens the chat.
+        if (!st.foreground && !SendService.isEnabled(ctx) && !LockService.isEnabled(ctx)) {
+            Notifs.openLater(ctx, "Send WhatsApp message", "Tap to open the chat with your message ready.", intent)
+            st.log += "Message ready in a notification"
+            return
+        }
+        val job = if (auto) SendService.expect(text) else null
+        ctx.startActivity(intent)
+        if (job != null) {
+            val sent = kotlinx.coroutines.withTimeoutOrNull(16_000) { job.done.await() } == true
+            if (!sent) { SendService.cancel(); fail("Couldn't press Send in WhatsApp. Is the phone unlocked?") }
+            st.log += "WhatsApp message sent"
+        } else st.log += "WhatsApp opened with your message"
     }
 
     /** Speak and wait until the voice finishes (so a following Lock Screen doesn't cut it off). */

@@ -101,12 +101,12 @@ object Events {
             .forEach { run(ctx, it, input) }
     }
 
-    fun run(ctx: Context, a: app.openshortcuts.model.Automation, input: String) {
+    fun run(ctx: Context, a: app.openshortcuts.model.Automation, input: String, vars: Map<String, String> = emptyMap(), key: String = a.id, gap: Long = MIN_GAP_MS) {
         // A shortcut that flips the same switch (e.g. DND) must not set itself off forever.
         val now = SystemClock.elapsedRealtime()
-        if (now - (lastRun[a.id] ?: -MIN_GAP_MS) < MIN_GAP_MS) return
-        lastRun[a.id] = now
-        Scheduler.fireEvent(ctx, a, input)
+        if (now - (lastRun[key] ?: -gap) < gap) return
+        lastRun[key] = now
+        Scheduler.fireEvent(ctx, a, input, vars)
     }
 
     fun dnd(ctx: Context, filter: Int) {
@@ -121,6 +121,8 @@ object Events {
         if (n.category != null && n.category != Notification.CATEGORY_MESSAGE) return
         val style = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(n)
         val last = style?.messages?.lastOrNull()
+        // Our own replies show up in the same notification; never react to them (no reply loops).
+        if (last != null && (last.person == null || last.person?.name == style.user.name)) return
         val sender = (last?.person?.name ?: n.extras.getCharSequence(Notification.EXTRA_TITLE))?.toString().orEmpty()
         val chat = style?.conversationTitle?.toString().orEmpty()
         val text = (last?.text ?: n.extras.getCharSequence(Notification.EXTRA_TEXT))?.toString() ?: return
@@ -129,9 +131,11 @@ object Events {
         if (stamp <= (seenMessages[sbn.key] ?: 0L)) return
         seenMessages[sbn.key] = stamp
         Log.i(TAG, "WhatsApp message")
+        val vars = mapOf("Message Sender" to sender, "Message Chat" to chat.ifEmpty { sender })
         Store.library.value.automations
             .filter { it.enabled && it.kind == TriggerKind.WhatsAppMessage }
             .filter { a -> a.text.isBlank() || sender.contains(a.text, true) || chat.contains(a.text, true) }
-            .forEach { run(ctx, it, text) }
+            // At most one run per chat per minute, so a busy group can't flood auto-replies.
+            .forEach { run(ctx, it, text, vars, key = "${it.id}|${chat.ifEmpty { sender }}", gap = 60_000) }
     }
 }

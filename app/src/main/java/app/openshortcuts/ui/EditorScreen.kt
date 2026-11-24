@@ -550,6 +550,8 @@ private fun keywords(t: ActionType): List<String> = when (t) {
     ActionType.FLASHLIGHT -> listOf("senter", "torch")
     ActionType.NOTIFY -> listOf("notifikasi", "alert")
     ActionType.BATTERY -> listOf("baterai")
+    ActionType.REPLY_WHATSAPP -> listOf("balas", "reply", "whatsapp", "wa", "pesan", "auto")
+    ActionType.SEND_WHATSAPP -> listOf("kirim", "send", "whatsapp", "wa", "pesan", "chat")
     ActionType.LOCK -> listOf("kunci", "layar", "lock", "screen off", "matikan")
     ActionType.SPEAK -> listOf("bicara", "ucapkan", "baca", "suara", "tts", "say")
     ActionType.REPEAT -> listOf("ulang", "loop", "berulang")
