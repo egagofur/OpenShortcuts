@@ -84,7 +84,8 @@ fun SetupScreen(tick: Int, onBack: () -> Unit) {
             }
             Spacer(Modifier.height(16.dp))
             Text(
-                "On Xiaomi, Oppo, Vivo and Samsung phones, also turn on Autostart (or “Allow background activity”) for OpenShortcuts in the phone's own settings. Otherwise night automations can be killed.",
+                "On Xiaomi, Oppo, Vivo and Samsung phones, also turn on Autostart (or “Allow background activity”) for OpenShortcuts in the phone's own settings. Otherwise night automations can be killed.\n\n" +
+                    "If Android says “Restricted setting” when you turn on Accessibility or notification access, open App info for OpenShortcuts, tap ⋮, choose “Allow restricted settings”, then try again.",
                 style = Theme.t.small, color = c.ink2, modifier = Modifier.padding(horizontal = 6.dp),
             )
         }

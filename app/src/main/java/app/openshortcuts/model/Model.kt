@@ -75,6 +75,10 @@ enum class ActionType(
         listOf(ParamSpec("state", ParamKind.CHOICE, "On", listOf("On", "Off"))),
     ),
     VIBRATE("Vibrate Device", "Vibrate device", Category.Device, Tint.Gray, "vibrate"),
+    LOCK(
+        "Lock Screen", "Lock screen", Category.Device, Tint.Gray, "lock",
+        summary = "Turns the screen off and locks it. Fingerprint and face unlock keep working.",
+    ),
     BATTERY(
         "Get Battery Level", "Get battery level", Category.Device, Tint.Green, "battery",
         output = "Battery Level",
@@ -154,6 +158,11 @@ enum class ActionType(
     SHOW(
         "Show Result", "Show {input}", Category.Text, Tint.Yellow, "quote",
         listOf(ParamSpec("input", ParamKind.INPUT, "@prev", placeholder = "Text")),
+    ),
+    SPEAK(
+        "Speak Text", "Speak {input}", Category.Text, Tint.Purple, "volume",
+        listOf(ParamSpec("input", ParamKind.INPUT, "@prev", placeholder = "Text")),
+        summary = "Reads text aloud with the phone's voice.",
     ),
     COPY(
         "Copy to Clipboard", "Copy {input} to clipboard", Category.Text, Tint.Blue, "copy",

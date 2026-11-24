@@ -1,0 +1,3 @@
+<resources>
+    <string name="lock_service_description">Lets the Lock Screen action lock your phone. OpenShortcuts doesn\'t read or change anything on your screen.</string>
+</resources>

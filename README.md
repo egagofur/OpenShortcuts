@@ -19,7 +19,7 @@ It started with one problem: falling asleep on a WhatsApp call and waking up to 
   - *WhatsApp call runs long*: “when a call lasts 45 min, only between 23:00 and 05:00”.
   - *WhatsApp message* (from anyone, or a contact or group you name), *Charger*, *Battery level*, *Do Not Disturb*, *Wi-Fi*.
   - Optional one-minute warning with **Snooze 30 min / Not now / Run now**, so it never hangs up on you while you're awake.
-- **25 actions**: end a WhatsApp call, end a phone call, Do Not Disturb, ringer mode, pause/play media, volume, brightness, flashlight, vibrate, battery level, open app, open URL, text, notifications and more.
+- **27 actions**: end a WhatsApp call, end a phone call, lock the screen, speak text, Do Not Disturb, ringer mode, pause/play media, volume, brightness, flashlight, vibrate, battery level, open app, open URL, text, notifications and more.
 - **Run from anywhere**: a Home Screen icon per shortcut, a Quick Settings tile, and the app icon's long-press menu (also shown in launcher search).
 - **Share shortcuts as files**: Share sends a `.openshortcut` file. Whoever opens it sees every action, and a warning for things like ending calls, before tapping Add Shortcut.
 - Search for actions in English or Indonesian (“tutup telepon”, “tidur”).
@@ -58,6 +58,7 @@ Open **Setup** (the sliders button) and allow what your shortcuts use:
 | Phone calls | Ending regular cellular calls |
 | Alarms & reminders | Running automations on the exact minute |
 | Unrestricted battery | Keeping night automations alive |
+| Accessibility (optional) | The Lock Screen action only. The service listens to no events and can't read the screen |
 
 On Xiaomi, Oppo, Vivo and Samsung phones, also turn on **Autostart / background activity** for OpenShortcuts in the phone's own settings.
 

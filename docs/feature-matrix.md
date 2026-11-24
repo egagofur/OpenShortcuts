@@ -106,10 +106,10 @@ Apple has hundreds of actions. This table compares by area and names what OpenSh
 | Display | Brightness, appearance, Night Shift | ✅ Brightness | ❌ Dark mode (needs `WRITE_SECURE_SETTINGS` via a one-time adb grant), auto-rotate |
 | Media | Play/Pause, Skip, Play Music | ✅ Play, Pause, Next, Previous | ❌ Pick a playlist or app |
 | Device | Flashlight, battery, Wi-Fi, Bluetooth, cellular, Airplane | ✅ Flashlight, vibrate, battery level | ⛔ Turning Wi-Fi, Bluetooth or Airplane on/off directly is blocked since Android 10; can only open the toggle panel |
-| Lock / screen | Lock Screen | ❌ | Accessibility service (global lock action) |
+| Lock / screen | Lock Screen | ✅ Lock Screen | Minimal accessibility service with no event or screen access; fingerprint unlock keeps working |
 | Apps | Open App, app intents | ✅ Open app | ❌ Close app (not possible), App Actions |
 | Web | Open URLs, Get Contents of URL, Search Web | ✅ Open URL | ❌ HTTP requests (needs internet permission) |
-| Text | Text, Speak, Translate, Dictate, Copy | ✅ Text, Copy to Clipboard | ❌ Speak Text (built-in TextToSpeech, easy) |
+| Text | Text, Speak, Translate, Dictate, Copy | ✅ Text, Speak Text, Copy to Clipboard | ❌ Speak Text (built-in TextToSpeech, easy) |
 | Sharing | Share, Copy to Clipboard, Send Message, Mail | ❌ | Share sheet, clipboard, SMS / WhatsApp deep links |
 | Calendar / Reminders | Add event, Get upcoming events | ❌ | Calendar provider (permission) |
 | Location / Maps | Get current location, directions, weather | ❌ | LocationManager; weather needs internet |
@@ -140,7 +140,7 @@ Apple has hundreds of actions. This table compares by area and names what OpenSh
 | 1. Building | 13 | 6 | 6 | 0 |
 | 2. Ways to run | 5 | 0 | 4 | 4 |
 | 3. Triggers (Apple's 20) | 4 | 3 | 10 | 3 |
-| 4. Action areas | 0 of 17 fully | 9 | 8 | 0 |
+| 4. Action areas | 1 of 17 fully | 9 | 7 | 0 |
 | 5. Sharing and sync | 3 | 2 | 3 | 1 |
 
 OpenShortcuts covers the core editor and the night-time use case. The biggest gaps are ways to run a shortcut, event triggers, and variables and loops.
@@ -153,4 +153,4 @@ Ordered by value for the effort:
 2. ~~**Triggers through the listener host:** Charger, Battery Level, Do Not Disturb, Wi-Fi, WhatsApp message.~~ Done. Still open: Bluetooth, Wi-Fi by network name, SMS.
 3. ~~**Scripting:** variables, Repeat, Choose from Menu, Ask for Input.~~ Done. Still open: lists, Repeat with Each, dictionaries.
 4. ~~**Export / import file.**~~ Done.
-5. **Lock Screen and Speak Text actions:** useful in bedtime routines.
+5. ~~**Lock Screen and Speak Text actions.**~~ Done.

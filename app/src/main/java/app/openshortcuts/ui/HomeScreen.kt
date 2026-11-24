@@ -138,7 +138,8 @@ private fun SetupBanner(missing: List<Perm>, onSetup: () -> Unit) {
     val c = Theme.c
     Card(Modifier.fillMaxWidth().pressable(onClick = onSetup, label = "Open setup")) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconTile("phoneOff", app.openshortcuts.model.Tint.Green.color(), size = 34.dp)
+            if (Perm.CallAccess in missing) IconTile("phoneOff", app.openshortcuts.model.Tint.Green.color(), size = 34.dp)
+            else IconTile("sliders", app.openshortcuts.model.Tint.Gray.color(), size = 34.dp)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text("Finish setup", style = Theme.t.label, color = c.ink)

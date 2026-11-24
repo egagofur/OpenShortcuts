@@ -23,7 +23,8 @@ enum class Perm(val title: String, val why: String, val runtime: String? = null)
     WriteSettings("Modify system settings", "Changes screen brightness."),
     PhoneCalls("Phone calls", "Ends regular cellular calls.", Manifest.permission.ANSWER_PHONE_CALLS),
     Alarms("Alarms & reminders", "Runs automations at the exact minute you set."),
-    Battery("Unrestricted battery", "Stops the system from putting automations to sleep overnight.");
+    Battery("Unrestricted battery", "Stops the system from putting automations to sleep overnight."),
+    Accessibility("Lock screen", "Turn on OpenShortcuts under Accessibility to use the Lock Screen action. It reads nothing on screen.");
 
     fun granted(ctx: Context): Boolean = when (this) {
         CallAccess -> CallWatcher.isEnabled(ctx)
@@ -33,6 +34,7 @@ enum class Perm(val title: String, val why: String, val runtime: String? = null)
         PhoneCalls -> ctx.checkSelfPermission(runtime!!) == PackageManager.PERMISSION_GRANTED
         Alarms -> Build.VERSION.SDK_INT < 31 || ctx.getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
         Battery -> ctx.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(ctx.packageName)
+        Accessibility -> LockService.isEnabled(ctx)
     }
 
     /** Settings screen for the special-access ones. */
@@ -50,6 +52,7 @@ enum class Perm(val title: String, val why: String, val runtime: String? = null)
             Alarms -> Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, pkg)
             @Suppress("BatteryLife")
             Battery -> Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, pkg)
+            Accessibility -> Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
             else -> Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, pkg)
         }
     }
@@ -61,6 +64,7 @@ enum class Perm(val title: String, val why: String, val runtime: String? = null)
             ActionType.DND, ActionType.RINGER -> listOf(Dnd)
             ActionType.BRIGHTNESS -> listOf(WriteSettings)
             ActionType.NOTIFY -> listOf(Notifications)
+            ActionType.LOCK -> listOf(Accessibility)
             else -> emptyList()
         }
 

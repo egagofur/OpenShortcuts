@@ -259,6 +259,15 @@ object Runner {
                 cm.setTorchMode(id, a.p("state") == "On")
                 prev
             }
+            ActionType.LOCK -> {
+                if (!LockService.lock()) fail("Allow lock screen access: turn on OpenShortcuts under Accessibility.")
+                prev
+            }
+            ActionType.SPEAK -> {
+                val text = input(st, a, "input")
+                if (text.isNotBlank()) speak(ctx, text)
+                text
+            }
             ActionType.VIBRATE -> {
                 val v = if (Build.VERSION.SDK_INT >= 31) ctx.getSystemService(VibratorManager::class.java).defaultVibrator
                 else @Suppress("DEPRECATION") ctx.getSystemService(Vibrator::class.java)
@@ -314,6 +323,34 @@ object Runner {
             }
             ActionType.IF, ActionType.OTHERWISE, ActionType.END_IF, ActionType.REPEAT, ActionType.END_REPEAT,
             ActionType.MENU, ActionType.CASE, ActionType.END_MENU -> prev
+        }
+    }
+
+    /** Speak and wait until the voice finishes (so a following Lock Screen doesn't cut it off). */
+    private suspend fun speak(ctx: Context, text: String) {
+        var tts: android.speech.tts.TextToSpeech? = null
+        try {
+            kotlinx.coroutines.withTimeout<Unit>(120_000) {
+                kotlinx.coroutines.suspendCancellableCoroutine<Unit> { cont ->
+                    tts = android.speech.tts.TextToSpeech(ctx) { status ->
+                        val engine = tts ?: return@TextToSpeech
+                        if (status != android.speech.tts.TextToSpeech.SUCCESS) {
+                            if (cont.isActive) cont.resumeWith(kotlin.Result.failure(IllegalStateException("This phone has no text-to-speech voice installed.")))
+                            return@TextToSpeech
+                        }
+                        engine.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
+                            override fun onStart(id: String?) = Unit
+                            override fun onDone(id: String?) { if (cont.isActive) cont.resumeWith(kotlin.Result.success(Unit)) }
+                            @Deprecated("Deprecated in Java")
+                            override fun onError(id: String?) { if (cont.isActive) cont.resumeWith(kotlin.Result.success(Unit)) }
+                        })
+                        engine.speak(text, android.speech.tts.TextToSpeech.QUEUE_FLUSH, null, "speak")
+                    }
+                    cont.invokeOnCancellation { tts?.stop() }
+                }
+            }
+        } finally {
+            tts?.shutdown()
         }
     }
 
