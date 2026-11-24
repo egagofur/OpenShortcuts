@@ -3,6 +3,7 @@ package app.openshortcuts
 import android.app.Activity
 import android.app.Application
 import android.os.Bundle
+import app.openshortcuts.engine.Launchers
 import app.openshortcuts.engine.Notifs
 import app.openshortcuts.engine.Scheduler
 import app.openshortcuts.model.Store
@@ -19,8 +20,9 @@ class ShortcutsApp : Application() {
         super.onCreate()
         Store.init(this)
         Notifs.channels(this)
-        Store.onChange = { Scheduler.rescheduleAll(this, it) }
+        Store.onChange = { Scheduler.rescheduleAll(this, it); Launchers.sync(this, it) }
         Scheduler.rescheduleAll(this)
+        Launchers.sync(this)
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
             override fun onActivityStarted(a: Activity) { started++ }
             override fun onActivityStopped(a: Activity) { started-- }

@@ -44,6 +44,8 @@ import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -306,6 +308,8 @@ fun DuoDialog(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit
                 .graphicsLayer { scaleX = scale.value; scaleY = scale.value; this.alpha = alpha.value }
                 .clip(RoundedCornerShape(30.dp))
                 .background(Theme.c.card)
+                // Tall content (Details) must scroll on the short cover screen.
+                .verticalScroll(rememberScrollState())
                 .padding(20.dp),
             content = content,
         )

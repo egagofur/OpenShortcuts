@@ -68,9 +68,13 @@ object Glyphs {
     )
 
     val names: List<String> = listOf("layers", "moon", "sun", "phoneOff", "phone", "battery", "bell", "timer",
-        "volume", "flash", "home", "link", "grid", "text", "clock", "bolt")
+        "volume", "flash", "home", "link", "grid", "text", "clock", "quote")
 
     private val cache = HashMap<String, ImageVector>()
+
+    /** Raw path data for drawing outside Compose (launcher icons). Second value: filled. */
+    fun pathData(name: String): Pair<List<String>, Boolean> =
+        fills[name]?.let { listOf(it) to true } ?: ((strokes[name] ?: strokes.getValue("layers")) to false)
 
     fun get(name: String): ImageVector = cache.getOrPut(name) {
         val b = ImageVector.Builder(name, 24.dp, 24.dp, 24f, 24f)

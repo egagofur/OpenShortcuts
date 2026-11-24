@@ -19,6 +19,7 @@ It started with one problem: falling asleep on a WhatsApp call and waking up to 
   - *WhatsApp call runs long*: “when a call lasts 45 min, only between 23:00 and 05:00”.
   - Optional one-minute warning with **Snooze 30 min / Not now / Run now**, so it never hangs up on you while you're awake.
 - **21 actions**: end a WhatsApp call, end a phone call, Do Not Disturb, ringer mode, pause/play media, volume, brightness, flashlight, vibrate, battery level, open app, open URL, text, notifications and more.
+- **Run from anywhere**: a Home Screen icon per shortcut, a Quick Settings tile, and the app icon's long-press menu (also shown in launcher search).
 - Search for actions in English or Indonesian (“tutup telepon”, “tidur”).
 - Light and dark mode, follows your system text size.
 

@@ -1,0 +1,156 @@
+# Feature matrix: Apple Shortcuts vs OpenShortcuts
+
+Compared with Apple's Shortcuts User Guide for iPhone (iOS 27, read 2026-11-25) and the current OpenShortcuts code.
+
+**Legend**
+
+| Mark | Meaning |
+|---|---|
+| ✅ | Done |
+| 🟡 | Partly done |
+| ❌ | Not built yet, possible on Android |
+| ⛔ | Not possible on Android without root, or iPhone-only hardware |
+
+The **Android route** column says how a missing feature would be built. "Listener host" means the notification-listener service OpenShortcuts already runs: Android keeps it alive, so it can watch system events without adding a separate always-on service.
+
+## 1. Building shortcuts
+
+| Apple feature | OpenShortcuts | Notes / Android route |
+|---|---|---|
+| Sentence-style actions with editable tokens | ✅ | Blue pills open a picker, slider or text field |
+| Magic variables (any earlier action's output) | 🟡 | Only "previous result" can be used as input |
+| Special variables: Clipboard, Current Date, Shortcut Input, Ask Each Time | ❌ | All possible |
+| Set Variable / Add to Variable | ❌ | |
+| If / Otherwise / End If | ✅ | Can test Battery Level, Hour, Charging, Previous Result, WhatsApp Call |
+| Repeat / Repeat with Each, Repeat Item / Index | ❌ | |
+| Choose from Menu | ❌ | |
+| Lists, Find and Filter actions | ❌ | |
+| Dictionaries, Get Dictionary Value, Parsing JSON | ❌ | |
+| Ask for Input | ❌ | |
+| Show Alert | ❌ | |
+| Show Notification | ✅ | |
+| Show Result / Show Content | ✅ | Dialog in the app, notification when in the background |
+| Wait | ✅ | |
+| Stop This Shortcut | ✅ | |
+| Run Shortcut (nested) | ✅ | Up to 4 levels deep |
+| Web APIs: Get Contents of URL | ❌ | Needs the internet permission. The app has none today, and the README says so |
+| Run JavaScript on Webpage | ❌ | Possible inside a WebView |
+| URL schemes, x-callback-url | ❌ | Android deep links (`openshortcuts://run?name=…`) |
+| Undo / redo | ✅ | |
+| Reorder actions | 🟡 | Move Up / Move Down menu; no drag and drop |
+| Duplicate / delete action | ✅ | Deleting an If removes its Otherwise and End If too |
+| Rename, colour, icon | ✅ | 10 colours, 16 icons |
+| Search the action catalogue | ✅ | Also matches Indonesian keywords |
+| Use Model (Apple Intelligence / ChatGPT) | ❌ | Gemini Nano on supported phones (ML Kit GenAI / AICore) |
+
+## 2. Ways to run a shortcut
+
+| Apple feature | OpenShortcuts | Notes / Android route |
+|---|---|---|
+| From the app | ✅ | Tap the tile; long-press to edit |
+| Automations | ✅ | See section 3 |
+| Add to Home Screen | ✅ | Details → Home Screen; icon in the shortcut's colour and glyph |
+| Home Screen widget | ❌ | App widget (Glance) |
+| Control Center | ✅ | Quick Settings tile runs one chosen shortcut (Details → Quick Settings); works from the lock screen after unlock |
+| Search screen | ✅ | First 4 shortcuts appear on the app icon's long-press menu, and in search on launchers that support it |
+| Siri | ❌ | Google Assistant App Actions; limited for third-party apps |
+| From another app (share sheet, Shortcut Input) | ❌ | `ACTION_SEND` share target |
+| Run from a URL | ❌ | Deep link |
+| Action button | ⛔ | No such button on most phones |
+| Back Tap | ⛔ | Pixel's Quick Tap can only open an app, not run a shortcut |
+| Apple Watch | ⛔ | Wear OS would be a separate app |
+| Apple Pencil Pro | ⛔ | |
+
+## 3. Automation triggers
+
+| Apple trigger | OpenShortcuts | Notes / Android route |
+|---|---|---|
+| Time of Day | ✅ | Daily, weekdays, weekends or chosen days; exact alarms; survives reboot |
+| Alarm | ❌ | Android only says when the *next* alarm changes, not when it rings. Partial at best |
+| Sleep | 🟡 | Covered by the quiet-hours window on the WhatsApp trigger; no real sleep detection |
+| Arrive / Leave | ❌ | Geofence with `LocationManager.addProximityAlert`, background location permission |
+| CarPlay | ❌ | Android Auto / car mode (`UiModeManager`) |
+| Email | ❌ | Listener host, filtered to mail apps |
+| Message | ❌ | Listener host: "when a WhatsApp/SMS message arrives from…". **Easy, high value** |
+| Transaction (Wallet) | ⛔ | |
+| Wi-Fi | ❌ | Network callback in the listener host |
+| Bluetooth | ❌ | Connect/disconnect broadcasts can still be received when the app isn't running |
+| Apple Watch Workout | ⛔ | |
+| NFC | ❌ | NFC tag intent filter with an OpenShortcuts tag URI |
+| App (opened / closed) | ❌ | Usage access or an accessibility service |
+| Airplane Mode | ❌ | Listener host |
+| Do Not Disturb / Focus | ❌ | Listener host gets the change callback directly. **Easy** |
+| Low Power Mode | ❌ | Battery saver broadcast in the listener host |
+| Battery Level | ❌ | Battery broadcast in the listener host. **Easy** |
+| Charger | ❌ | Power connected/disconnected in the listener host. **Easy** |
+| Sound Recognition | ⛔ | System feature, not exposed to apps |
+| — (not in Apple) WhatsApp call runs long | ✅ | Call length plus quiet hours; OpenShortcuts only |
+
+**Run options**
+
+| Apple option | OpenShortcuts | Notes |
+|---|---|---|
+| Ask before running (notification you tap to run) | 🟡 | Works the other way round: a one-minute warning with Snooze / Not now / Run now, and the shortcut runs unless you stop it |
+| Run without asking | ✅ | Turn off "Warn me a minute before" |
+| Turn an automation on or off | ✅ | Switch in the list and in the editor |
+| Filter the list by on / off | ❌ | |
+
+## 4. Actions
+
+Apple has hundreds of actions. This table compares by area and names what OpenShortcuts has.
+
+| Area | Apple examples | OpenShortcuts today | Gap / Android route |
+|---|---|---|---|
+| Calls | Call, FaceTime | ✅ End WhatsApp call, End phone call | ❌ Start a call (`ACTION_CALL`), start a WhatsApp call (deep link) |
+| Focus / sound | Set Focus, ringer, volume | ✅ Do Not Disturb, ringer mode, volume | ❌ Per-app DND rules |
+| Display | Brightness, appearance, Night Shift | ✅ Brightness | ❌ Dark mode (needs `WRITE_SECURE_SETTINGS` via a one-time adb grant), auto-rotate |
+| Media | Play/Pause, Skip, Play Music | ✅ Play, Pause, Next, Previous | ❌ Pick a playlist or app |
+| Device | Flashlight, battery, Wi-Fi, Bluetooth, cellular, Airplane | ✅ Flashlight, vibrate, battery level | ⛔ Turning Wi-Fi, Bluetooth or Airplane on/off directly is blocked since Android 10; can only open the toggle panel |
+| Lock / screen | Lock Screen | ❌ | Accessibility service (global lock action) |
+| Apps | Open App, app intents | ✅ Open app | ❌ Close app (not possible), App Actions |
+| Web | Open URLs, Get Contents of URL, Search Web | ✅ Open URL | ❌ HTTP requests (needs internet permission) |
+| Text | Text, Speak, Translate, Dictate | ✅ Text | ❌ Speak Text (built-in TextToSpeech, easy) |
+| Sharing | Share, Copy to Clipboard, Send Message, Mail | ❌ | Share sheet, clipboard, SMS / WhatsApp deep links |
+| Calendar / Reminders | Add event, Get upcoming events | ❌ | Calendar provider (permission) |
+| Location / Maps | Get current location, directions, weather | ❌ | LocationManager; weather needs internet |
+| Documents / files | Save File, Get File, PDF, QR code | ❌ | Storage Access Framework |
+| Photos / camera | Take Photo, Get Latest Photos | ❌ | MediaStore |
+| Health | Log health sample | ❌ | Health Connect |
+| Scripting | Wait, If, Repeat, Menu, Variables, Run Shortcut, Stop | 🟡 Wait, If, Run Shortcut, Stop | See section 1 |
+| Apple Intelligence | Use Model, Get Current Weather | ❌ | Gemini Nano where available |
+
+## 5. Sharing, Gallery and sync
+
+| Apple feature | OpenShortcuts | Notes / Android route |
+|---|---|---|
+| Share as iCloud link | 🟡 | Share sends a readable text recipe, but it can't be imported back |
+| Export / import a file ("Anyone", "People Who Know Me") | ❌ | `.openshortcut` JSON file plus an import screen. **Easy** |
+| Import questions (asked when someone adds a shared shortcut) | ❌ | |
+| Gallery of ready-made shortcuts | 🟡 | 4 starter shortcuts and 2 starter automations; no browsable gallery |
+| Sync across devices | ❌ | Would need an account or Google Drive; the app is offline-only today |
+| Automations synced but disabled on other devices | ⛔ | No sync yet |
+| Privacy per shortcut ("Allow Running When Locked") | ❌ | |
+| Permission explanations | ✅ | Setup screen with a reason for every permission |
+| Light / dark mode, text size | ✅ | |
+
+## Score
+
+| Section | ✅ Done | 🟡 Partly done | ❌ Possible on Android | ⛔ Not possible |
+|---|---|---|---|---|
+| 1. Building | 11 | 2 | 12 | 0 |
+| 2. Ways to run | 5 | 0 | 4 | 4 |
+| 3. Triggers (Apple's 20) | 1 | 1 | 15 | 3 |
+| 4. Action areas | 0 of 17 fully | 9 | 8 | 0 |
+| 5. Sharing and sync | 2 | 2 | 4 | 1 |
+
+OpenShortcuts covers the core editor and the night-time use case. The biggest gaps are ways to run a shortcut, event triggers, and variables and loops.
+
+## Suggested next steps
+
+Ordered by value for the effort:
+
+1. ~~**Ways to run:** Home Screen icon, Quick Settings tile, long-press app shortcuts.~~ Done. Widget is still open.
+2. **Triggers through the listener host (easy):** Charger, Battery Level, Do Not Disturb, Wi-Fi, Bluetooth, and **"when a WhatsApp message arrives"**. They all reuse the always-on service that already watches calls.
+3. **Scripting:** variables (Set/Get, Clipboard, Current Date), Repeat, Choose from Menu, Ask for Input. Brings the editor close to Apple's.
+4. **Export / import file:** makes shortcuts shareable, which a public repo needs if it's going to spread.
+5. **Lock Screen and Speak Text actions:** useful in bedtime routines.

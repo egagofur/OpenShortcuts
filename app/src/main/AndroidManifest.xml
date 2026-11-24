@@ -31,6 +31,32 @@
             </intent-filter>
         </activity>
 
+        <!-- Opened by Home Screen icons and the app icon's long-press menu. Intents carry a
+             per-install key, so other apps can't run shortcuts through it. -->
+        <activity
+            android:name=".engine.RunActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="app.openshortcuts.RUN" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name=".engine.RunTile"
+            android:exported="true"
+            android:icon="@drawable/ic_stat"
+            android:label="OpenShortcuts"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
         <service
             android:name=".engine.CallWatcher"
             android:exported="true"

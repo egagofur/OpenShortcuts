@@ -220,6 +220,17 @@ fun DetailsDialog(
         DialogTitle("Details")
         var name by remember { mutableStateOf(s.name) }
         Field(name, { name = it; if (it.isNotBlank()) onChange(s.copy(name = it.trim())) }, "Name", autofocus = false)
+        Spacer(Modifier.height(10.dp))
+        val ctx = LocalContext.current
+        var tileOn by remember { mutableStateOf(app.openshortcuts.engine.Launchers.tileShortcutId(ctx) == s.id) }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (app.openshortcuts.engine.Launchers.canPin(ctx)) {
+                QuietButton("Home Screen", Modifier.weight(1f)) { app.openshortcuts.engine.Launchers.pin(ctx, s) }
+            }
+            QuietButton(if (tileOn) "In Quick Settings" else "Quick Settings", Modifier.weight(1f), color = if (tileOn) c.positive else c.accent) {
+                app.openshortcuts.engine.Launchers.offerTile(ctx, s); tileOn = true
+            }
+        }
         Spacer(Modifier.height(16.dp))
         Text("Colour", style = Theme.t.small, color = c.ink2)
         Spacer(Modifier.height(8.dp))
