@@ -71,18 +71,18 @@ The **Android route** column says how a missing feature would be built. "Listene
 | Arrive / Leave | ❌ | Geofence with `LocationManager.addProximityAlert`, background location permission |
 | CarPlay | ❌ | Android Auto / car mode (`UiModeManager`) |
 | Email | ❌ | Listener host, filtered to mail apps |
-| Message | ❌ | Listener host: "when a WhatsApp/SMS message arrives from…". **Easy, high value** |
+| Message | 🟡 | WhatsApp messages, filtered by contact or group name; the text becomes the shortcut's input. SMS not yet |
 | Transaction (Wallet) | ⛔ | |
-| Wi-Fi | ❌ | Network callback in the listener host |
+| Wi-Fi | 🟡 | Connects / disconnects, any network. Picking a network by name needs location permission (not yet) |
 | Bluetooth | ❌ | Connect/disconnect broadcasts can still be received when the app isn't running |
 | Apple Watch Workout | ⛔ | |
 | NFC | ❌ | NFC tag intent filter with an OpenShortcuts tag URI |
 | App (opened / closed) | ❌ | Usage access or an accessibility service |
 | Airplane Mode | ❌ | Listener host |
-| Do Not Disturb / Focus | ❌ | Listener host gets the change callback directly. **Easy** |
+| Do Not Disturb / Focus | ✅ | Turns on / turns off |
 | Low Power Mode | ❌ | Battery saver broadcast in the listener host |
-| Battery Level | ❌ | Battery broadcast in the listener host. **Easy** |
-| Charger | ❌ | Power connected/disconnected in the listener host. **Easy** |
+| Battery Level | ✅ | Rises above / falls below a percentage; the level becomes the shortcut's input |
+| Charger | ✅ | Connected / disconnected |
 | Sound Recognition | ⛔ | System feature, not exposed to apps |
 | — (not in Apple) WhatsApp call runs long | ✅ | Call length plus quiet hours; OpenShortcuts only |
 
@@ -139,7 +139,7 @@ Apple has hundreds of actions. This table compares by area and names what OpenSh
 |---|---|---|---|---|
 | 1. Building | 11 | 2 | 12 | 0 |
 | 2. Ways to run | 5 | 0 | 4 | 4 |
-| 3. Triggers (Apple's 20) | 1 | 1 | 15 | 3 |
+| 3. Triggers (Apple's 20) | 4 | 3 | 10 | 3 |
 | 4. Action areas | 0 of 17 fully | 9 | 8 | 0 |
 | 5. Sharing and sync | 2 | 2 | 4 | 1 |
 
@@ -150,7 +150,7 @@ OpenShortcuts covers the core editor and the night-time use case. The biggest ga
 Ordered by value for the effort:
 
 1. ~~**Ways to run:** Home Screen icon, Quick Settings tile, long-press app shortcuts.~~ Done. Widget is still open.
-2. **Triggers through the listener host (easy):** Charger, Battery Level, Do Not Disturb, Wi-Fi, Bluetooth, and **"when a WhatsApp message arrives"**. They all reuse the always-on service that already watches calls.
+2. ~~**Triggers through the listener host:** Charger, Battery Level, Do Not Disturb, Wi-Fi, WhatsApp message.~~ Done. Still open: Bluetooth, Wi-Fi by network name, SMS.
 3. **Scripting:** variables (Set/Get, Clipboard, Current Date), Repeat, Choose from Menu, Ask for Input. Brings the editor close to Apple's.
 4. **Export / import file:** makes shortcuts shareable, which a public repo needs if it's going to spread.
 5. **Lock Screen and Speak Text actions:** useful in bedtime routines.

@@ -97,7 +97,8 @@ fun AutomationScreen(
     }
 
     val needs = buildList {
-        if (a.kind == TriggerKind.WhatsAppCallLong) add(Perm.CallAccess)
+        // Call and event triggers all run inside the notification-listener service.
+        if (a.kind != TriggerKind.Time) add(Perm.CallAccess)
         add(Perm.Notifications); add(Perm.Alarms); add(Perm.Battery)
         target?.let { addAll(Perm.missing(ctx, it)) }
     }.distinct().filterNot { it.granted(ctx) }
@@ -110,8 +111,7 @@ fun AutomationScreen(
                 .padding(start = 18.dp, end = 4.dp, bottom = 32.dp),
         ) {
             Row(Modifier.padding(top = 22.dp, bottom = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconTile(if (a.kind == TriggerKind.Time) "clock" else "phone",
-                    (if (a.kind == TriggerKind.Time) Tint.Blue else Tint.Green).color(), size = 32.dp)
+                IconTile(a.kind.glyph(), a.kind.tint().color(), size = 32.dp)
                 Spacer(Modifier.width(10.dp))
                 Text("Automation", style = Theme.t.title, color = c.ink, modifier = Modifier.weight(1f))
                 Switch(
@@ -136,6 +136,17 @@ fun AutomationScreen(
                             words("and") +
                             Seg.Pill(a.windowEnd.hhmm()) { pickTime(a.windowEnd) { onChange(a.copy(windowEnd = it)) } })
                 }
+                TriggerKind.Charger -> SentenceCard(a.kind.glyph(), a.kind.tint().color(),
+                    words("When charger is") + Seg.Pill(if (a.on) "connected" else "disconnected") { onChange(a.copy(on = !a.on)) })
+                TriggerKind.BatteryLevel -> SentenceCard(a.kind.glyph(), a.kind.tint().color(),
+                    words("When battery") + Seg.Pill(if (a.on) "rises above" else "falls below") { onChange(a.copy(on = !a.on)) } +
+                        Seg.Pill("${a.level}%") { dialog = "level" })
+                TriggerKind.Dnd -> SentenceCard(a.kind.glyph(), a.kind.tint().color(),
+                    words("When Do Not Disturb turns") + Seg.Pill(if (a.on) "on" else "off") { onChange(a.copy(on = !a.on)) })
+                TriggerKind.WiFi -> SentenceCard(a.kind.glyph(), a.kind.tint().color(),
+                    words("When Wi-Fi") + Seg.Pill(if (a.on) "connects" else "disconnects") { onChange(a.copy(on = !a.on)) })
+                TriggerKind.WhatsAppMessage -> SentenceCard(a.kind.glyph(), a.kind.tint().color(),
+                    words("When a WhatsApp message arrives from") + Seg.Pill(a.text.ifBlank { "anyone" }) { dialog = "sender" })
             }
             Box(Modifier.fillMaxWidth().height(14.dp), contentAlignment = Alignment.Center) {
                 Box(Modifier.width(2.dp).height(14.dp).background(c.ink3.copy(alpha = 0.45f)))
@@ -151,6 +162,14 @@ fun AutomationScreen(
                     }
                 }) else null,
             )
+            if (a.kind == TriggerKind.WhatsAppMessage || a.kind == TriggerKind.BatteryLevel) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    if (a.kind == TriggerKind.WhatsAppMessage) "The message text goes to the shortcut as its input, for Show Result or If Previous Result."
+                    else "The battery percentage goes to the shortcut as its input.",
+                    style = Theme.t.small, color = c.ink2, modifier = Modifier.padding(horizontal = 6.dp),
+                )
+            }
             Spacer(gap)
             SentenceCard("bell", Tint.Red.color(),
                 words("Warn me a minute before") + Seg.Pill(if (a.warnFirst) "On" else "Off") { onChange(a.copy(warnFirst = !a.warnFirst)) })
@@ -183,6 +202,24 @@ fun AutomationScreen(
     }
 
     when (dialog) {
+        "level" -> DuoDialog({ dialog = null }) {
+            DialogTitle("Battery level")
+            var v by remember { mutableStateOf(a.level.toFloat()) }
+            Text("${v.toInt()}%", style = Theme.t.large.copy(fontFeatureSettings = "tnum"), color = c.ink)
+            androidx.compose.material3.Slider(
+                value = v, onValueChange = { v = it }, valueRange = 5f..95f, steps = 17,
+                colors = androidx.compose.material3.SliderDefaults.colors(thumbColor = c.accent, activeTrackColor = c.accent, inactiveTrackColor = c.fill),
+            )
+            Spacer(Modifier.height(12.dp))
+            PrimaryButton("Done", Modifier.fillMaxWidth()) { onChange(a.copy(level = v.toInt())); dialog = null }
+        }
+        "sender" -> DuoDialog({ dialog = null }) {
+            DialogTitle("From", "Part of a contact or group name. Leave empty for anyone.")
+            var v by remember { mutableStateOf(a.text) }
+            Field(v, { v = it }, "Anyone")
+            Spacer(Modifier.height(12.dp))
+            PrimaryButton("Done", Modifier.fillMaxWidth()) { onChange(a.copy(text = v.trim())); dialog = null }
+        }
         "days" -> DaysDialog(a.days, onDismiss = { dialog = null }) { onChange(a.copy(days = it)) }
         "minutes" -> DuoDialog({ dialog = null }) {
             DialogTitle("Call length", "End the call once it has lasted this long.")

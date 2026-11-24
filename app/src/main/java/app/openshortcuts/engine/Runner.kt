@@ -40,10 +40,11 @@ object Runner {
     private class Stop : Exception()
 
     /** `foreground` = the app is on screen, so Show results go to a dialog instead of a notification. */
-    suspend fun run(context: Context, shortcut: Shortcut, foreground: Boolean, depth: Int = 0): Result {
+    suspend fun run(context: Context, shortcut: Shortcut, foreground: Boolean, depth: Int = 0, input: String = ""): Result {
         val shown = mutableListOf<String>()
         val log = mutableListOf<String>()
-        var prev = ""
+        // Shortcut Input (e.g. the WhatsApp message text) is the first "previous result".
+        var prev = input
         val stack = ArrayDeque<Frame>()
         fun active() = stack.lastOrNull()?.active ?: true
 

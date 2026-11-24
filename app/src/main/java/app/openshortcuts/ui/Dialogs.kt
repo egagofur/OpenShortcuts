@@ -297,8 +297,15 @@ fun NewAutomationDialog(onDismiss: () -> Unit, onPick: (app.openshortcuts.model.
     DuoDialog(onDismiss) {
         DialogTitle("New Automation", "Choose what starts it.")
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            ChoiceRow("Time of day", false, "clock", Tint.Blue.color()) { onPick(app.openshortcuts.model.TriggerKind.Time) }
-            ChoiceRow("WhatsApp call runs long", false, "phone", Tint.Green.color()) { onPick(app.openshortcuts.model.TriggerKind.WhatsAppCallLong) }
+            listOf(
+                app.openshortcuts.model.TriggerKind.Time to "Time of day",
+                app.openshortcuts.model.TriggerKind.WhatsAppCallLong to "WhatsApp call runs long",
+                app.openshortcuts.model.TriggerKind.WhatsAppMessage to "WhatsApp message arrives",
+                app.openshortcuts.model.TriggerKind.Charger to "Charger",
+                app.openshortcuts.model.TriggerKind.BatteryLevel to "Battery level",
+                app.openshortcuts.model.TriggerKind.Dnd to "Do Not Disturb",
+                app.openshortcuts.model.TriggerKind.WiFi to "Wi-Fi",
+            ).forEach { (k, label) -> ChoiceRow(label, false, k.glyph(), k.tint().color()) { onPick(k) } }
         }
     }
 }

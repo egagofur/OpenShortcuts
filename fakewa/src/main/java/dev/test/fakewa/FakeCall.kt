@@ -18,12 +18,15 @@ import android.util.Log
  *   ongoing  – CallStyle ongoing call (system labels the button "Hang up")
  *   legacy   – plain ongoing notification, category=call, button "Tutup" (older style)
  *   incoming – CallStyle incoming call with Decline/Answer (must NOT be hung up)
+ *   message  – chat message (MessagingStyle); --es from <name> --es text <message>
  *   clear    – remove the call
  */
 class CallActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        FakeCall.post(this, intent.getStringExtra("mode") ?: "ongoing")
+        val mode = intent.getStringExtra("mode") ?: "ongoing"
+        if (mode == "message") FakeCall.message(this, intent.getStringExtra("from") ?: "Mama", intent.getStringExtra("text") ?: "Hi")
+        else FakeCall.post(this, mode)
         finish()
     }
 }
@@ -43,6 +46,20 @@ object FakeCall {
         ctx, name.hashCode(), Intent(ctx, CallActionReceiver::class.java).setAction(name),
         PendingIntent.FLAG_IMMUTABLE,
     )
+
+    fun message(ctx: Context, from: String, text: String) {
+        val nm = ctx.getSystemService(NotificationManager::class.java)
+        nm.createNotificationChannel(NotificationChannel("msgs", "Messages", NotificationManager.IMPORTANCE_HIGH))
+        val me = Person.Builder().setName("You").build()
+        val sender = Person.Builder().setName(from).build()
+        val n = Notification.Builder(ctx, "msgs")
+            .setSmallIcon(Icon.createWithResource(ctx, android.R.drawable.sym_action_chat))
+            .setCategory(Notification.CATEGORY_MESSAGE)
+            .setStyle(Notification.MessagingStyle(me).addMessage(text, System.currentTimeMillis(), sender))
+            .build()
+        nm.notify(from.hashCode(), n)
+        Log.i(TAG, "message from $from")
+    }
 
     fun post(ctx: Context, mode: String) {
         val nm = ctx.getSystemService(NotificationManager::class.java)

@@ -143,9 +143,14 @@ data class Shortcut(
     val actions: List<Action> = emptyList(),
 )
 
-enum class TriggerKind(val title: String) {
-    Time("Time of Day"),
-    WhatsAppCallLong("WhatsApp Call Runs Long"),
+enum class TriggerKind(val title: String, val event: Boolean = true) {
+    Time("Time of Day", event = false),
+    WhatsAppCallLong("WhatsApp Call Runs Long", event = false),
+    Charger("Charger"),
+    BatteryLevel("Battery Level"),
+    Dnd("Do Not Disturb"),
+    WiFi("Wi-Fi"),
+    WhatsAppMessage("WhatsApp Message"),
 }
 
 /**
@@ -163,6 +168,12 @@ data class Automation(
     val shortcutId: String = "",
     val enabled: Boolean = true,
     val warnFirst: Boolean = true,
+    /** Charger connected, battery rises above, DND turns on, Wi-Fi connects. `false` = the opposite. */
+    val on: Boolean = true,
+    /** Battery threshold in percent. */
+    val level: Int = 20,
+    /** WhatsApp message: sender name must contain this (blank = anyone). */
+    val text: String = "",
 )
 
 data class Library(

@@ -138,13 +138,23 @@ object Scheduler {
         }
     }
 
+    /** Event triggers run now, or warn first; the input waits in prefs across the warning. */
+    fun fireEvent(ctx: Context, a: Automation, input: String) {
+        inputs(ctx).edit().putString(a.id, input).apply()
+        if (a.warnFirst) handle(ctx, "warn", a) else runNow(ctx, a)
+    }
+
+    private fun inputs(ctx: Context) = ctx.getSharedPreferences("pending_inputs", Context.MODE_PRIVATE)
+
     fun runNow(ctx: Context, a: Automation): Job? {
         Notifs.cancelWarn(ctx, a.id)
         cancel(ctx, "run", a.id); cancel(ctx, "warn", a.id)
         val s = Store.shortcut(a.shortcutId) ?: return null
+        val input = inputs(ctx).getString(a.id, "").orEmpty()
+        inputs(ctx).edit().remove(a.id).apply()
         val app = ctx.applicationContext as ShortcutsApp
         return app.scope.launch {
-            val r = Runner.run(ctx, s, foreground = app.inForeground)
+            val r = Runner.run(ctx, s, foreground = app.inForeground, input = input)
             Notifs.ran(ctx, r)
         }
     }

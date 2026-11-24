@@ -15,16 +15,24 @@ import android.util.Log
  * no accessibility service, and it works with the screen off.
  */
 class CallWatcher : NotificationListenerService() {
+    private var events: EventHost? = null
 
     override fun onListenerConnected() {
         instance = this
+        app.openshortcuts.model.Store.init(applicationContext)
+        events?.stop()
+        events = EventHost(applicationContext).also { it.start() }
         runCatching { activeNotifications }.getOrNull()?.firstOrNull(::isOngoingCall)?.let(::markStarted)
             ?: markEnded()
     }
 
     override fun onListenerDisconnected() {
+        events?.stop(); events = null
         if (instance === this) instance = null
     }
+
+    override fun onInterruptionFilterChanged(interruptionFilter: Int) =
+        Events.dnd(applicationContext, interruptionFilter)
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         if (sbn.packageName !in WHATSAPP) return
@@ -32,6 +40,8 @@ class CallWatcher : NotificationListenerService() {
             if (callKey != sbn.key) markStarted(sbn)
         } else if (sbn.key == callKey) {
             markEnded()
+        } else if (!isCallNotification(sbn)) {
+            Events.message(applicationContext, sbn)
         }
     }
 
@@ -92,6 +102,13 @@ class CallWatcher : NotificationListenerService() {
             val labels = n.actions?.map { it.title?.toString()?.trim()?.lowercase().orEmpty() } ?: return false
             val ongoingFlag = n.flags and Notification.FLAG_ONGOING_EVENT != 0 || n.category == Notification.CATEGORY_CALL
             return ongoingFlag && labels.any(HANG::containsMatchIn) && labels.none(ANSWER::containsMatchIn)
+        }
+
+        /** Ringing, ongoing or missed-call notifications: never treated as chat messages. */
+        fun isCallNotification(sbn: StatusBarNotification): Boolean {
+            val n = sbn.notification
+            return n.category == Notification.CATEGORY_CALL || n.category == Notification.CATEGORY_MISSED_CALL ||
+                (Build.VERSION.SDK_INT >= 31 && n.extras.getInt(Notification.EXTRA_CALL_TYPE, 0) != 0)
         }
 
         fun endWhatsAppCall(): EndResult {

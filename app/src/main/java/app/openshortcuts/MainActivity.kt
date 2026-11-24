@@ -79,7 +79,7 @@ private fun App() {
 
     val missingSetup = remember(lib, resumeTick) {
         buildList {
-            if (lib.automations.any { it.enabled && it.kind == TriggerKind.WhatsAppCallLong } ||
+            if (lib.automations.any { it.enabled && it.kind != TriggerKind.Time } ||
                 lib.shortcuts.any { s -> s.actions.any { it.type == app.openshortcuts.model.ActionType.END_WHATSAPP_CALL } }
             ) add(Perm.CallAccess)
             lib.shortcuts.forEach { addAll(Perm.missing(ctx, it)) }
@@ -143,7 +143,10 @@ private fun App() {
 
     if (newAuto) NewAutomationDialog(onDismiss = { newAuto = false }) { kind ->
         newAuto = false
-        val a = Automation(kind = kind, shortcutId = lib.shortcuts.firstOrNull()?.id.orEmpty(), callMinutes = 45, windowStart = 23 * 60, windowEnd = 5 * 60)
+        // Event triggers run straight away by default; time and call triggers warn first.
+        // No shortcut picked yet, so a new trigger never runs something you didn't choose.
+        val a = Automation(kind = kind, shortcutId = "", callMinutes = 45,
+            windowStart = 23 * 60, windowEnd = 5 * 60, warnFirst = !kind.event)
         Store.upsert(a); push(Route.Auto(a.id))
     }
     runs.result?.let { r -> ResultDialog(r, onDismiss = { runs.result = null }, onSetup = { push(Route.Setup) }) }

@@ -204,9 +204,7 @@ private fun AutomationList(lib: Library, bottomPad: androidx.compose.ui.unit.Dp,
             val target = lib.shortcuts.firstOrNull { it.id == a.shortcutId }
             Card(Modifier.fillMaxWidth().pressable(label = "Edit automation", onClick = { onOpen(a) })) {
                 Row(Modifier.padding(start = 16.dp, end = 12.dp, top = 14.dp, bottom = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    IconTile(if (a.kind == TriggerKind.Time) "clock" else "phone",
-                        (if (a.kind == TriggerKind.Time) app.openshortcuts.model.Tint.Blue else app.openshortcuts.model.Tint.Green).color(),
-                        size = 34.dp)
+                    IconTile(a.kind.glyph(), a.kind.tint().color(), size = 34.dp)
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         Text(a.headline(), style = Theme.t.label, color = c.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -226,7 +224,7 @@ private fun AutomationList(lib: Library, bottomPad: androidx.compose.ui.unit.Dp,
             }
         }
         if (lib.automations.isEmpty()) item {
-            Text("Tap + to run a shortcut at a time, or when a WhatsApp call runs late.", style = Theme.t.body, color = c.ink2)
+            Text("Tap + to run a shortcut at a time, when the charger or Wi-Fi changes, or when a WhatsApp call runs late.", style = Theme.t.body, color = c.ink2)
         }
     }
 }
@@ -234,6 +232,29 @@ private fun AutomationList(lib: Library, bottomPad: androidx.compose.ui.unit.Dp,
 fun Automation.headline(): String = when (kind) {
     TriggerKind.Time -> "At ${timeOfDay.hhmm()}, ${days.daysLabel().lowercase()}"
     TriggerKind.WhatsAppCallLong -> "WhatsApp call over $callMinutes min, ${windowStart.hhmm()}–${windowEnd.hhmm()}"
+    TriggerKind.Charger -> if (on) "Charger connected" else "Charger disconnected"
+    TriggerKind.BatteryLevel -> "Battery ${if (on) "rises above" else "falls below"} $level%"
+    TriggerKind.Dnd -> "Do Not Disturb turns ${if (on) "on" else "off"}"
+    TriggerKind.WiFi -> if (on) "Wi-Fi connects" else "Wi-Fi disconnects"
+    TriggerKind.WhatsAppMessage -> "WhatsApp message from ${text.ifBlank { "anyone" }}"
+}
+
+fun TriggerKind.glyph(): String = when (this) {
+    TriggerKind.Time -> "clock"
+    TriggerKind.WhatsAppCallLong -> "phone"
+    TriggerKind.Charger -> "bolt"
+    TriggerKind.BatteryLevel -> "battery"
+    TriggerKind.Dnd -> "moon"
+    TriggerKind.WiFi -> "wifi"
+    TriggerKind.WhatsAppMessage -> "quote"
+}
+
+fun TriggerKind.tint(): app.openshortcuts.model.Tint = when (this) {
+    TriggerKind.Time -> app.openshortcuts.model.Tint.Blue
+    TriggerKind.WhatsAppCallLong, TriggerKind.WhatsAppMessage, TriggerKind.Charger -> app.openshortcuts.model.Tint.Green
+    TriggerKind.BatteryLevel -> app.openshortcuts.model.Tint.Orange
+    TriggerKind.Dnd -> app.openshortcuts.model.Tint.Indigo
+    TriggerKind.WiFi -> app.openshortcuts.model.Tint.Teal
 }
 
 /** Floating segmented control, same material as the editor's bottom sheet. */
