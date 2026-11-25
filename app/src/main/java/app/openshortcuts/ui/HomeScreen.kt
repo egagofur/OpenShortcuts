@@ -81,7 +81,9 @@ fun HomeScreen(
     LaunchedEffect(removed) { if (removed != null) { kotlinx.coroutines.delay(5000); removed = null } }
     Row(Modifier.fillMaxSize().background(c.bg)) {
         Box(Modifier.weight(1f).fillMaxSize()) {
-            val bottomPad = 112.dp
+            val short = isShort
+            // Sideways the switch sits up beside the title, so the bottom edge stays free for content.
+            val bottomPad = if (short) 24.dp else 112.dp
             AnimatedContent(
                 targetState = tab,
                 transitionSpec = { fadeIn(tween(160)) togetherWith fadeOut(tween(100)) },
@@ -94,13 +96,17 @@ fun HomeScreen(
                 }
             }
             TabBar(
-                tab = tab, onTab = onTab,
-                modifier = Modifier
+                tab = tab, onTab = onTab, compact = short,
+                modifier = if (short) Modifier
+                    .align(Alignment.TopEnd)
+                    .windowInsetsPadding(WindowInsets.topBar.only(WindowInsetsSides.Top))
+                    .padding(top = 10.dp, end = 4.dp)
+                else Modifier
                     .align(Alignment.BottomCenter)
                     .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Start))
                     .padding(start = 16.dp, bottom = 16.dp),
             )
-            Box(Modifier.fillMaxSize().padding(bottom = 72.dp)) {
+            Box(Modifier.fillMaxSize().padding(bottom = if (short) 0.dp else 72.dp)) {
                 UndoBar(removed?.let { "Automation deleted" }, "Undo") {
                     removed?.let { (a, i) -> app.openshortcuts.model.Store.restore(a, i) }
                     removed = null
@@ -117,10 +123,20 @@ fun HomeScreen(
 @Composable
 private fun Header(title: String, sub: String) {
     val c = Theme.c
-    Column(Modifier.padding(top = 18.dp, bottom = 18.dp)) {
-        Text(title, style = Theme.t.large, color = c.ink)
+    val short = isShort
+    Column(Modifier.padding(top = if (short) 10.dp else 18.dp, bottom = if (short) 12.dp else 18.dp, end = if (short) 250.dp else 0.dp)) {
+        Text(title, style = if (short) Theme.t.large.copy(fontSize = 28.sp, lineHeight = 32.sp) else Theme.t.large, color = c.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Spacer(Modifier.height(2.dp))
-        Text(sub, style = Theme.t.small, color = c.ink2)
+        Text(sub, style = Theme.t.small, color = c.ink2, maxLines = if (short) 1 else 3, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+/** Two columns on the cover screen and in portrait; more when the phone turns sideways. */
+private val TileCells = object : GridCells {
+    override fun androidx.compose.ui.unit.Density.calculateCrossAxisCellSizes(availableSize: Int, spacing: Int): List<Int> {
+        val n = maxOf(2, (availableSize + spacing) / (170.dp.roundToPx() + spacing))
+        val total = availableSize - spacing * (n - 1)
+        return List(n) { total / n + if (it < total % n) 1 else 0 }
     }
 }
 
@@ -130,21 +146,21 @@ private fun ShortcutGrid(
     onEdit: (Shortcut) -> Unit, onSetup: () -> Unit,
 ) {
     LazyVerticalGrid(
-        columns = GridCells.Fixed(2),
+        columns = TileCells,
         modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.topBar.only(WindowInsetsSides.Top + WindowInsetsSides.Start)),
         contentPadding = PaddingValues(start = Dimens.gutter, end = 4.dp, bottom = bottomPad),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item(span = { GridItemSpan(2) }) {
+        item(span = { GridItemSpan(maxLineSpan) }) {
             Header("All Shortcuts", if (lib.shortcuts.size == 1) "1 shortcut" else "${lib.shortcuts.size} shortcuts")
         }
-        if (missing.isNotEmpty()) item(span = { GridItemSpan(2) }) { SetupBanner(missing, onSetup) }
+        if (missing.isNotEmpty()) item(span = { GridItemSpan(maxLineSpan) }) { SetupBanner(missing, onSetup) }
         items(lib.shortcuts, key = { it.id }) { s ->
             ShortcutTile(s, running = runs.running == s.id, done = runs.done == s.id, failed = runs.failed == s.id,
                 onRun = { runs.run(s) }, onEdit = { onEdit(s) })
         }
-        if (lib.shortcuts.isEmpty()) item(span = { GridItemSpan(2) }) {
+        if (lib.shortcuts.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
             Text("Tap + to make your first shortcut.", style = Theme.t.body, color = Theme.c.ink2)
         }
     }
@@ -162,7 +178,7 @@ private fun SetupBanner(missing: List<Perm>, onSetup: () -> Unit) {
                 Text("Finish setup", style = Theme.t.label, color = c.ink)
                 Text(
                     if (Perm.CallAccess in missing) "Allow notification access so OpenShortcuts can hang up WhatsApp calls."
-                    else "${missing.size} permission${if (missing.size > 1) "s" else ""} still needed for your shortcuts.",
+                    else if (missing.size == 1) "Your shortcuts still need 1 permission." else "Your shortcuts still need ${missing.size} permissions.",
                     style = Theme.t.small, color = c.ink2,
                 )
             }
@@ -313,7 +329,8 @@ fun TriggerKind.tint(): app.openshortcuts.model.Tint = when (this) {
 
 /** Floating segmented control, same material as the editor's bottom sheet. */
 @Composable
-private fun TabBar(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Modifier) {
+private fun TabBar(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Modifier, compact: Boolean = false) {
+    val segH = if (compact) 40.dp else 48.dp
     val c = Theme.c
     val labels = listOf("Shortcuts", "Automation")
     var segW by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
@@ -327,15 +344,15 @@ private fun TabBar(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Modifier
             .padding(5.dp),
     ) {
         if (segW > 0) Box(
-            Modifier.offset(x = x).width(with(density) { segW.toDp() }).height(48.dp)
-                .clip(RoundedCornerShape(25.dp)).background(c.fill),
+            Modifier.offset(x = x).width(with(density) { segW.toDp() }).height(segH)
+                .clip(RoundedCornerShape(segH / 2)).background(c.fill),
         )
         Row {
             labels.forEachIndexed { i, l ->
                 Box(
                     Modifier
-                        .height(48.dp)
-                        .width(124.dp)
+                        .height(segH)
+                        .width(if (compact) 108.dp else 124.dp)
                         .onSizeChanged { if (i == 0) segW = it.width }
                         .pressable(scale = 0.96f, label = l, role = androidx.compose.ui.semantics.Role.Tab) { onTab(i) },
                     contentAlignment = Alignment.Center,

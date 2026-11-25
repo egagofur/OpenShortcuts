@@ -66,7 +66,7 @@ enum class ActionType(
     CALL(
         "Call", "Call {number}", Category.Calls, Tint.Green, "phone",
         listOf(ParamSpec("number", ParamKind.TEXT, "", placeholder = "Phone number")),
-        summary = "Calls straight away with the Make calls permission; otherwise opens the dialer.",
+        summary = "Calls straight away with the Make phone calls permission; otherwise opens the dialer.",
     ),
     SEND_SMS(
         "Send SMS", "Send SMS to {number} {mode}", Category.Messages, Tint.Green, "quote",

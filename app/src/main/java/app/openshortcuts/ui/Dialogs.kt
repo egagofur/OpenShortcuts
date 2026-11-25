@@ -294,7 +294,7 @@ fun DetailsDialog(
         }
 
         Spacer(Modifier.height(18.dp))
-        SettingsGroup("Colour") {
+        SettingsGroup("Color") {
             FlowRow(
                 Modifier.padding(12.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -334,7 +334,7 @@ fun DetailsDialog(
             Spacer(Modifier.height(18.dp))
             SettingsGroup {
                 SettingsRow(
-                    "Allow ${missing.size} permission${if (missing.size > 1) "s" else ""}", "sliders", app.openshortcuts.model.Tint.Orange.color(),
+                    if (missing.size == 1) "Allow 1 Permission" else "Allow ${missing.size} Permissions", "sliders", app.openshortcuts.model.Tint.Orange.color(),
                     missing.joinToString(", ") { it.title }, onClick = onSetup,
                 ) { Glyph("chevronRight", c.ink3, size = 16.dp) }
             }
@@ -352,15 +352,20 @@ fun DetailsDialog(
                 val into = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
                 LaunchedEffect(Unit) { kotlinx.coroutines.delay(180); into.bringIntoView() }
                 Column(Modifier.bringIntoViewRequester(into).padding(bottom = 16.dp)) {
+                Text("Delete “${s.name}”?", style = Theme.t.label, color = c.ink, modifier = Modifier.padding(horizontal = 6.dp))
+                Spacer(Modifier.height(2.dp))
                 Text(
-                    if (automations == 0) "Delete this shortcut? You can't undo this."
-                    else "Delete this shortcut and its $automations automation${if (automations > 1) "s" else ""}? You can't undo this.",
+                    when (automations) {
+                        0 -> "It can't be restored afterwards."
+                        1 -> "Its automation is deleted too. Neither can be restored afterwards."
+                        else -> "Its $automations automations are deleted too. None can be restored afterwards."
+                    },
                     style = Theme.t.small, color = c.ink2, modifier = Modifier.padding(horizontal = 6.dp),
                 )
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     QuietButton("Cancel", Modifier.weight(1f), color = c.ink) { confirmDelete = false }
-                    PrimaryButton("Delete", Modifier.weight(1f), color = c.danger) { view.confirm(); onDelete() }
+                    PrimaryButton("Delete Shortcut", Modifier.weight(1f), color = c.danger) { view.confirm(); onDelete() }
                 }
             }
             }

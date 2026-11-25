@@ -213,13 +213,15 @@ fun SettingsRow(
     tint: Color = Theme.c.accent,
     subtitle: String? = null,
     titleColor: Color = Theme.c.ink,
+    /** What tapping the row does, for screen readers. Defaults to the title. */
+    actionLabel: String = title,
     onClick: (() -> Unit)? = null,
     trailing: @Composable RowScope.() -> Unit = {},
 ) {
     val c = Theme.c
     Row(
         Modifier.fillMaxWidth().heightIn(min = 52.dp)
-            .then(if (onClick != null) Modifier.pressable(scale = 0.985f, label = title, onClick = onClick) else Modifier)
+            .then(if (onClick != null) Modifier.pressable(scale = 0.985f, label = actionLabel, onClick = onClick) else Modifier)
             .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),

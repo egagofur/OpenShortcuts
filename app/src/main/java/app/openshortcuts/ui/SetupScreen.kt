@@ -50,7 +50,7 @@ private val GROUPS = listOf(
         listOf(Perm.CallAccess, Perm.Notifications, Perm.Alarms, Perm.Battery)),
     Group("Phone control", null,
         listOf(Perm.Dnd, Perm.WriteSettings, Perm.PhoneCalls, Perm.Accessibility, Perm.AutoSend)),
-    Group("Personal data", "Asked for only when a shortcut uses them.",
+    Group("Personal data", "Needed only by shortcuts that use them.",
         listOf(Perm.Call, Perm.Sms, Perm.Calendar, Perm.Location)),
 )
 
@@ -116,7 +116,7 @@ fun SetupScreen(tick: Int, onBack: () -> Unit) {
                         if (i > 0) SettingsDivider()
                         val ok = granted[p] == true
                         val (glyph, tint) = p.look()
-                        SettingsRow(p.title, glyph, tint.color(), p.why, onClick = { open(p) }) {
+                        SettingsRow(p.title, glyph, tint.color(), p.why, actionLabel = if (ok) "Open ${p.title} settings" else "Allow ${p.title}", onClick = { open(p) }) {
                             AnimatedContent(
                                 ok, label = "perm",
                                 transitionSpec = {

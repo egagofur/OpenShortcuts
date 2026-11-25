@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
@@ -146,6 +147,42 @@ fun EditorScreen(shortcut: Shortcut, runs: RunController, onBack: () -> Unit, on
         // With the keyboard up, the sheet fills what's left above it.
         val imeH = WindowInsets.ime.asPaddingValues().calculateBottomPadding()
         val expandedH = if (imeH > 0.dp) (maxHeight - imeH) * 0.86f else maxHeight * 0.74f
+        // Sideways (short and wide): actions on the left, the catalogue docked beside them, like a
+        // tablet. No sheet covering half of a 360dp-tall screen.
+        val docked = maxHeight < 480.dp && maxWidth > 600.dp
+        val sheet: @Composable (Modifier, Boolean) -> Unit = { m, dock ->
+            ActionSheet(
+                docked = dock,
+                expandedH = expandedH,
+                canUndo = draft.undo.isNotEmpty(), canRedo = draft.redo.isNotEmpty(),
+                running = runs.running == s.id,
+                onUndo = draft::undo, onRedo = draft::redo,
+                onInfo = { details = true },
+                // A .openshortcut file anyone with the app can add, plus a readable recipe.
+                onShare = { ctx.startActivity(app.openshortcuts.model.Portable.shareIntent(ctx, s, s.describe(ctx))) },
+                onRun = { if (runs.running == s.id) runs.stop() else runs.run(s) },
+                onAdd = { type ->
+                    view.confirm()
+                    draft.actions { l ->
+                        l += Action(type = type)
+                        when (type) {
+                            ActionType.IF -> { l += Action(type = ActionType.OTHERWISE); l += Action(type = ActionType.END_IF) }
+                            ActionType.REPEAT -> l += Action(type = ActionType.END_REPEAT)
+                            ActionType.REPEAT_EACH -> l += Action(type = ActionType.END_EACH)
+                            ActionType.MENU -> {
+                                l += Action(type = ActionType.CASE, params = mapOf("label" to "Option 1"))
+                                l += Action(type = ActionType.CASE, params = mapOf("label" to "Option 2"))
+                                l += Action(type = ActionType.END_MENU)
+                            }
+                            else -> Unit
+                        }
+                    }
+                    scope.launch { list.animateScrollToItem(list.layoutInfo.totalItemsCount) }
+                },
+            
+                modifier = m,
+            )
+        }
         Row(Modifier.fillMaxSize()) {
             Box(Modifier.weight(1f).fillMaxSize()) {
                 LazyColumn(
@@ -153,7 +190,7 @@ fun EditorScreen(shortcut: Shortcut, runs: RunController, onBack: () -> Unit, on
                     modifier = Modifier.fillMaxSize()
                         .windowInsetsPadding(WindowInsets.topBar.only(WindowInsetsSides.Top + WindowInsetsSides.Start))
                         .windowInsetsPadding(WindowInsets.ime.only(WindowInsetsSides.Bottom)),
-                    contentPadding = PaddingValues(start = 18.dp, end = 4.dp, bottom = SHEET_COLLAPSED + 40.dp),
+                    contentPadding = PaddingValues(start = 18.dp, end = 4.dp, bottom = if (docked) 24.dp else SHEET_COLLAPSED + 40.dp),
                 ) {
                     item(key = "header") {
                         EditorHeader(s, onDetails = { details = true })
@@ -210,40 +247,17 @@ fun EditorScreen(shortcut: Shortcut, runs: RunController, onBack: () -> Unit, on
                     }
                 }
 
-                ActionSheet(
-                    expandedH = expandedH,
-                    canUndo = draft.undo.isNotEmpty(), canRedo = draft.redo.isNotEmpty(),
-                    running = runs.running == s.id,
-                    onUndo = draft::undo, onRedo = draft::redo,
-                    onInfo = { details = true },
-                    // A .openshortcut file anyone with the app can add, plus a readable recipe.
-                    onShare = { ctx.startActivity(app.openshortcuts.model.Portable.shareIntent(ctx, s, s.describe(ctx))) },
-                    onRun = { if (runs.running == s.id) runs.stop() else runs.run(s) },
-                    onAdd = { type ->
-                        view.confirm()
-                        draft.actions { l ->
-                            l += Action(type = type)
-                            when (type) {
-                                ActionType.IF -> { l += Action(type = ActionType.OTHERWISE); l += Action(type = ActionType.END_IF) }
-                                ActionType.REPEAT -> l += Action(type = ActionType.END_REPEAT)
-                                ActionType.REPEAT_EACH -> l += Action(type = ActionType.END_EACH)
-                                ActionType.MENU -> {
-                                    l += Action(type = ActionType.CASE, params = mapOf("label" to "Option 1"))
-                                    l += Action(type = ActionType.CASE, params = mapOf("label" to "Option 2"))
-                                    l += Action(type = ActionType.END_MENU)
-                                }
-                                else -> Unit
-                            }
-                        }
-                        scope.launch { list.animateScrollToItem(list.layoutInfo.totalItemsCount) }
-                    },
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Start))
-                        .windowInsetsPadding(WindowInsets.ime.only(WindowInsetsSides.Bottom))
-                        .padding(start = 14.dp, bottom = 14.dp),
-                )
+                if (!docked) sheet(Modifier
+                    .align(Alignment.BottomCenter)
+                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Start))
+                    .windowInsetsPadding(WindowInsets.ime.only(WindowInsetsSides.Bottom))
+                    .padding(start = 14.dp, bottom = 14.dp), false)
             }
+            if (docked) sheet(Modifier
+                .width(310.dp)
+                .windowInsetsPadding(WindowInsets.topBar.only(WindowInsetsSides.Top + WindowInsetsSides.Bottom))
+                .windowInsetsPadding(WindowInsets.ime.only(WindowInsetsSides.Bottom))
+                .padding(start = 10.dp, top = 10.dp, bottom = 10.dp), true)
             Rail({ GlassCircle("chevronLeft", "Back", onClick = onBack) })
         }
     }
@@ -391,6 +405,7 @@ private fun rubber(overshoot: Float, dim: Float = 1f, k: Float = 0.55f) = (overs
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun ActionSheet(
+    docked: Boolean = false,
     expandedH: Dp, canUndo: Boolean, canRedo: Boolean, running: Boolean,
     onUndo: () -> Unit, onRedo: () -> Unit, onInfo: () -> Unit, onShare: () -> Unit, onRun: () -> Unit,
     onAdd: (ActionType) -> Unit, modifier: Modifier = Modifier,
@@ -412,7 +427,7 @@ private fun ActionSheet(
             progress.animateTo(target, if (abs(velocity) > 1.5f) Motion.fling() else Motion.settle(), initialVelocity = velocity)
         }
     }
-    BackHandler(enabled = progress.targetValue > 0f) { settle(0f) }
+    BackHandler(enabled = !docked && progress.targetValue > 0f) { settle(0f) }
 
     val drag = rememberDraggableState { dy ->
         raw -= dy / rangePx
@@ -421,17 +436,18 @@ private fun ActionSheet(
     }
     val h = SHEET_COLLAPSED + (expandedH - SHEET_COLLAPSED) * progress.value
     // Typing inside a card: the keyboard owns the bottom, the sheet steps away so the field stays visible.
-    if (WindowInsets.isImeVisible && progress.targetValue == 0f) return
+    if (!docked && WindowInsets.isImeVisible && progress.targetValue == 0f) return
+    // Docked beside the actions it is always open: no handle, no drag, the catalogue always there.
+    val open = if (docked) 1f else progress.value
 
     Column(
         modifier
-            .fillMaxWidth()
-            .height(h)
+            .then(if (docked) Modifier.fillMaxHeight() else Modifier.fillMaxWidth().height(h))
             .shadow(if (c.dark) 0.dp else 24.dp, RoundedCornerShape(34.dp), ambientColor = c.shadow, spotColor = c.shadow)
             .clip(RoundedCornerShape(34.dp))
             .background(c.raised)
             .draggable(
-                drag, Orientation.Vertical,
+                drag, Orientation.Vertical, enabled = !docked,
                 onDragStarted = { raw = progress.value },
                 onDragStopped = { v ->
                     // Project where the flick is heading (Apple's deceleration), snap to the nearer end.
@@ -441,7 +457,8 @@ private fun ActionSheet(
                 },
             ),
     ) {
-        Box(Modifier.fillMaxWidth().height(22.dp), contentAlignment = Alignment.Center) {
+        if (docked) Spacer(Modifier.height(14.dp))
+        else Box(Modifier.fillMaxWidth().height(22.dp), contentAlignment = Alignment.Center) {
             Box(Modifier.width(38.dp).height(5.dp).clip(RoundedCornerShape(3.dp)).background(c.ink3.copy(alpha = 0.5f)))
         }
         // Search field
@@ -460,12 +477,12 @@ private fun ActionSheet(
             Box(Modifier.weight(1f)) {
                 if (query.isEmpty()) Text("Search for actions", style = Theme.t.body.copy(fontSize = 17.sp), color = c.ink2)
                 BasicTextField(
-                    value = query, onValueChange = { query = it; if (progress.targetValue < 1f) settle(1f) },
+                    value = query, onValueChange = { query = it; if (!docked && progress.targetValue < 1f) settle(1f) },
                     singleLine = true,
                     textStyle = Theme.t.body.copy(fontSize = 17.sp, color = c.ink),
                     cursorBrush = SolidColor(c.accent),
                     modifier = Modifier.fillMaxWidth().focusRequester(search)
-                        .onFocusChanged { if (it.isFocused && progress.targetValue < 1f) settle(1f) },
+                        .onFocusChanged { if (!docked && it.isFocused && progress.targetValue < 1f) settle(1f) },
                 )
             }
             if (query.isNotEmpty()) Box(Modifier.size(36.dp).pressable(label = "Clear search") { query = "" }, contentAlignment = Alignment.Center) {
@@ -474,8 +491,9 @@ private fun ActionSheet(
         }
         // Catalogue: grows with the sheet.
         Box(Modifier.weight(1f).fillMaxWidth()) {
-            if (progress.value > 0.02f) Catalog(query, alpha = progress.value.coerceIn(0f, 1f)) { type ->
-                onAdd(type); settle(0f)
+            if (open > 0.02f) Catalog(query, alpha = open.coerceIn(0f, 1f)) { type ->
+                onAdd(type)
+                if (docked) { query = ""; focus.clearFocus() } else settle(0f)
             }
         }
         // While typing, the keyboard owns the bottom; the toolbar steps aside for results.
@@ -528,7 +546,7 @@ private fun Catalog(query: String, alpha: Float, onPick: (ActionType) -> Unit) {
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
                             Text(t.title, style = Theme.t.body.copy(fontSize = 17.sp), color = c.ink)
-                            if (t.summary.isNotEmpty()) Text(t.summary, style = Theme.t.small, color = c.ink2, maxLines = 2)
+                            if (t.summary.isNotEmpty()) Text(t.summary, style = Theme.t.small, color = c.ink2, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         }
                         Glyph("plus", c.accent, size = 20.dp)
                     }

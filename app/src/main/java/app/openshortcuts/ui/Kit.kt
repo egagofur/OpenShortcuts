@@ -299,6 +299,13 @@ fun BatteryRing(state: BatteryState) {
     }
 }
 
+/**
+ * A phone turned sideways: short and wide, which is the shape of the Duo's cover screen itself.
+ * Layouts spread sideways instead of stacking.
+ */
+val isShort: Boolean
+    @Composable get() = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp < 480
+
 /** Screens at least this tall are phones, not the folded cover: thumbs live at the bottom. */
 private val TALL = 640.dp
 
@@ -312,21 +319,25 @@ fun Rail(vararg controls: @Composable () -> Unit) {
     val c = Theme.c
     BoxWithConstraints(Modifier.width(Dimens.rail).fillMaxHeight()) {
         val tall = maxHeight >= TALL
+        val short = maxHeight < 480.dp
         Column(
             Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.topBar.only(WindowInsetsSides.Top + WindowInsetsSides.End + WindowInsetsSides.Bottom))
-                .padding(top = 14.dp, bottom = 16.dp),
+                .padding(top = if (short) 8.dp else 14.dp, bottom = if (short) 10.dp else 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Glyph("home", c.ink, size = 17.dp)
-            Spacer(Modifier.height(4.dp))
+            // Sideways, every dp of height matters: drop the home glyph, keep time and battery.
+            if (!short) {
+                Glyph("home", c.ink, size = 17.dp)
+                Spacer(Modifier.height(4.dp))
+            }
             Text(rememberClock(), style = Theme.t.clock, color = c.ink)
             Spacer(Modifier.height(6.dp))
             BatteryRing(rememberBattery())
-            Spacer(if (tall) Modifier.weight(1f) else Modifier.height(24.dp))
-            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                (if (tall) controls.reversed() else controls.toList()).forEach { it() }
+            Spacer(if (tall || short) Modifier.weight(1f) else Modifier.height(24.dp))
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(if (short) 10.dp else 14.dp)) {
+                (if (tall || short) controls.reversed() else controls.toList()).forEach { it() }
             }
         }
     }
@@ -349,8 +360,8 @@ fun DuoDialog(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit
             Modifier
                 // Stay above the keyboard so buttons under a text field remain reachable.
                 .windowInsetsPadding(WindowInsets.ime)
-                .padding(24.dp)
-                .widthIn(max = 380.dp)
+                .padding(horizontal = 24.dp, vertical = if (isShort) 10.dp else 24.dp)
+                .widthIn(max = if (isShort) 460.dp else 380.dp)
                 .fillMaxWidth()
                 .graphicsLayer { scaleX = scale.value; scaleY = scale.value; this.alpha = alpha.value }
                 .clip(RoundedCornerShape(30.dp))
