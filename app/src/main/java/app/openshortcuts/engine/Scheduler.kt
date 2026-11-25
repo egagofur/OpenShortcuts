@@ -40,7 +40,12 @@ object Scheduler {
         val pi = pending(ctx, stage, id) ?: return
         val am = alarms(ctx)
         if (Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms()) {
-            am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, whenMs, pi)
+            // Some phones (ColorOS) stretch "exact" alarms into a one-hour window; alarm clocks are never moved.
+            val show = PendingIntent.getActivity(
+                ctx, 0, Intent(ctx, app.openshortcuts.MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+            am.setAlarmClock(AlarmManager.AlarmClockInfo(whenMs, show), pi)
         } else {
             am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, whenMs, pi)
         }
