@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -302,6 +303,8 @@ fun DuoDialog(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit
         }
         Column(
             Modifier
+                // Stay above the keyboard so buttons under a text field remain reachable.
+                .windowInsetsPadding(WindowInsets.ime)
                 .padding(24.dp)
                 .widthIn(max = 380.dp)
                 .fillMaxWidth()

@@ -122,7 +122,7 @@ private fun ChoiceRow(text: String, selected: Boolean, glyph: String? = null, ti
 }
 
 @Composable
-fun Field(value: String, onChange: (String) -> Unit, placeholder: String, number: Boolean = false, autofocus: Boolean = true) {
+fun Field(value: String, onChange: (String) -> Unit, placeholder: String, number: Boolean = false, autofocus: Boolean = true, secret: Boolean = false) {
     val c = Theme.c
     val fr = remember { FocusRequester() }
     Box(
@@ -134,7 +134,13 @@ fun Field(value: String, onChange: (String) -> Unit, placeholder: String, number
             value = value, onValueChange = onChange, singleLine = true,
             textStyle = Theme.t.body.copy(fontSize = 17.sp, color = c.ink),
             cursorBrush = SolidColor(c.accent),
-            keyboardOptions = if (number) KeyboardOptions(keyboardType = KeyboardType.Number) else KeyboardOptions.Default,
+            keyboardOptions = when {
+                // Secrets: masked, and the keyboard neither suggests nor learns them.
+                secret -> KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false)
+                number -> KeyboardOptions(keyboardType = KeyboardType.Number)
+                else -> KeyboardOptions.Default
+            },
+            visualTransformation = if (secret) androidx.compose.ui.text.input.PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
             modifier = Modifier.fillMaxWidth().focusRequester(fr),
         )
     }
@@ -396,10 +402,11 @@ fun VariableChips(names: List<String>, onInsert: (String) -> Unit) {
 }
 
 @Composable
-fun NewShortcutDialog(onDismiss: () -> Unit, onNew: () -> Unit, onImport: () -> Unit) {
+fun NewShortcutDialog(onDismiss: () -> Unit, onNew: () -> Unit, onImport: () -> Unit, onDescribe: () -> Unit) {
     DuoDialog(onDismiss) {
         DialogTitle("New Shortcut")
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            ChoiceRow("Describe what it should do", false, "quote", Tint.Purple.color(), onDescribe)
             ChoiceRow("Start from scratch", false, "plus", Tint.Blue.color(), onNew)
             ChoiceRow("Import a shortcut file", false, "down", Tint.Gray.color(), onImport)
         }
@@ -421,7 +428,10 @@ private val SENSITIVE = mapOf(
 
 /** Like Apple's "Add Shortcut" sheet: show what it does before it's added. */
 @Composable
-fun ImportDialog(imp: app.openshortcuts.model.Portable.Imported, onCancel: () -> Unit, onAdd: () -> Unit) {
+fun ImportDialog(
+    imp: app.openshortcuts.model.Portable.Imported, onCancel: () -> Unit, onAdd: () -> Unit,
+    note: String? = null, automation: app.openshortcuts.model.Automation? = null,
+) {
     val c = Theme.c
     val s = imp.shortcut
     DuoDialog(onCancel) {
@@ -447,6 +457,24 @@ fun ImportDialog(imp: app.openshortcuts.model.Portable.Imported, onCancel: () ->
             }
             val more = s.actions.count { !it.type.isMarker } - 10
             if (more > 0) Text("and $more more", style = Theme.t.small, color = c.ink2)
+        }
+        automation?.let { a ->
+            Spacer(Modifier.height(12.dp))
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(c.bg).padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconTile(a.kind.glyph(), a.kind.tint().color(), size = 28.dp)
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(a.headline(), style = Theme.t.body, color = c.ink)
+                    Text("Added switched off. Turn it on in Automation once it looks right.", style = Theme.t.small, color = c.ink2)
+                }
+            }
+        }
+        if (!note.isNullOrBlank()) {
+            Spacer(Modifier.height(10.dp))
+            Text(note, style = Theme.t.small, color = c.ink2)
         }
         val can = s.actions.mapNotNull { SENSITIVE[it.type] }.distinct()
         if (can.isNotEmpty()) {

@@ -43,6 +43,14 @@ The layout borrows from the folded “iPhone Duo” cover-screen concepts: a rig
 
 Android doesn't let apps send WhatsApp messages directly the way WhatsApp's iPhone Shortcuts actions do, so these are the reliable routes.
 
+## Describe a shortcut
+
+Tap **+ → Describe what it should do** and write a sentence, in English or Indonesian, for example *“Kalau Mama kirim WhatsApp setelah jam 23:00, balas aku sudah tidur”*. OpenShortcuts asks Claude (`claude-opus-5-5`) to build it from the app's own action list, then shows you every action and any automation before adding it. Automations it creates start switched **off** until you've checked them.
+
+- Bring your own key from [console.anthropic.com](https://console.anthropic.com). It's stored in the app's private no-backup folder and can be removed from the same screen.
+- Only your sentence and the names of your existing shortcuts are sent. The reply is forced into a strict JSON schema and then checked like an imported file: unknown actions and parameters are dropped.
+- If a safety check declines a request, the API is allowed to fall back to another suitable model (`fallbacks: "default"`).
+
 ## How ending a WhatsApp call works
 
 WhatsApp shows an ongoing-call notification with its own **Hang up** button. OpenShortcuts listens to notifications (with your permission) and presses that button for you. That means:
@@ -51,7 +59,7 @@ WhatsApp shows an ongoing-call notification with its own **Hang up** button. Ope
 - a call that is still **ringing** is never touched, only connected calls;
 - button labels are matched in several languages (Hang up, End call, Akhiri, Tutup, …).
 
-It only reads WhatsApp's call notification. Nothing leaves your phone; the app has no internet permission.
+It only reads WhatsApp's call notification. Nothing leaves your phone. The only network use in the whole app is the optional *Describe a shortcut* below, and only after you add your own API key.
 
 ## Permissions
 

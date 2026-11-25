@@ -89,6 +89,8 @@ private fun App() {
     var resumeTick by remember { mutableIntStateOf(0) }
     var newAuto by remember { mutableStateOf(false) }
     var newShortcut by remember { mutableStateOf(false) }
+    var describing by remember { mutableStateOf(false) }
+    var draft by remember { mutableStateOf<app.openshortcuts.engine.Describe.Draft?>(null) }
     val incoming by app.openshortcuts.model.Portable.incoming.collectAsStateWithLifecycle()
     val importError by app.openshortcuts.model.Portable.importError.collectAsStateWithLifecycle()
     val pickFile = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -179,7 +181,25 @@ private fun App() {
             Store.upsert(s); push(Route.Editor(s.id))
         },
         onImport = { newShortcut = false; pickFile.launch(arrayOf("*/*")) },
+        onDescribe = { newShortcut = false; describing = true },
     )
+    if (describing) app.openshortcuts.ui.DescribeDialog(
+        onDismiss = { describing = false },
+        onDraft = { describing = false; draft = it },
+    )
+    draft?.let { d ->
+        app.openshortcuts.ui.ImportDialog(
+            d.imported, note = d.note, automation = d.automation,
+            onCancel = { draft = null },
+            onAdd = {
+                draft = null
+                Store.upsert(d.imported.shortcut)
+                d.automation?.let { Store.upsert(it) }
+                stack = listOf(Route.Home); tab = 0
+                push(Route.Editor(d.imported.shortcut.id))
+            },
+        )
+    }
     incoming?.let { imp ->
         app.openshortcuts.ui.ImportDialog(
             imp,

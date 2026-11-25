@@ -33,7 +33,7 @@ The **Android route** column says how a missing feature would be built. "Listene
 | Wait | ✅ | |
 | Stop This Shortcut | ✅ | |
 | Run Shortcut (nested) | ✅ | Up to 4 levels deep |
-| Web APIs: Get Contents of URL | ❌ | Needs the internet permission. The app has none today, and the README says so |
+| Web APIs: Get Contents of URL | ❌ | The app has the internet permission now (for Describe a shortcut), so this is possible; keep it opt-in |
 | Run JavaScript on Webpage | ❌ | Possible inside a WebView |
 | URL schemes, x-callback-url | ❌ | Android deep links (`openshortcuts://run?name=…`) |
 | Undo / redo | ✅ | |
@@ -41,7 +41,7 @@ The **Android route** column says how a missing feature would be built. "Listene
 | Duplicate / delete action | ✅ | Deleting an If removes its Otherwise and End If too |
 | Rename, colour, icon | ✅ | 10 colours, 16 icons |
 | Search the action catalogue | ✅ | Also matches Indonesian keywords |
-| Use Model (Apple Intelligence / ChatGPT) | ❌ | Gemini Nano on supported phones (ML Kit GenAI / AICore) |
+| Use Model (Apple Intelligence / ChatGPT) | 🟡 | *Describe a shortcut* builds shortcuts with Claude using your own key. No Use Model action inside shortcuts yet |
 
 ## 2. Ways to run a shortcut
 
@@ -137,7 +137,7 @@ Apple has hundreds of actions. This table compares by area and names what OpenSh
 
 | Section | ✅ Done | 🟡 Partly done | ❌ Possible on Android | ⛔ Not possible |
 |---|---|---|---|---|
-| 1. Building | 16 | 5 | 4 | 0 |
+| 1. Building | 16 | 6 | 3 | 0 |
 | 2. Ways to run | 6 | 0 | 3 | 4 |
 | 3. Triggers (Apple's 20) | 4 | 3 | 10 | 3 |
 | 4. Action areas | 5 of 17 fully | 7 | 5 | 0 |

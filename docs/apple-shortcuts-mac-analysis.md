@@ -64,7 +64,7 @@ Apple's depth doesn't come from exotic actions. It comes from **data actions**: 
    - Add to Variable, Repeat with Each, Comment, Stop and Output
 2. ✅ **Phone basics** (done): Call a number, Send SMS, Compose email, Share, Start Timer / Set Alarm, Add calendar event, Get upcoming events, Get current location, Open in Maps.
 3. ✅ **Share sheet runs** (done): "Run with OpenShortcuts" in Android's share sheet, passing the shared text, link or file as Shortcut Input. This is Apple's Share Sheet and Quick Actions.
-4. **Describe a shortcut:** type "When Mama messages me after 23:00, reply that I'm asleep" and get the automation and shortcut built. It can use Gemini Nano on phones that have it, or a model API you choose. This needs internet, so make it opt-in.
+4. ✅ **Describe a shortcut** (done, with Claude and your own key): type "When Mama messages me after 23:00, reply that I'm asleep" and get the automation and shortcut built. It can use Gemini Nano on phones that have it, or a model API you choose. This needs internet, so make it opt-in.
 5. **Gallery:** a browsable set of ready-made shortcuts (Sleep Mode, auto-reply, Pomodoro, morning summary), each a `.openshortcut` file added with one tap.
 
 Step 1 has the best value for the effort, and everything after it builds on it.
