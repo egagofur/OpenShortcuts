@@ -31,6 +31,7 @@ enum class Perm(val title: String, val why: String, val runtime: String? = null,
     Contacts("Contacts", "Lets you pick a person when a shortcut calls, texts, emails or sends a WhatsApp message. Only what you pick is saved.", Manifest.permission.READ_CONTACTS),
     UsageAccess("Usage access", "Lets the App trigger see which app is on screen. Nothing is recorded or sent anywhere."),
     Bluetooth("Nearby devices", "Lets the Bluetooth trigger see which device connected.", "android.permission.BLUETOOTH_CONNECT"),
+    BackgroundLocation("Location all the time", "Lets the Location trigger notice when you arrive or leave while the app is closed. Choose “Allow all the time”.", "android.permission.ACCESS_BACKGROUND_LOCATION"),
     Location("Location", "Gets your current location for “Get Current Location”.", Manifest.permission.ACCESS_FINE_LOCATION, listOf(Manifest.permission.ACCESS_COARSE_LOCATION)),
     AutoSend("Automatic WhatsApp sending", "Optional. Lets “Send WhatsApp … automatically” press Send for you. It can only see WhatsApp, and only acts on a message your shortcut just typed.");
 
@@ -50,6 +51,7 @@ enum class Perm(val title: String, val why: String, val runtime: String? = null,
             android.app.AppOpsManager.OPSTR_GET_USAGE_STATS, android.os.Process.myUid(), ctx.packageName,
         ) == android.app.AppOpsManager.MODE_ALLOWED
         Bluetooth -> Build.VERSION.SDK_INT < 31 || ctx.checkSelfPermission(runtime!!) == PackageManager.PERMISSION_GRANTED
+        BackgroundLocation -> ctx.checkSelfPermission(runtime!!) == PackageManager.PERMISSION_GRANTED
     }
 
     /** Settings screen for the special-access ones. */

@@ -96,6 +96,17 @@ object Notifs {
         nm(ctx).notify(intent.toUri(0).hashCode(), base(ctx, CH_WARN).setContentTitle(title).setContentText(text).setContentIntent(pi).build())
     }
 
+    /** A WhatsApp message held until unlock; one notification however many are waiting. */
+    fun waiting(ctx: Context, to: String, count: Int) {
+        nm(ctx).notify(WAITING, base(ctx, CH_RESULT)
+            .setContentTitle(if (count > 1) "$count WhatsApp messages are ready" else "Message to $to is ready")
+            .setContentText("It sends as soon as you unlock your phone.")
+            .build())
+    }
+
+    fun cancelWaiting(ctx: Context) = nm(ctx).cancel(WAITING)
+    private const val WAITING = 7_001
+
     fun cancelWarn(ctx: Context, id: String) = nm(ctx).cancel(warnId(id))
     private fun warnId(id: String) = ("warn$id").hashCode()
 }

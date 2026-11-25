@@ -62,6 +62,7 @@ object Scheduler {
             if (a.kind == TriggerKind.Time && a.enabled) nextTime(ctx, a)?.let { at(ctx, "time", a.id, it) }
         }
         if (CallWatcher.callActive) armCallTriggers(ctx, CallWatcher.callStartedAt) else disarmCallTriggers(ctx)
+        Geo.sync(ctx, lib)
     }
 
     /**
@@ -243,5 +244,7 @@ class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         Store.init(context)
         Scheduler.rescheduleAll(context)
+        // After an update or reboot some phones (Oppo, Xiaomi) don't reconnect the listener on their own.
+        if (CallWatcher.isEnabled(context) && CallWatcher.instance == null) CallWatcher.rebind(context)
     }
 }

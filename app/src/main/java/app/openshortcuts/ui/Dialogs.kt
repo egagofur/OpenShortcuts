@@ -164,6 +164,7 @@ fun launchableApps(ctx: Context): List<AppEntry> {
         .distinctBy { it.pkg }.sortedBy { it.label.lowercase() }
 }
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun ParamDialog(a: Action, spec: ParamSpec, owner: Shortcut, index: Int, onDismiss: () -> Unit, onDone: (Map<String, String>) -> Unit) {
     val c = Theme.c
@@ -190,6 +191,7 @@ fun ParamDialog(a: Action, spec: ParamSpec, owner: Shortcut, index: Int, onDismi
                         value = n.toFloat(), onValueChange = { v = it.toInt().toString() },
                         valueRange = spec.min.toFloat()..spec.max.toFloat(),
                         colors = SliderDefaults.colors(thumbColor = androidx.compose.ui.graphics.Color.White, activeTrackColor = c.accent, inactiveTrackColor = c.fill),
+                        thumb = { IosSliderThumb() },
                     )
                 } else {
                     // Counts and durations step like UIStepper; long ranges also take typing.
@@ -428,25 +430,30 @@ fun ResultDialog(r: Runner.Result, onDismiss: () -> Unit, onSetup: () -> Unit) {
 private typealias TK = app.openshortcuts.model.TriggerKind
 
 @Composable
-fun NewAutomationDialog(onDismiss: () -> Unit, onPick: (app.openshortcuts.model.TriggerKind) -> Unit) {
+fun NewAutomationDialog(
+    onDismiss: () -> Unit,
+    title: String = "New Automation",
+    current: app.openshortcuts.model.TriggerKind? = null,
+    onPick: (app.openshortcuts.model.TriggerKind) -> Unit,
+) {
     // Grouped like Apple's "New Automation" list: what starts it, by where it comes from.
     val groups = run {
         listOf(
-            "Time" to listOf(TK.Time to "Time of Day", TK.Alarm to "Alarm"),
+            "Time & Place" to listOf(TK.Time to "Time of Day", TK.Alarm to "Alarm", TK.Location to "Arrive or Leave"),
             "Apps & Messages" to listOf(TK.App to "App", TK.AppNotification to "Notification", TK.WhatsAppMessage to "WhatsApp Message", TK.WhatsAppCallLong to "WhatsApp Call Runs Long"),
             "Connections" to listOf(TK.WiFi to "Wi-Fi", TK.Bluetooth to "Bluetooth", TK.Headphones to "Headphones", TK.AirplaneMode to "Airplane Mode"),
             "Power & Focus" to listOf(TK.Charger to "Charger", TK.BatteryLevel to "Battery Level", TK.BatterySaver to "Battery Saver", TK.Dnd to "Do Not Disturb"),
         )
     }
     DuoDialog(onDismiss) {
-        DialogTitle("New Automation", "Choose what starts it.")
+        DialogTitle(title, "Choose what starts it.")
         groups.forEachIndexed { gi, (title, kinds) ->
             if (gi > 0) Spacer(Modifier.height(14.dp))
             SettingsGroup(title) {
                 kinds.forEachIndexed { i, (k, label) ->
                     if (i > 0) SettingsDivider()
                     SettingsRow(label, k.glyph(), k.tint().color(), onClick = { onPick(k) }) {
-                        Glyph("chevronRight", Theme.c.ink3, size = 16.dp)
+                        if (k == current) Glyph("check", Theme.c.accent, size = 18.dp) else Glyph("chevronRight", Theme.c.ink3, size = 16.dp)
                     }
                 }
             }

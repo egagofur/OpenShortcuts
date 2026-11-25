@@ -17,6 +17,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import app.openshortcuts.model.Store
 import app.openshortcuts.model.TriggerKind
+import kotlinx.coroutines.launch
 
 /**
  * Event triggers. They live inside the notification-listener service because Android keeps
@@ -90,6 +91,9 @@ class EventHost(private val ctx: Context) {
                     Events.bluetooth(ctx, on = i.action == android.bluetooth.BluetoothDevice.ACTION_ACL_CONNECTED, name)
                 }
                 Intent.ACTION_SCREEN_ON -> watchApps()
+                // Unlocked: send any WhatsApp message that waited for it.
+                Intent.ACTION_USER_PRESENT -> if (PendingSends.count(ctx) > 0)
+                    (ctx.applicationContext as app.openshortcuts.ShortcutsApp).scope.launch { kotlinx.coroutines.delay(700); Runner.sendWaiting(ctx) }
                 Intent.ACTION_SCREEN_OFF -> main.removeCallbacks(poll)
             }
         }
@@ -160,6 +164,7 @@ class EventHost(private val ctx: Context) {
             addAction(android.bluetooth.BluetoothDevice.ACTION_ACL_DISCONNECTED)
             addAction(Intent.ACTION_SCREEN_ON)
             addAction(Intent.ACTION_SCREEN_OFF)
+            addAction(Intent.ACTION_USER_PRESENT)
         })
         runCatching { ctx.getSystemService(android.media.AudioManager::class.java).registerAudioDeviceCallback(audio, main) }
         current = this
@@ -268,6 +273,16 @@ object Events {
         if (ringing.remove(sbn.key)) { Log.i(TAG, "alarm off"); fire(ctx, TriggerKind.Alarm, on = false) }
     }
 
+    /** Chats seen in WhatsApp notifications, newest first: the "from" picker offers these, groups included. */
+    fun recentChats(ctx: Context): List<String> =
+        ctx.getSharedPreferences("history", Context.MODE_PRIVATE).getString("wa_chats", "").orEmpty().split('\n').filter { it.isNotBlank() }
+
+    private fun rememberChat(ctx: Context, name: String) {
+        if (name.isBlank()) return
+        val list = (listOf(name) + recentChats(ctx).filterNot { it == name }).take(40)
+        ctx.getSharedPreferences("history", Context.MODE_PRIVATE).edit().putString("wa_chats", list.joinToString("\n")).apply()
+    }
+
     /** A new WhatsApp chat message. Its text becomes the shortcut's input. */
     fun message(ctx: Context, sbn: StatusBarNotification) {
         val n = sbn.notification
@@ -285,6 +300,7 @@ object Events {
         if (stamp <= (seenMessages[sbn.key] ?: 0L)) return
         seenMessages[sbn.key] = stamp
         Log.i(TAG, "WhatsApp message")
+        rememberChat(ctx, chat.ifEmpty { sender })
         val vars = mapOf("Message Sender" to sender, "Message Chat" to chat.ifEmpty { sender })
         Store.library.value.automations
             .filter { it.enabled && it.kind == TriggerKind.WhatsAppMessage }

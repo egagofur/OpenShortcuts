@@ -332,6 +332,7 @@ fun Automation.headline(ctx: android.content.Context? = null): String = when (ki
     TriggerKind.Headphones -> "Headphones ${if (on) "connected" else "disconnected"}"
     TriggerKind.AirplaneMode -> "Airplane Mode turns ${if (on) "on" else "off"}"
     TriggerKind.BatterySaver -> "Battery Saver turns ${if (on) "on" else "off"}"
+    TriggerKind.Location -> (if (on) "Arrive at " else "Leave ") + place.ifBlank { "a place" }
 }
 
 fun TriggerKind.glyph(): String = when (this) {
@@ -349,6 +350,7 @@ fun TriggerKind.glyph(): String = when (this) {
     TriggerKind.Headphones -> "headphones"
     TriggerKind.AirplaneMode -> "airplane"
     TriggerKind.BatterySaver -> "battery"
+    TriggerKind.Location -> "pin"
 }
 
 fun TriggerKind.tint(): app.openshortcuts.model.Tint = when (this) {
@@ -364,6 +366,7 @@ fun TriggerKind.tint(): app.openshortcuts.model.Tint = when (this) {
     TriggerKind.Headphones -> app.openshortcuts.model.Tint.Pink
     TriggerKind.AirplaneMode -> app.openshortcuts.model.Tint.Orange
     TriggerKind.BatterySaver -> app.openshortcuts.model.Tint.Yellow
+    TriggerKind.Location -> app.openshortcuts.model.Tint.Blue
 }
 
 /** Floating segmented control, same material as the editor's bottom sheet. */

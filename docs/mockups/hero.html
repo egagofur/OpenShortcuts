@@ -1,0 +1,40 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  :root { --bg1:#0b1020; --bg2:#1a2a6c; }
+  * { box-sizing:border-box; margin:0; }
+  html,body { width:1600px; height:900px; }
+  body {
+    font-family: -apple-system, "SF Pro Display", "Inter", system-ui, sans-serif;
+    background: radial-gradient(1200px 700px at 75% 20%, #2f6df6 0%, transparent 60%),
+                radial-gradient(900px 600px at 10% 90%, #8b3dd6 0%, transparent 55%),
+                linear-gradient(160deg, var(--bg1), #05070d);
+    color:#fff; overflow:hidden; position:relative;
+  }
+  .copy { position:absolute; left:96px; top:170px; width:700px; }
+  .pill { display:inline-block; padding:8px 16px; border-radius:999px; background:rgba(255,255,255,.1);
+          border:1px solid rgba(255,255,255,.18); font-size:20px; letter-spacing:.01em; }
+  h1 { font-size:66px; line-height:1.02; letter-spacing:-0.035em; margin-top:26px; font-weight:800; }
+  h1 span { background:linear-gradient(90deg,#7fb2ff,#c9a2ff); -webkit-background-clip:text; color:transparent; }
+  p { font-size:27px; line-height:1.4; color:rgba(255,255,255,.78); margin-top:24px; letter-spacing:-0.01em; }
+  .tags { margin-top:34px; display:flex; gap:12px; flex-wrap:wrap; }
+  .tags div { font-size:18px; padding:9px 15px; border-radius:12px; background:rgba(255,255,255,.08); color:rgba(255,255,255,.85); }
+  .phone { position:absolute; width:300px; height:650px; border-radius:52px; padding:12px; background:#111;
+           box-shadow: 0 0 0 2px #2a2a2e, 0 50px 120px rgba(0,0,0,.6), inset 0 0 0 2px #3a3a40; }
+  .phone img { width:100%; height:100%; object-fit:cover; object-position:top; border-radius:41px; display:block; }
+  .phone::after { content:""; position:absolute; top:24px; left:50%; width:22px; height:22px; margin-left:-11px; border-radius:50%; background:#000; box-shadow:0 0 0 2px #1c1c1f; }
+  .p1 { left:840px; top:150px; transform: rotate(-6deg); }
+  .p2 { left:1060px; top:95px;  z-index:2; }
+  .p3 { left:1250px; top:170px; transform: rotate(6deg); }
+</style></head>
+<body>
+  <div class="copy">
+    <div class="pill">Free &amp; open source · Android</div>
+    <h1>The Shortcuts app<br><span>Android was missing.</span></h1>
+    <p>Build automations from simple sentences. End a WhatsApp call when you fall asleep, reply while you're busy, run routines at sunset — no root, no account.</p>
+    <div class="tags"><div>15 triggers</div><div>60+ actions</div><div>Works when locked</div><div>On-device</div></div>
+  </div>
+  <div class="phone p1"><img src="SHOT1"></div>
+  <div class="phone p2"><img src="SHOT2"></div>
+  <div class="phone p3"><img src="SHOT3"></div>
+</body></html>

@@ -159,9 +159,30 @@ class CallWatcher : NotificationListenerService() {
             return ReplyResult.Sent
         }
 
+        /**
+         * Make sure the listener is connected, asking Android to bind it again and waiting up to
+         * [waitMs]. True when it's ready. Access switched off can't be fixed here.
+         */
+        suspend fun ensureConnected(context: Context, waitMs: Long = 6_000): Boolean {
+            if (instance != null) return true
+            if (!isEnabled(context)) return false
+            rebind(context)
+            val until = System.currentTimeMillis() + waitMs
+            while (instance == null && System.currentTimeMillis() < until) kotlinx.coroutines.delay(150)
+            return instance != null
+        }
+
         /** Ask the system to bind us again after the process was killed. */
         fun rebind(context: Context) {
-            runCatching { NotificationListenerService.requestRebind(ComponentName(context, CallWatcher::class.java)) }
+            val me = ComponentName(context, CallWatcher::class.java)
+            // Some phones (Oppo/ColorOS) ignore requestRebind. Switching the component off and on
+            // makes the system drop its stale record and bind the listener again.
+            runCatching {
+                val pm = context.packageManager
+                pm.setComponentEnabledSetting(me, android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED, android.content.pm.PackageManager.DONT_KILL_APP)
+                pm.setComponentEnabledSetting(me, android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED, android.content.pm.PackageManager.DONT_KILL_APP)
+            }
+            runCatching { NotificationListenerService.requestRebind(me) }
         }
     }
 }

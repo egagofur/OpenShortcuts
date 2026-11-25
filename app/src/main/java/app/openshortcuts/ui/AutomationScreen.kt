@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -102,6 +103,7 @@ fun AutomationScreen(
         if (a.kind != TriggerKind.Time) add(Perm.CallAccess)
         if (a.kind == TriggerKind.App) add(Perm.UsageAccess)
         if (a.kind == TriggerKind.Bluetooth) add(Perm.Bluetooth)
+        if (a.kind == TriggerKind.Location) { add(Perm.Location); add(Perm.BackgroundLocation) }
         if (a.kind == TriggerKind.Time && (a.timeMode == "sunrise" || a.timeMode == "sunset")) add(Perm.Location)
         add(Perm.Notifications); add(Perm.Alarms); add(Perm.Battery)
         target?.let { addAll(Perm.missing(ctx, it)) }
@@ -115,9 +117,23 @@ fun AutomationScreen(
                 .padding(start = 18.dp, end = 4.dp, bottom = 32.dp),
         ) {
             Row(Modifier.padding(top = 22.dp, bottom = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconTile(a.kind.glyph(), a.kind.tint().color(), size = 32.dp)
+                // The trigger itself is a button: change what starts this automation without starting over.
+                Row(
+                    Modifier.weight(1f).pressable(scale = 0.97f, label = "Change trigger") { dialog = "kind" },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    androidx.compose.animation.AnimatedContent(a.kind, label = "kindIcon",
+                        transitionSpec = { (androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(180)) + androidx.compose.animation.scaleIn(androidx.compose.animation.core.tween(220, easing = Motion.easeOut), initialScale = 0.85f)) togetherWith androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(100)) },
+                    ) { k -> IconTile(k.glyph(), k.tint().color(), size = 32.dp) }
+                    Spacer(Modifier.width(10.dp))
+                    Text(a.kind.title, style = Theme.t.title, color = c.ink, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false))
+                    Spacer(Modifier.width(6.dp))
+                    Box(Modifier.size(24.dp).clip(CircleShape).background(c.fill), contentAlignment = Alignment.Center) {
+                        Glyph("chevronDown", c.ink2, size = 16.dp)
+                    }
+                }
                 Spacer(Modifier.width(10.dp))
-                Text("Automation", style = Theme.t.title, color = c.ink, modifier = Modifier.weight(1f))
                 DuoSwitch(a.enabled) { onChange(a.copy(enabled = it)) }
             }
 
@@ -159,6 +175,9 @@ fun AutomationScreen(
                     words("When headphones are") + Seg.Pill(if (a.on) "connected" else "disconnected") { onChange(a.copy(on = !a.on)) })
                 TriggerKind.AirplaneMode -> SentenceCard(a.kind.glyph(), a.kind.tint().color(),
                     words("When Airplane Mode turns") + Seg.Pill(if (a.on) "on" else "off") { onChange(a.copy(on = !a.on)) })
+                TriggerKind.Location -> SentenceCard(a.kind.glyph(), a.kind.tint().color(),
+                    words("When I") + Seg.Pill(if (a.on) "arrive at" else "leave") { onChange(a.copy(on = !a.on)) } +
+                        Seg.Pill(if (a.lat == 0.0 && a.lon == 0.0) "Choose place" else a.place.ifBlank { "Pinned place" }) { dialog = "place" })
                 TriggerKind.BatterySaver -> SentenceCard(a.kind.glyph(), a.kind.tint().color(),
                     words("When Battery Saver turns") + Seg.Pill(if (a.on) "on" else "off") { onChange(a.copy(on = !a.on)) })
             }
@@ -185,6 +204,7 @@ fun AutomationScreen(
                 TriggerKind.AppNotification -> "The notification's text is the shortcut's input; {Notification Title} and {Notification App} are set too."
                 TriggerKind.App -> "The app's name goes to the shortcut as its input."
                 TriggerKind.Bluetooth -> "The device's name goes to the shortcut as its input."
+                TriggerKind.Location -> "Android watches the place for you, even when the app is closed. Location must be on."
                 TriggerKind.Alarm -> "Works with your phone's Clock app while its alarm notification is showing."
                 else -> null
             }
@@ -239,17 +259,36 @@ fun AutomationScreen(
             PrimaryButton("Done", Modifier.fillMaxWidth()) { onChange(a.copy(level = v.toInt())); dialog = null }
         }
         "sender" -> DuoDialog({ dialog = null }) {
-            DialogTitle("From", "Part of a contact or group name. Leave empty for anyone.")
-            var v by remember { mutableStateOf(a.text) }
-            Field(v, { v = it }, "Anyone")
-            Spacer(Modifier.height(12.dp))
-            PrimaryButton("Done", Modifier.fillMaxWidth()) { onChange(a.copy(text = v.trim())); dialog = null }
+            DialogTitle("From", "A chat that messaged you, or a WhatsApp contact.")
+            HistoryPicker(
+                current = a.text, anyLabel = "Anyone", anyGlyph = "quote",
+                load = {
+                    val recent = app.openshortcuts.engine.Events.recentChats(ctx).map { HistoryItem(it, "Recent chat", "quote") }
+                    val contacts = app.openshortcuts.engine.Contacts.load(ctx).filter { it.whatsapp.isNotEmpty() }
+                        .filter { p -> recent.none { it.name.equals(p.name, true) } }.map { HistoryItem(it.name, "WhatsApp contact", "person") }
+                    recent + contacts
+                },
+                needs = if (app.openshortcuts.engine.Contacts.allowed(ctx)) null else android.Manifest.permission.READ_CONTACTS,
+                needsText = "Allow Contacts to also list your WhatsApp contacts. Chats that messaged you show up either way.",
+            ) { onChange(a.copy(text = it)); dialog = null }
         }
-        "text" -> DuoDialog({ dialog = null }) {
-            val bt = a.kind == TriggerKind.Bluetooth
-            DialogTitle(if (bt) "Device" else "Containing", if (bt) "Part of the device's name, like “Buds” or “Car”. Leave empty for any device." else "Words the notification must contain. Leave empty for any notification.")
+        "text" -> if (a.kind == TriggerKind.Bluetooth) DuoDialog({ dialog = null }) {
+            DialogTitle("Device", "Devices that have paired with this phone.")
+            HistoryPicker(
+                current = a.text, anyLabel = "Any device", anyGlyph = "bluetooth",
+                load = {
+                    runCatching {
+                        ctx.getSystemService(android.bluetooth.BluetoothManager::class.java).adapter?.bondedDevices.orEmpty()
+                            .mapNotNull { it.name }.distinct().sorted().map { HistoryItem(it, "Paired", "bluetooth") }
+                    }.getOrDefault(emptyList())
+                },
+                needs = if (app.openshortcuts.engine.Perm.Bluetooth.granted(ctx)) null else "android.permission.BLUETOOTH_CONNECT",
+                needsText = "Allow Nearby devices to list the Bluetooth devices you've paired.",
+            ) { onChange(a.copy(text = it)); dialog = null }
+        } else DuoDialog({ dialog = null }) {
+            DialogTitle("Containing", "Words the notification must contain. Leave empty for any notification.")
             var v by remember { mutableStateOf(a.text) }
-            Field(v, { v = it }, if (bt) "Any device" else "Anything")
+            Field(v, { v = it }, "Anything")
             Spacer(Modifier.height(12.dp))
             PrimaryButton("Done", Modifier.fillMaxWidth()) { onChange(a.copy(text = v.trim())); dialog = null }
         }
@@ -296,6 +335,14 @@ fun AutomationScreen(
                 dialog = null
             }
         }
+        "place" -> MapPicker(
+            start = Picked(a.lat, a.lon, a.radius, a.place),
+            onDismiss = { dialog = null },
+        ) { p -> onChange(a.copy(lat = p.lat, lon = p.lon, radius = p.radius, place = p.name)); dialog = null }
+        "kind" -> NewAutomationDialog(onDismiss = { dialog = null }, title = "Change Trigger", current = a.kind) { k ->
+            dialog = null
+            if (k != a.kind) onChange(a.switchTo(k))
+        }
         "shortcut" -> DuoDialog({ dialog = null }) {
             DialogTitle("Run Shortcut")
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -340,5 +387,70 @@ private fun DaysDialog(days: Set<Int>, onDismiss: () -> Unit, onChange: (Set<Int
         }
         Spacer(Modifier.height(18.dp))
         PrimaryButton("Done", Modifier.fillMaxWidth()) { onChange(if (sel.size == 7) emptySet() else sel); onDismiss() }
+    }
+}
+
+/** Same automation, new trigger: keeps its shortcut and run options, resets what belonged to the old trigger. */
+fun Automation.switchTo(k: TriggerKind): Automation {
+    val base = copy(kind = k, on = true, text = "", app = "", level = 20, offset = 0, monthDay = 0, date = "", timeMode = "time")
+    return when (k) {
+        TriggerKind.WhatsAppCallLong -> base.copy(callMinutes = 45, windowStart = 23 * 60, windowEnd = 5 * 60)
+        TriggerKind.BatteryLevel -> base.copy(on = false)
+        else -> base
+    }
+}
+
+data class HistoryItem(val name: String, val sub: String, val glyph: String)
+
+/**
+ * Choose from what the phone has seen (paired devices, chats, contacts) instead of typing a name.
+ * The search box only filters the list; "Any …" is always the first row.
+ */
+@Composable
+fun HistoryPicker(
+    current: String,
+    anyLabel: String,
+    anyGlyph: String,
+    load: suspend () -> List<HistoryItem>,
+    needs: String?,
+    needsText: String,
+    onPick: (String) -> Unit,
+) {
+    val c = Theme.c
+    var tick by remember { mutableStateOf(0) }
+    val ask = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { tick++ }
+    val items by androidx.compose.runtime.produceState<List<HistoryItem>?>(null, tick) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { load() }
+    }
+    var q by remember { mutableStateOf("") }
+    if ((items?.size ?: 0) > 6) {
+        Field(q, { q = it }, "Search", autofocus = false)
+        Spacer(Modifier.height(10.dp))
+    }
+    if (needs != null) {
+        Row(
+            Modifier.fillMaxWidth().clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp)).background(c.bg).padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(needsText, style = Theme.t.small, color = c.ink, modifier = Modifier.weight(1f))
+            Spacer(Modifier.width(8.dp))
+            Box(
+                Modifier.heightIn(min = 34.dp).pressable(label = "Allow") { ask.launch(needs) }
+                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(17.dp)).background(c.accentWash).padding(horizontal = 14.dp, vertical = 7.dp),
+                contentAlignment = Alignment.Center,
+            ) { Text("Allow", style = Theme.t.label, color = c.accent) }
+        }
+        Spacer(Modifier.height(10.dp))
+    }
+    val shown = items.orEmpty().filter { q.isBlank() || it.name.contains(q.trim(), true) }
+    androidx.compose.foundation.lazy.LazyColumn(Modifier.heightIn(max = if (isShort) 200.dp else 380.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (q.isBlank()) item(key = "any") { ChoiceRow(anyLabel, current.isBlank(), anyGlyph, Tint.Gray.color()) { onPick("") } }
+        items(shown.size, key = { "h" + shown[it].sub + shown[it].name }) { i ->
+            val it = shown[i]
+            ChoiceRow(it.name, it.name.equals(current, true), it.glyph, if (it.glyph == "bluetooth") Tint.Blue.color() else Tint.Green.color()) { onPick(it.name) }
+        }
+        if (items != null && shown.isEmpty() && needs == null) item(key = "none") {
+            Text(if (q.isBlank()) "Nothing here yet." else "No matches for “$q”.", style = Theme.t.small, color = c.ink2, modifier = Modifier.padding(8.dp))
+        }
     }
 }

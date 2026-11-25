@@ -1,89 +1,83 @@
-# OpenShortcuts
+<h1 align="center">OpenShortcuts</h1>
 
-Shortcuts-style automation for Android. Build routines out of small actions, run them with one tap, or let them run on their own: at a time of day, or when a WhatsApp call goes on too long.
+<p align="center"><b>The Shortcuts app Android was missing.</b><br>
+Free, open-source automation for Android, inspired by iOS Shortcuts: build routines from simple sentences, run them with one tap, or let them run on their own.</p>
 
-It started with one problem: falling asleep on a WhatsApp call and waking up to a hot phone and a dead battery. OpenShortcuts can end that call for you, on its own.
-
-<p>
-  <img src="docs/screenshots/home.png" width="260" alt="Shortcut library with Sleep Mode, Hang Up WhatsApp, Battery Check and Good Morning tiles">
-  <img src="docs/screenshots/editor.png" width="260" alt="Sleep Mode editor: Pause media, End WhatsApp call, Turn On Do Not Disturb">
-  <img src="docs/screenshots/automation.png" width="260" alt="Automation: when a WhatsApp call lasts 45 min, only between 23:00 and 05:00, run Sleep Mode">
+<p align="center">
+  <a href="#install"><img alt="Android 10+" src="https://img.shields.io/badge/Android-10%2B-3ddc84?logo=android&logoColor=white"></a>
+  <img alt="Kotlin" src="https://img.shields.io/badge/Kotlin-Jetpack%20Compose-7f52ff?logo=kotlin&logoColor=white">
+  <img alt="No root" src="https://img.shields.io/badge/root-not%20needed-0a84ff">
+  <img alt="On-device" src="https://img.shields.io/badge/runs-on%20device-34c759">
 </p>
 
-## What it does
+<p align="center"><img src="docs/images/hero.png" alt="OpenShortcuts: shortcut library, the Sleep Mode editor and a WhatsApp call automation on Android phones" width="100%"></p>
 
-- **Shortcuts as sentences.** Every action reads like a sentence with blue tokens you tap to change: “Turn **On** Do Not Disturb”, “Set brightness to **10%**”.
-- **Scripting**: If / Otherwise (with contains, begins with, matches…), Repeat, Repeat with Each, Choose from Menu or List, Ask for Input, Set / Get / Add to Variable, Wait, Run Shortcut, Stop and Output.
-- **Data**: replace, split, combine, match and change case of text; pull numbers, links, phone numbers or emails out of text; lists, dictionaries (JSON), calculate, round, random numbers, dates and date math. Put `{Current Time}`, `{Shortcut Input}` or your own `{Variable}` in any text.
-- **Automations**
-  - *Time of day*: daily, weekdays, or any days you pick.
-  - *WhatsApp call runs long*: “when a call lasts 45 min, only between 23:00 and 05:00”.
-  - *WhatsApp message* (from anyone, or a contact or group you name), *Charger*, *Battery level*, *Do Not Disturb*, *Wi-Fi*.
-  - Automations run on their own, with no notification to approve. Turn on **Ask before running** for one that should give you a minute to **Snooze 30 min / Not now / Run now** first.
-- **63 actions**: end a WhatsApp call, reply to or send a WhatsApp message, call, send SMS, compose email, share, start a timer, set an alarm, add or read calendar events, get your location, open Maps, end a phone call, lock the screen, speak text, Do Not Disturb, ringer mode, pause/play media, volume, brightness, flashlight, vibrate, battery level, open app, open URL, text, notifications and more.
-- **Run from anywhere**: a Home Screen icon per shortcut, a Quick Settings tile, the app icon's long-press menu (also shown in launcher search), and **Run Shortcut** in Android's share sheet or the menu that appears when you select text, with that text as the shortcut's input.
-- **Gallery**: 12 ready-made shortcuts (Sleep Mode, Hang Up Late Calls, Asleep Auto-Reply, Urgent Alert, Pomodoro, Low Battery Saver, Share My Location…), each shown in full before you add it.
-- **Share shortcuts as files**: Share sends a `.openshortcut` file. Whoever opens it sees every action, and a warning for things like ending calls, before tapping Add Shortcut.
-- Search for actions in English or Indonesian (“tutup telepon”, “tidur”).
-- Light and dark mode, follows your system text size.
+It started with one problem: falling asleep on a WhatsApp call and waking up to a hot phone and an empty battery. OpenShortcuts ends that call for you, with the screen off and the phone locked, and then does whatever else you like: Do Not Disturb, dim the screen, lock the phone.
 
-## Design
+## Why OpenShortcuts
 
-The layout borrows from the folded “iPhone Duo” cover-screen concepts: a right-hand rail with the clock, a battery ring and round controls, white sentence cards, and a floating bottom sheet for search and the toolbar. On tall phones the rail controls move to the bottom so they stay under your thumb.
+- **Reads like a sentence.** “Turn **On** Do Not Disturb”, “Set brightness to **10%**”, “Send WhatsApp to **Mama**”. Tap a blue word to change it. No flowcharts, no scripting language.
+- **Runs on its own.** 15 triggers, from time of day and sunset to arriving home, a Bluetooth car kit or a WhatsApp message. No notification to approve.
+- **Works when your phone is locked.** Ending a WhatsApp call and replying to a chat go through WhatsApp's own notification buttons, so they work with the screen off.
+- **Private.** No account, no tracking, no ads. Everything runs on the phone.
+- **Feels native.** Apple-style motion and controls, haptics, dark mode, a tour on first launch, and a layout that fits tall phones, landscape and small cover screens.
 
-<p>
-  <img src="docs/screenshots/catalog.png" width="260" alt="Action catalog in the expanded bottom sheet">
-  <img src="docs/screenshots/phone-editor-dark.png" width="200" alt="Editor in dark mode on a tall phone, controls at the bottom">
-  <img src="docs/screenshots/warning.png" width="260" alt="Warning notification: Still on the call? with Snooze, Not now and Run now">
-</p>
+<p align="center"><img src="docs/images/shortcuts.png" alt="Building a shortcut: the action catalog, the Sleep Mode editor with blue setting words, and a tip from the first-launch tour" width="100%"></p>
 
-## Sending WhatsApp messages
+## Automations: 15 triggers
 
-- **Reply on WhatsApp** answers a chat through the Reply button on WhatsApp's own notification. It works with the screen locked and needs no extra permission. Pair it with the *WhatsApp message* trigger: `{Message Sender}`, `{Message Chat}` and the message text (`{Shortcut Input}`) are filled in. Each chat gets at most one automatic run per minute, and your own replies never trigger it again.
-- **Send WhatsApp Message** opens a chat with any number and your text typed in. You tap Send, or turn on the optional auto-send service and it presses Send for you (phone must be unlocked). Numbers starting with 0 get your SIM's country code.
-
-Android doesn't let apps send WhatsApp messages directly the way WhatsApp's iPhone Shortcuts actions do, so these are the reliable routes.
-
-## Describe a shortcut
-
-Tap **+ → Describe what it should do** and write a sentence, in English or Indonesian, for example *“Kalau Mama kirim WhatsApp setelah jam 23:00, balas aku sudah tidur”*. OpenShortcuts asks Claude (`claude-opus-5-5`) to build it from the app's own action list, then shows you every action and any automation before adding it. Automations it creates start switched **off** until you've checked them.
-
-- Bring your own key from [console.anthropic.com](https://console.anthropic.com). It's stored in the app's private no-backup folder and can be removed from the same screen.
-- Only your sentence and the names of your existing shortcuts are sent. The reply is forced into a strict JSON schema and then checked like an imported file: unknown actions and parameters are dropped.
-- If a safety check declines a request, the API is allowed to fall back to another suitable model (`fallbacks: "default"`).
-
-## How ending a WhatsApp call works
-
-WhatsApp shows an ongoing-call notification with its own **Hang up** button. OpenShortcuts listens to notifications (with your permission) and presses that button for you. That means:
-
-- no root, no accessibility service, works with the screen off;
-- a call that is still **ringing** is never touched, only connected calls;
-- button labels are matched in several languages (Hang up, End call, Akhiri, Tutup, …).
-
-It only reads WhatsApp's call notification. Nothing leaves your phone. The only network use in the whole app is the optional *Describe a shortcut* below, and only after you add your own API key.
-
-## Permissions
-
-Open **Setup** (the sliders button) and allow what your shortcuts use:
-
-| Permission | Used for |
+| Group | Triggers |
 |---|---|
-| Notification access | Seeing WhatsApp's call and pressing Hang up |
-| Notifications | What an automation did, and the optional “Ask before running” notice |
-| Do Not Disturb | Do Not Disturb and silent ringer |
-| Modify system settings | Brightness |
-| Phone calls | Ending regular cellular calls |
-| Alarms & reminders | Running automations on the exact minute |
-| Unrestricted battery | Keeping night automations alive |
-| Make calls, Send SMS, Calendar, Location (optional) | Only for the actions that use them: calling without the dialer, sending SMS automatically, adding/reading events, getting your location |
-| Accessibility (optional) | The Lock Screen action only. The service listens to no events and can't read the screen |
-| Accessibility: WhatsApp auto-send (optional) | Pressing Send for “Send WhatsApp … automatically”. A separate service that can only see WhatsApp |
+| Time & place | **Time of day** (daily, weekly, monthly, once, every 15 min–12 h within hours you choose), **Sunrise / Sunset** with an offset, **Alarm** goes off or is stopped, **Arrive at / Leave a place** picked on a map with a radius |
+| Apps & messages | **App** opened or closed, **Notification** from any app containing some words, **WhatsApp message** from a chat or contact, **WhatsApp call runs long** |
+| Connections | **Wi-Fi**, **Bluetooth** device (chosen from your paired devices), **Headphones**, **Airplane Mode** |
+| Power & focus | **Charger**, **Battery level**, **Battery Saver**, **Do Not Disturb** |
 
-On Xiaomi, Oppo, Vivo and Samsung phones, also turn on **Autostart / background activity** for OpenShortcuts in the phone's own settings.
+Each automation shows exactly when it runs next. Switch the trigger of an existing automation without starting over. Turn on **Ask before running** for any automation that should give you a minute to snooze or skip.
 
-## Build
+<p align="center"><img src="docs/images/automations.png" alt="Automation screens: trigger list, a sunset trigger with an offset, and choosing a place on the map" width="100%"></p>
 
-Requirements: JDK 17 and the Android SDK (compileSdk 37).
+## 60+ actions
+
+- **Calls & WhatsApp**: end a WhatsApp call, end a phone call, reply to a WhatsApp chat, send a WhatsApp message to a contact, call, send SMS, email, share
+- **Device**: Do Not Disturb, ringer, volume, brightness, flashlight, media play/pause, vibrate, lock screen, speak text, battery level
+- **Clock & calendar**: timer, alarm, add an event, read upcoming events
+- **Location**: current location, show in Maps
+- **Scripting**: If / Otherwise, Repeat, Repeat with Each, Choose from Menu or List, Ask for Input, variables, Wait, Run Shortcut, Stop
+- **Text & data**: replace, split, combine, match, change case, extract links, numbers, emails or phone numbers, lists, dictionaries, calculate, dates and date math
+
+Pick contacts, apps, times and dates from real pickers: a contact list with WhatsApp marks, iOS-style time wheels, day chips. Use `{Shortcut Input}`, `{Current Time}`, `{Message Sender}` or your own variables in any text.
+
+## Run them from anywhere
+
+- Tap a tile, or **hold its … button** to delete (with Undo)
+- A **Home Screen icon** per shortcut and a **Quick Settings tile**
+- The app icon's long-press menu and launcher search
+- **Share sheet** and the text-selection menu, with the shared text as input
+- **Describe a shortcut** in a sentence, in English or Indonesian, and Claude builds it for you to review (optional, bring your own API key)
+- A **Gallery** of 12 ready-made shortcuts: Sleep Mode, Hang Up Late Calls, Asleep Auto-Reply, Urgent Alert, Pomodoro, Low Battery Saver…
+- Share any shortcut as an `.openshortcut` file; whoever opens it sees every action before adding it
+
+## Designed like a phone's own app
+
+<p align="center"><img src="docs/images/design.png" alt="The cover-screen layout in landscape, the first-launch welcome screen, and a tip from the tour" width="100%"></p>
+
+The layout borrows from folded “iPhone Duo” cover-screen concepts: a rail with the clock and a battery ring you can tap, white sentence cards with blue tokens, and a floating bottom sheet. Screens slide like iOS navigation, and the system back gesture follows your finger. Swipe an action or automation away to delete it. A short tour on first launch teaches the app by building a real shortcut.
+
+## How it works when the phone is locked
+
+| Action | Locked phone |
+|---|---|
+| End a WhatsApp call | Works. Presses **Hang up** on WhatsApp's call notification |
+| Reply on WhatsApp | Works. Uses the **Reply** box on WhatsApp's message notification |
+| Send WhatsApp to a contact | If that person has a WhatsApp notification, it replies right from the lock screen. Otherwise the message waits and **sends by itself the moment you unlock** |
+| Settings actions (Do Not Disturb, ringer, brightness, lock…) | Work |
+
+No app can open a WhatsApp chat behind a PIN-locked screen; this is the closest Android allows, and it needs no root.
+
+## Install
+
+Download the latest APK from **[Releases](../../releases)**, or build it yourself:
 
 ```bash
 ./gradlew :app:assembleDebug
@@ -93,11 +87,42 @@ Requirements: JDK 17 and the Android SDK (compileSdk 37).
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Kotlin, Jetpack Compose, no third-party dependencies. Shortcuts are stored as JSON in the app's private storage.
+Requirements to build: JDK 17 and the Android SDK (compileSdk 37). Runs on Android 10 and later.
 
-### Testing call hang-up without a second phone
+After installing, open **Setup** (the sliders button) and allow what your shortcuts use. On Xiaomi, Oppo, Vivo and Samsung phones, also allow **Autostart / background activity**, otherwise the phone may stop automations at night.
 
-`fakewa/` is a test-only app with the package name `com.whatsapp`. It posts a fake call notification so you can test hang-up and the “call runs long” automation on an **emulator**. Android refuses to install it on a phone that already has the real WhatsApp.
+## Permissions
+
+Everything is optional and asked for only when a shortcut needs it.
+
+| Permission | Used for |
+|---|---|
+| Notification access | Seeing WhatsApp's call and message notifications, the Notification and Alarm triggers |
+| Notifications | What an automation did, and the optional “Ask before running” notice |
+| Alarms & reminders | Running time-based automations on the exact minute |
+| Unrestricted battery | Keeping night automations alive |
+| Usage access | The App trigger (which app is on screen) |
+| Nearby devices | The Bluetooth trigger |
+| Location, Location all the time | Sunrise/sunset times, Get Location, and the Arrive/Leave trigger |
+| Contacts | Picking a person for Call, SMS, Email and WhatsApp |
+| Do Not Disturb, Modify system settings, Phone calls, Make calls, Send SMS, Calendar | Only for the actions that use them |
+| Accessibility (two optional services) | Lock Screen, and pressing Send in WhatsApp. The WhatsApp service can only see WhatsApp |
+
+## Privacy
+
+No account, no analytics, no ads. Shortcuts are stored as JSON in the app's private storage. The network is used only for map tiles (OpenStreetMap) when you pick a place, and for *Describe a shortcut* if you add your own Claude API key, in which case only your sentence and your shortcut names are sent.
+
+## Build and test
+
+```
+app/src/main/java/app/openshortcuts/
+  model/    actions, shortcuts, automations, JSON store
+  engine/   runner, triggers, WhatsApp call watcher, alarms, geofences, permissions
+  ui/       Compose screens, motion and design tokens
+fakewa/     a fake WhatsApp for emulator tests
+```
+
+`fakewa/` posts WhatsApp-style call and message notifications so you can test hang-up and the WhatsApp triggers on an **emulator** without a second phone:
 
 ```bash
 ./gradlew :fakewa:assembleDebug
@@ -111,20 +136,14 @@ adb -s emulator-5554 install -r fakewa/build/outputs/apk/debug/fakewa-debug.apk
 adb -s emulator-5554 shell am start -n com.whatsapp/dev.test.fakewa.CallActivity --es mode ongoing
 ```
 
-Modes: `ongoing`, `legacy` (button labelled “Tutup”), `incoming` (must not be hung up), `clear`.
+## Roadmap
 
-## Project layout
+- NFC tag trigger
+- Wi-Fi by network name
+- Signed release builds on GitHub and F-Droid
 
-```
-app/src/main/java/app/openshortcuts/
-  model/    actions, shortcuts, automations, JSON store
-  engine/   runner, WhatsApp call watcher, alarms, notifications, permissions
-  ui/       Compose screens and the design tokens
-fakewa/     fake WhatsApp for emulator tests
-```
+Ideas and bug reports are welcome in [Issues](../../issues). If OpenShortcuts saves your battery tonight, a ⭐ helps others find it.
 
-## Status
+---
 
-Early. Tested on an Android 16 emulator and an Oppo Find X8 (Android 17). Hanging up the real WhatsApp has been verified against WhatsApp-style notifications in the emulator; if it fails on your phone, please open an issue with your WhatsApp language.
-
-Not affiliated with Apple or WhatsApp.
+Kotlin and Jetpack Compose. Tested on an Oppo Find X8 (Android 17) and Android emulators. Not affiliated with Apple or WhatsApp.

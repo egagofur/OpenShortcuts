@@ -51,7 +51,7 @@ private val GROUPS = listOf(
     Group("Phone control", null,
         listOf(Perm.Dnd, Perm.WriteSettings, Perm.PhoneCalls, Perm.Accessibility, Perm.AutoSend)),
     Group("Personal data", "Needed only by shortcuts that use them.",
-        listOf(Perm.Contacts, Perm.Call, Perm.Sms, Perm.Calendar, Perm.Location)),
+        listOf(Perm.Contacts, Perm.Call, Perm.Sms, Perm.Calendar, Perm.Location, Perm.BackgroundLocation)),
 )
 
 private fun Perm.look(): Pair<String, Tint> = when (this) {
@@ -68,6 +68,7 @@ private fun Perm.look(): Pair<String, Tint> = when (this) {
     Perm.Sms -> "quote" to Tint.Green
     Perm.Calendar -> "calendar" to Tint.Red
     Perm.Location -> "pin" to Tint.Blue
+    Perm.BackgroundLocation -> "pin" to Tint.Indigo
     Perm.Contacts -> "person" to Tint.Gray
     Perm.UsageAccess -> "grid" to Tint.Indigo
     Perm.Bluetooth -> "bluetooth" to Tint.Blue

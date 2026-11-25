@@ -93,6 +93,7 @@ object Describe {
         appendLine("- AppNotification: a notification arrives; app = package name or \"\" for any app; text = words it must contain (\"\" = any). Its text is {Shortcut Input}; {Notification Title} and {Notification App} are set.")
         appendLine("- Alarm: on = an alarm goes off, off = an alarm is stopped. Bluetooth: on = connects; text = part of the device name (\"\" = any). Headphones: on = connected.")
         appendLine("- AirplaneMode: on = turns on. BatterySaver: on = turns on.")
+        appendLine("- Location: on = arrive, off = leave. The person picks the place on a map afterwards; say so in the note.")
         appendLine("Fill every automation field; ones that don't apply take any value (\"00:00\", 0, false, \"\"). warnFirst = false: automations run on their own. Set it true only when the user explicitly asks to be asked or warned first.")
         appendLine()
         appendLine("note: one or two plain sentences telling the person what you built and anything they still need to fill in or allow.")

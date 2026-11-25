@@ -432,3 +432,13 @@ fun rememberHaptics(): View = LocalView.current
 /** Top inset that ignores the hidden status bar (the rail shows time instead). */
 val WindowInsets.Companion.topBar: WindowInsets
     @Composable get() = WindowInsets.statusBars.union(WindowInsets.displayCutout).union(WindowInsets.navigationBars)
+
+
+/** iOS-style slider thumb: a white disc with a soft shadow, instead of Material's bar. */
+@Composable
+fun IosSliderThumb() {
+    Box(
+        Modifier.size(26.dp).shadow(4.dp, CircleShape, ambientColor = Color.Black.copy(alpha = 0.3f), spotColor = Color.Black.copy(alpha = 0.3f))
+            .clip(CircleShape).background(Color.White),
+    )
+}

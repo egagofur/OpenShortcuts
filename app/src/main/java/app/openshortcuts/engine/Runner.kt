@@ -196,13 +196,14 @@ object Runner {
         return when (a.type) {
             ActionType.END_WHATSAPP_CALL -> {
                 var r = CallWatcher.endWhatsAppCall()
-                if (r == CallWatcher.EndResult.NotConnected && CallWatcher.isEnabled(ctx)) {
-                    CallWatcher.rebind(ctx); delay(1500); r = CallWatcher.endWhatsAppCall()
-                }
+                if (r == CallWatcher.EndResult.NotConnected && CallWatcher.ensureConnected(ctx)) r = CallWatcher.endWhatsAppCall()
                 when (r) {
                     CallWatcher.EndResult.Ended -> log += "WhatsApp call ended"
                     CallWatcher.EndResult.NoCall -> log += "No WhatsApp call in progress"
-                    CallWatcher.EndResult.NotConnected -> fail("Allow notification access so OpenShortcuts can hang up WhatsApp calls.")
+                    CallWatcher.EndResult.NotConnected -> fail(
+                        if (CallWatcher.isEnabled(ctx)) "Android paused OpenShortcuts in the background, so it couldn't reach WhatsApp's call. Allow Autostart and unrestricted battery for OpenShortcuts in Setup, then try again."
+                        else "Allow notification access so OpenShortcuts can hang up WhatsApp calls.",
+                    )
                     CallWatcher.EndResult.Failed -> fail("Couldn't find WhatsApp's hang-up button.")
                 }
                 prev
@@ -276,6 +277,7 @@ object Runner {
             ActionType.REPLY_WHATSAPP -> {
                 val text = fill(st, a.p("body")).trim().ifEmpty { fail("Type the reply.") }
                 val chat = fill(st, a.p("chat")).trim()
+                CallWatcher.ensureConnected(ctx)
                 when (CallWatcher.replyWhatsApp(ctx, chat, text)) {
                     CallWatcher.Companion.ReplyResult.Sent -> log += "Replied on WhatsApp"
                     CallWatcher.Companion.ReplyResult.NoMessage -> log += "No WhatsApp message${if (chat.isNotEmpty()) " from $chat" else ""} to reply to"
@@ -285,7 +287,7 @@ object Runner {
                 text
             }
             ActionType.SEND_WHATSAPP -> {
-                sendWhatsApp(st, fill(st, a.p("number")), fill(st, a.p("body")), auto = a.p("mode") == "automatically")
+                sendWhatsApp(st, fill(st, a.p("number")), fill(st, a.p("body")), auto = a.p("mode") == "automatically", name = a.params["number.name"].orEmpty())
                 prev
             }
             ActionType.CALL -> { open(st, Phone.callIntent(ctx, fill(st, a.p("number"))), "Call ${fill(st, a.p("number"))}"); prev }
@@ -425,6 +427,19 @@ object Runner {
     }
 
     /** Digits with country code. A local 08… number gets the SIM's country code (Indonesia: 62). */
+    /** Send what waited for the unlock. Runs from the unlock broadcast, so the screen is on and open. */
+    suspend fun sendWaiting(ctx: Context) {
+        val items = PendingSends.take(ctx)
+        if (items.isEmpty()) return
+        Notifs.cancelWaiting(ctx)
+        items.forEach { item ->
+            val st = State(ctx, emptyList(), emptyMap(), 0, null, foreground = true)
+            runCatching { sendWhatsApp(st, item.number, item.text, item.auto, "") }
+                .onFailure { e -> Notifs.ran(ctx, Result(item.name.ifBlank { "WhatsApp" }, listOf(), listOf(), e.message ?: "Couldn't send")) }
+            kotlinx.coroutines.delay(1_500)
+        }
+    }
+
     private fun waNumber(ctx: Context, raw: String): String {
         val digits = raw.filter(Char::isDigit)
         if (digits.length < 8) fail("Enter a phone number with country code, e.g. 62812…")
@@ -435,9 +450,21 @@ object Runner {
         return code + digits.drop(1)
     }
 
-    private suspend fun sendWhatsApp(st: State, number: String, text: String, auto: Boolean) {
+    private suspend fun sendWhatsApp(st: State, number: String, text: String, auto: Boolean, name: String = "") {
         val ctx = st.ctx
         if (text.isBlank()) fail("Type the message to send.")
+        if (PendingSends.locked(ctx)) {
+            // 1. Locked, but this person has a WhatsApp notification: reply through it, right from the lock screen.
+            if (name.isNotBlank() && CallWatcher.ensureConnected(ctx, 3_000) &&
+                CallWatcher.replyWhatsApp(ctx, name, text) == CallWatcher.Companion.ReplyResult.Sent
+            ) { st.log += "Sent to $name from the lock screen"; return }
+            // 2. Otherwise hold it: it goes out by itself the moment the phone is unlocked.
+            waNumber(ctx, number)
+            PendingSends.add(ctx, PendingSends.Item(number, name, text, auto))
+            Notifs.waiting(ctx, name.ifBlank { number }, PendingSends.count(ctx))
+            st.log += "Waiting to send to ${name.ifBlank { number }} when you unlock"
+            return
+        }
         val pkg = CallWatcher.WHATSAPP.firstOrNull { p ->
             runCatching { ctx.packageManager.getPackageInfo(p, 0) }.isSuccess
         } ?: fail("WhatsApp isn't installed.")

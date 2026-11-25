@@ -91,7 +91,13 @@ private fun App() {
     ) { uri -> uri?.let { app.openshortcuts.model.Portable.receive(ctx, it) } }
     val runs = remember { RunController(ctx.applicationContext) }
 
-    LifecycleResumeEffect(Unit) { resumeTick++; onPauseOrDispose { } }
+    LifecycleResumeEffect(Unit) {
+        resumeTick++
+        // Opening the app is a good moment to reconnect the listener if the phone dropped it.
+        if (app.openshortcuts.engine.CallWatcher.isEnabled(ctx) && app.openshortcuts.engine.CallWatcher.instance == null)
+            app.openshortcuts.engine.CallWatcher.rebind(ctx)
+        onPauseOrDispose { }
+    }
 
     fun push(r: Route) = nav.push(r)
     fun pop() = nav.pop()

@@ -437,6 +437,8 @@ enum class TriggerKind(val title: String, val event: Boolean = true) {
     Headphones("Headphones"),
     AirplaneMode("Airplane Mode"),
     BatterySaver("Battery Saver"),
+    /** Arrive at (on) or leave (off) a place picked on the map, within [Automation.radius] metres. */
+    Location("Location"),
 }
 
 /**
@@ -473,6 +475,11 @@ data class Automation(
     val date: String = "",
     /** "time": repeat monthly on this day of the month (1–31); 0 = use [days] instead. */
     val monthDay: Int = 0,
+    /** Location: the centre of the place, its radius in metres and a readable name. lat/lon 0 = not picked yet. */
+    val lat: Double = 0.0,
+    val lon: Double = 0.0,
+    val radius: Int = 150,
+    val place: String = "",
 )
 
 data class Library(
