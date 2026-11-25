@@ -1,5 +1,6 @@
 package app.openshortcuts
 
+import java.time.LocalTime
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -154,7 +155,7 @@ private fun App() {
     if (newAuto) NewAutomationDialog(onDismiss = { newAuto = false }) { kind ->
         newAuto = false
         val a = Automation(kind = kind, shortcutId = "", callMinutes = 45,
-            windowStart = 23 * 60, windowEnd = 5 * 60, warnFirst = false)
+            windowStart = LocalTime.of(23, 0), windowEnd = LocalTime.of(5, 0), warnFirst = false)
         Store.upsert(a); push(Route.Auto(a.id))
     }
     if (newShortcut) app.openshortcuts.ui.NewShortcutDialog(

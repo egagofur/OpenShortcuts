@@ -1,5 +1,6 @@
 package app.openshortcuts.model
 
+import java.time.LocalTime
 import java.time.DayOfWeek
 import java.util.UUID
 
@@ -438,11 +439,11 @@ enum class TimeMode(val key: String, val label: String) {
 data class Automation(
     val id: String = UUID.randomUUID().toString(),
     val kind: TriggerKind,
-    val timeOfDay: Int = 23 * 60,
+    val timeOfDay: LocalTime = LocalTime.of(23, 0),
     val days: Set<DayOfWeek> = emptySet(),
     val callMinutes: Int = 30,
-    val windowStart: Int = 22 * 60,
-    val windowEnd: Int = 6 * 60,
+    val windowStart: LocalTime = LocalTime.of(22, 0),
+    val windowEnd: LocalTime = LocalTime.of(6, 0),
     val shortcutId: String = "",
     val enabled: Boolean = true,
     val warnFirst: Boolean = false,
@@ -467,7 +468,11 @@ data class Library(
     val automations: List<Automation> = emptyList(),
 )
 
-fun Int.hhmm(): String = "%02d:%02d".format(this / 60, this % 60)
+fun LocalTime.hhmm(): String = "%02d:%02d".format(hour, minute)
+
+val LocalTime.minuteOfDay: Int get() = hour * 60 + minute
+
+fun timeFromMinutes(m: Int): LocalTime = LocalTime.of(m / 60 % 24, m % 60)
 
 val WEEK: List<DayOfWeek> = DayOfWeek.entries
 
@@ -484,10 +489,10 @@ fun Set<DayOfWeek>.daysLabel(): String = when {
     else -> WEEK.filter { it in this }.joinToString(" ") { it.label(java.time.format.TextStyle.SHORT).take(2) }
 }
 
-fun inWindow(minuteOfDay: Int, start: Int, end: Int): Boolean =
+fun inWindow(now: LocalTime, start: LocalTime, end: LocalTime): Boolean =
     if (start == end) true
-    else if (start < end) minuteOfDay in start until end
-    else minuteOfDay >= start || minuteOfDay < end
+    else if (start < end) now >= start && now < end
+    else now >= start || now < end
 
 object Seeds {
     fun library(): Library {
@@ -528,8 +533,8 @@ object Seeds {
             shortcuts = listOf(sleep, hangUp, battery, morning),
             automations = listOf(
                 Automation(kind = TriggerKind.WhatsAppCallLong, callMinutes = 45,
-                    windowStart = 23 * 60, windowEnd = 5 * 60, shortcutId = sleep.id, enabled = false),
-                Automation(kind = TriggerKind.Time, timeOfDay = 23 * 60 + 30,
+                    windowStart = LocalTime.of(23, 0), windowEnd = LocalTime.of(5, 0), shortcutId = sleep.id, enabled = false),
+                Automation(kind = TriggerKind.Time, timeOfDay = LocalTime.of(23, 30),
                     shortcutId = sleep.id, enabled = false),
             ),
         )

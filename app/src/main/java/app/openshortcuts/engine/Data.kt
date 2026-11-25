@@ -278,7 +278,7 @@ object When {
         place: Place?,
         zone: java.time.ZoneId = java.time.ZoneId.systemDefault(),
     ): java.time.LocalDateTime? {
-        val at = java.time.LocalTime.of(a.timeOfDay / 60 % 24, a.timeOfDay % 60)
+        val at = a.timeOfDay
         when (a.timeMode) {
             TimeMode.Once -> {
                 val d = runCatching { java.time.LocalDate.parse(a.date) }.getOrNull() ?: return null
@@ -290,9 +290,9 @@ object When {
                 for (i in 0..8) {
                     val d = from.toLocalDate().plusDays(i.toLong())
                     if (!dayOk(a, d)) continue
-                    val start = if (allDay) d.atStartOfDay() else d.atTime(a.windowStart / 60, a.windowStart % 60)
+                    val start = if (allDay) d.atStartOfDay() else d.atTime(a.windowStart)
                     val end = if (allDay) d.plusDays(1).atStartOfDay()
-                        else d.atTime(a.windowEnd / 60, a.windowEnd % 60).let { if (a.windowEnd <= a.windowStart) it.plusDays(1) else it }
+                        else d.atTime(a.windowEnd).let { if (a.windowEnd <= a.windowStart) it.plusDays(1) else it }
                     var t = start
                     if (from >= start) {
                         val k = java.time.Duration.between(start, from).toMinutes() / step + 1

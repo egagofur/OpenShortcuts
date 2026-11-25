@@ -115,18 +115,18 @@ object Scheduler {
         }
     }
 
-    fun nextWindowStart(start: Int, from: Long = System.currentTimeMillis()): Long {
+    fun nextWindowStart(start: java.time.LocalTime, from: Long = System.currentTimeMillis()): Long {
         val c = Calendar.getInstance().apply {
             timeInMillis = from
-            set(Calendar.HOUR_OF_DAY, start / 60); set(Calendar.MINUTE, start % 60)
+            set(Calendar.HOUR_OF_DAY, start.hour); set(Calendar.MINUTE, start.minute)
             set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
         }
         if (c.timeInMillis <= from) c.add(Calendar.DAY_OF_YEAR, 1)
         return c.timeInMillis
     }
 
-    fun minuteOfDay(now: Long = System.currentTimeMillis()) =
-        Calendar.getInstance().apply { timeInMillis = now }.let { it.get(Calendar.HOUR_OF_DAY) * 60 + it.get(Calendar.MINUTE) }
+    fun timeOfDay(now: Long = System.currentTimeMillis()): java.time.LocalTime =
+        java.time.Instant.ofEpochMilli(now).atZone(java.time.ZoneId.systemDefault()).toLocalTime()
 
     fun handle(ctx: Context, stage: Stage, a: Automation): Job? {
         // A fired alarm leaves its PendingIntent alive; drop it so "is one pending?" stays truthful.
@@ -143,7 +143,7 @@ object Scheduler {
                 if (a.warnFirst) handle(ctx, Stage.Warn, a) else runNow(ctx, a)
             }
             Stage.Call -> {
-                if (inWindow(minuteOfDay(now), a.windowStart, a.windowEnd)) {
+                if (inWindow(timeOfDay(now), a.windowStart, a.windowEnd)) {
                     if (a.warnFirst) handle(ctx, Stage.Warn, a) else runNow(ctx, a)
                 } else {
                     at(ctx, Stage.Call, a.id, nextWindowStart(a.windowStart, now)); null

@@ -189,14 +189,14 @@ object Describe {
         if (imported.shortcut.actions.isEmpty()) error("Claude couldn't map that to any action. Try describing it differently.")
         val auto = o.optJSONObject("automation")?.let { a ->
             val kind = runCatching { TriggerKind.valueOf(a.optString("kind")) }.getOrNull() ?: return@let null
-            fun minutes(s: String, fallback: Int) = runCatching { Data.parseDate(s).let { it.hour * 60 + it.minute } }.getOrDefault(fallback)
+            fun time(s: String, fallback: java.time.LocalTime) = runCatching { Data.parseDate(s).let { java.time.LocalTime.of(it.hour, it.minute) } }.getOrDefault(fallback)
             Automation(
                 kind = kind,
-                timeOfDay = minutes(a.optString("time"), 22 * 60),
+                timeOfDay = time(a.optString("time"), java.time.LocalTime.of(22, 0)),
                 days = a.optJSONArray("days")?.let { d -> (0 until d.length()).map { d.getInt(it) }.filter { it in 1..7 }.map { app.openshortcuts.model.dayOfWeekFromCalendar(it) }.toSet() }.orEmpty(),
                 callMinutes = a.optInt("callMinutes", 30).coerceIn(1, 600),
-                windowStart = minutes(a.optString("windowStart"), 0),
-                windowEnd = minutes(a.optString("windowEnd"), 0),
+                windowStart = time(a.optString("windowStart"), java.time.LocalTime.MIDNIGHT),
+                windowEnd = time(a.optString("windowEnd"), java.time.LocalTime.MIDNIGHT),
                 on = a.optBoolean("on", true),
                 level = a.optInt("level", 20).coerceIn(1, 99),
                 sender = a.optString("text").take(60).takeIf { kind == TriggerKind.WhatsAppMessage }.orEmpty(),

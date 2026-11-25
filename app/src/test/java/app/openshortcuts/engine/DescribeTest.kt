@@ -41,7 +41,7 @@ class DescribeTest {
         val a = d.automation!!
         assertEquals(TriggerKind.WhatsAppMessage, a.kind)
         assertEquals("Mama", a.sender)
-        assertEquals(23 * 60, a.windowStart)
+        assertEquals(java.time.LocalTime.of(23, 0), a.windowStart)
         assertEquals(s.id, a.shortcutId)
         assertFalse(a.enabled)
         assertTrue(d.note.contains("urgent"))

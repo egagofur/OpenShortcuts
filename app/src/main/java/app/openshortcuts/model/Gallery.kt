@@ -1,5 +1,7 @@
 package app.openshortcuts.model
 
+import java.time.LocalTime
+
 object Gallery {
     data class Item(
         val section: String,
@@ -41,7 +43,7 @@ object Gallery {
                 a(ActionType.DND, "state" to "On"),
                 a(ActionType.LOCK),
             )
-            s to Automation(kind = TriggerKind.WhatsAppCallLong, callMinutes = 45, windowStart = 23 * 60, windowEnd = 5 * 60,
+            s to Automation(kind = TriggerKind.WhatsAppCallLong, callMinutes = 45, windowStart = LocalTime.of(23, 0), windowEnd = LocalTime.of(5, 0),
                 shortcutId = s.id, enabled = false)
         },
         Item("Sleep & Calls", "Asleep Auto-Reply", "Between 22:00 and 06:00, answer WhatsApp messages with “$ASLEEP”.",

@@ -91,9 +91,9 @@ object Store {
         }))
         put("automations", JSONArray(lib.automations.map { a ->
             JSONObject().apply {
-                put("id", a.id); put("kind", a.kind.name); put("time", a.timeOfDay)
+                put("id", a.id); put("kind", a.kind.name); put("time", a.timeOfDay.minuteOfDay)
                 put("days", JSONArray(a.days.map { it.calendarDay })); put("callMinutes", a.callMinutes)
-                put("windowStart", a.windowStart); put("windowEnd", a.windowEnd)
+                put("windowStart", a.windowStart.minuteOfDay); put("windowEnd", a.windowEnd.minuteOfDay)
                 put("shortcutId", a.shortcutId); put("enabled", a.enabled); put("warn", a.warnFirst)
                 put("on", a.on); put("level", a.level); put("sender", a.sender); put("device", a.device); put("keyword", a.keyword); put("app", a.app)
                 put("timeMode", a.timeMode.key); put("offset", a.offset); put("every", a.every); put("date", a.date); a.monthDay?.let { put("monthDay", it) }
@@ -118,10 +118,10 @@ object Store {
             val kind = runCatching { TriggerKind.valueOf(a.getString("kind")) }.getOrNull() ?: return@mapNotNull null
             val days = a.optJSONArray("days")
             Automation(
-                id = a.getString("id"), kind = kind, timeOfDay = a.optInt("time", 23 * 60),
+                id = a.getString("id"), kind = kind, timeOfDay = timeFromMinutes(a.optInt("time", 23 * 60)),
                 days = (0 until (days?.length() ?: 0)).map { days!!.getInt(it) }.filter { it in 1..7 }.map(::dayOfWeekFromCalendar).toSet(),
-                callMinutes = a.optInt("callMinutes", 30), windowStart = a.optInt("windowStart", 22 * 60),
-                windowEnd = a.optInt("windowEnd", 6 * 60), shortcutId = a.optString("shortcutId"),
+                callMinutes = a.optInt("callMinutes", 30), windowStart = timeFromMinutes(a.optInt("windowStart", 22 * 60)),
+                windowEnd = timeFromMinutes(a.optInt("windowEnd", 6 * 60)), shortcutId = a.optString("shortcutId"),
                 enabled = a.optBoolean("enabled", true), warnFirst = a.optBoolean("warn", false) && o.optInt("v", SCHEMA_BEFORE_ASK_FIRST) >= SCHEMA,
                 on = a.optBoolean("on", true), level = a.optInt("level", 20), sender = a.optString("sender", a.optString("text").takeIf { kind == TriggerKind.WhatsAppMessage }.orEmpty()),
                 device = a.optString("device", a.optString("text").takeIf { kind == TriggerKind.Bluetooth }.orEmpty()),

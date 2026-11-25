@@ -1,5 +1,6 @@
 package app.openshortcuts.ui
 
+import java.time.LocalTime
 import java.time.DayOfWeek
 import java.time.format.TextStyle
 import app.openshortcuts.model.WEEK
@@ -74,7 +75,7 @@ fun timeHeadline(a: Automation): String = when (a.timeMode) {
 }
 
 @Composable
-fun TimeTriggerCard(a: Automation, onChange: (Automation) -> Unit, pickTime: (Int, (Int) -> Unit) -> Unit) {
+fun TimeTriggerCard(a: Automation, onChange: (Automation) -> Unit, pickTime: (LocalTime, (LocalTime) -> Unit) -> Unit) {
     val c = Theme.c
     val ctx = LocalContext.current
     var dialog by remember { mutableStateOf<String?>(null) }
@@ -83,7 +84,7 @@ fun TimeTriggerCard(a: Automation, onChange: (Automation) -> Unit, pickTime: (In
         val mode = TimeMode.entries[i]
         onChange(
             when (mode) {
-                TimeMode.Every -> a.copy(timeMode = mode, every = a.every.coerceAtLeast(15), windowStart = 8 * 60, windowEnd = 22 * 60)
+                TimeMode.Every -> a.copy(timeMode = mode, every = a.every.coerceAtLeast(15), windowStart = LocalTime.of(8, 0), windowEnd = LocalTime.of(22, 0))
                 TimeMode.Once -> a.copy(timeMode = mode, date = a.date.ifBlank { LocalDate.now().plusDays(1).toString() })
                 else -> a.copy(timeMode = mode)
             },
@@ -166,7 +167,7 @@ fun TimeTriggerCard(a: Automation, onChange: (Automation) -> Unit, pickTime: (In
                 val (day, time) = v.split(" ")
                 val d = when (day) { "today" -> LocalDate.now(); "tomorrow" -> LocalDate.now().plusDays(1); else -> LocalDate.parse(day) }
                 val (h, m) = time.split(":").map { it.toInt() }
-                onChange(a.copy(date = d.toString(), timeOfDay = h * 60 + m)); dialog = null
+                onChange(a.copy(date = d.toString(), timeOfDay = LocalTime.of(h, m))); dialog = null
             }
         }
     }
@@ -234,13 +235,13 @@ private fun OffsetDialog(a: Automation, onDismiss: () -> Unit, onDone: (Int) -> 
 }
 
 @Composable
-private fun WindowDialog(a: Automation, pickTime: (Int, (Int) -> Unit) -> Unit, onDismiss: () -> Unit, onChange: (Automation) -> Unit) {
+private fun WindowDialog(a: Automation, pickTime: (LocalTime, (LocalTime) -> Unit) -> Unit, onDismiss: () -> Unit, onChange: (Automation) -> Unit) {
     val c = Theme.c
     val allDay = a.windowStart == a.windowEnd
     DuoDialog(onDismiss) {
         DialogTitle("When")
         Segmented(listOf("All Day", "Between"), if (allDay) 0 else 1) { i ->
-            onChange(if (i == 0) a.copy(windowStart = 0, windowEnd = 0) else a.copy(windowStart = 8 * 60, windowEnd = 22 * 60))
+            onChange(if (i == 0) a.copy(windowStart = LocalTime.MIDNIGHT, windowEnd = LocalTime.MIDNIGHT) else a.copy(windowStart = LocalTime.of(8, 0), windowEnd = LocalTime.of(22, 0)))
         }
         if (!allDay) {
             Spacer(Modifier.height(14.dp))

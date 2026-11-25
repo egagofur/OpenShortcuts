@@ -1,5 +1,7 @@
 package app.openshortcuts.ui
 
+import app.openshortcuts.model.minuteOfDay
+import java.time.LocalTime
 import app.openshortcuts.model.TimeMode
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -93,10 +95,10 @@ fun AutomationScreen(
     var confirmDelete by remember { mutableStateOf(false) }
     val target = lib.shortcuts.firstOrNull { it.id == a.shortcutId }
 
-    var timePick by remember { mutableStateOf<Pair<Int, (Int) -> Unit>?>(null) }
-    fun pickTime(current: Int, set: (Int) -> Unit) { timePick = current to set }
+    var timePick by remember { mutableStateOf<Pair<LocalTime, (LocalTime) -> Unit>?>(null) }
+    fun pickTime(current: LocalTime, set: (LocalTime) -> Unit) { timePick = current to set }
     timePick?.let { (current, set) ->
-        TimeWheelDialog("Time", current, onDismiss = { timePick = null }) { set(it); timePick = null }
+        TimeWheelDialog("Time", current.minuteOfDay, onDismiss = { timePick = null }) { set(app.openshortcuts.model.timeFromMinutes(it)); timePick = null }
     }
 
     var permTick by remember { mutableStateOf(0) }
@@ -374,7 +376,7 @@ private fun DaysDialog(days: Set<java.time.DayOfWeek>, onDismiss: () -> Unit, on
 fun Automation.switchTo(k: TriggerKind): Automation {
     val base = copy(kind = k, on = true, sender = "", device = "", keyword = "", app = "", level = 20, offset = 0, monthDay = null, date = "", timeMode = TimeMode.Time)
     return when (k) {
-        TriggerKind.WhatsAppCallLong -> base.copy(callMinutes = 45, windowStart = 23 * 60, windowEnd = 5 * 60)
+        TriggerKind.WhatsAppCallLong -> base.copy(callMinutes = 45, windowStart = LocalTime.of(23, 0), windowEnd = LocalTime.of(5, 0))
         TriggerKind.BatteryLevel -> base.copy(on = false)
         else -> base
     }
