@@ -213,6 +213,10 @@ object Data {
     /** now, today, tomorrow, yesterday, 2026-11-25, 2026-11-25 23:00, 23:00, or ISO. */
     fun parseDate(text: String, now: LocalDateTime = LocalDateTime.now()): LocalDateTime {
         val t = text.trim()
+        // "tomorrow 09:00", "today 23:30"
+        Regex("^(today|tomorrow|yesterday)\\s+(\\d{1,2}:\\d{2})$", RegexOption.IGNORE_CASE).find(t)?.let { m ->
+            return parseDate(m.groupValues[1], now).toLocalDate().atTime(LocalTime.parse(m.groupValues[2].padStart(5, '0')))
+        }
         return when (t.lowercase()) {
             "", "now" -> now
             "today" -> now.toLocalDate().atStartOfDay()

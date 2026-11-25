@@ -15,7 +15,7 @@ import app.openshortcuts.model.ActionType
 import app.openshortcuts.model.Shortcut
 
 /** Everything the app may need, with plain reasons. `runtime` = ask with the system dialog. */
-enum class Perm(val title: String, val why: String, val runtime: String? = null) {
+enum class Perm(val title: String, val why: String, val runtime: String? = null, val more: List<String> = emptyList()) {
     CallAccess("Notification access", "Lets OpenShortcuts see WhatsApp's call and press its Hang up button."),
     Notifications("Notifications", "Shows results and the one-minute warning before an automation runs.",
         Manifest.permission.POST_NOTIFICATIONS),
@@ -25,6 +25,10 @@ enum class Perm(val title: String, val why: String, val runtime: String? = null)
     Alarms("Alarms & reminders", "Runs automations at the exact minute you set."),
     Battery("Unrestricted battery", "Stops the system from putting automations to sleep overnight."),
     Accessibility("Lock screen", "Turn on OpenShortcuts under Accessibility to use the Lock Screen action. It reads nothing on screen."),
+    Call("Make calls", "Lets the Call action dial straight away instead of opening the dialer.", Manifest.permission.CALL_PHONE),
+    Sms("Send SMS", "Lets “Send SMS … automatically” send without opening Messages. Standard SMS charges apply.", Manifest.permission.SEND_SMS),
+    Calendar("Calendar", "Adds events and reads your upcoming ones.", Manifest.permission.WRITE_CALENDAR, listOf(Manifest.permission.READ_CALENDAR)),
+    Location("Location", "Gets your current location for “Get Current Location”.", Manifest.permission.ACCESS_FINE_LOCATION, listOf(Manifest.permission.ACCESS_COARSE_LOCATION)),
     AutoSend("Automatic WhatsApp sending", "Optional. Lets “Send WhatsApp … automatically” press Send for you. It can only see WhatsApp, and only acts on a message your shortcut just typed.");
 
     fun granted(ctx: Context): Boolean = when (this) {
@@ -32,7 +36,9 @@ enum class Perm(val title: String, val why: String, val runtime: String? = null)
         Notifications -> Build.VERSION.SDK_INT < 33 || ctx.checkSelfPermission(runtime!!) == PackageManager.PERMISSION_GRANTED
         Dnd -> ctx.getSystemService(NotificationManager::class.java).isNotificationPolicyAccessGranted
         WriteSettings -> Settings.System.canWrite(ctx)
-        PhoneCalls -> ctx.checkSelfPermission(runtime!!) == PackageManager.PERMISSION_GRANTED
+        PhoneCalls, Call, Sms, Calendar, Location -> (listOf(runtime!!) + more).all {
+            ctx.checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED
+        }
         Alarms -> Build.VERSION.SDK_INT < 31 || ctx.getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
         Battery -> ctx.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(ctx.packageName)
         Accessibility -> LockService.isEnabled(ctx)
@@ -62,6 +68,7 @@ enum class Perm(val title: String, val why: String, val runtime: String? = null)
     companion object {
         fun forAction(a: app.openshortcuts.model.Action): List<Perm> = when (a.type) {
             ActionType.SEND_WHATSAPP -> if (a.p("mode") == "automatically") listOf(AutoSend) else emptyList()
+            ActionType.SEND_SMS -> if (a.p("mode") == "automatically") listOf(Sms) else emptyList()
             else -> forAction(a.type)
         }
 
@@ -72,6 +79,8 @@ enum class Perm(val title: String, val why: String, val runtime: String? = null)
             ActionType.BRIGHTNESS -> listOf(WriteSettings)
             ActionType.NOTIFY -> listOf(Notifications)
             ActionType.LOCK -> listOf(Accessibility)
+            ActionType.ADD_EVENT, ActionType.UPCOMING_EVENTS -> listOf(Calendar)
+            ActionType.LOCATION -> listOf(Location)
             else -> emptyList()
         }
 

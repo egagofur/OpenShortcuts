@@ -37,7 +37,7 @@ import app.openshortcuts.engine.Perm
 fun SetupScreen(tick: Int, onBack: () -> Unit) {
     val c = Theme.c
     val ctx = LocalContext.current
-    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { }
 
     Row(Modifier.fillMaxSize().background(c.bg)) {
         Column(
@@ -71,7 +71,7 @@ fun SetupScreen(tick: Int, onBack: () -> Unit) {
                                 Modifier.height(36.dp)
                                     .pressable(scale = 0.95f, label = "Allow ${p.title}") {
                                         val r = p.runtime
-                                        if (r != null) ask.launch(r)
+                                        if (r != null) ask.launch((listOf(r) + p.more).toTypedArray())
                                         else runCatching { ctx.startActivity(p.settingsIntent(ctx)) }
                                             .onFailure { ctx.startActivity(Perm.Notifications.settingsIntent(ctx)) }
                                     }

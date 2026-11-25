@@ -17,7 +17,7 @@ data class ParamSpec(
 )
 
 enum class Category(val title: String) {
-    Calls("Calls"), Messages("WhatsApp Messages"), Sleep("Sleep & Focus"), Device("Device"),
+    Calls("Calls"), Messages("Messages & Sharing"), Clock("Clock & Calendar"), Location("Location & Maps"), Sleep("Sleep & Focus"), Device("Device"),
     Scripting("Scripting"), Text("Text & Results"), Lists("Lists & Dictionaries"), Math("Numbers & Dates"), Apps("Apps & Web"),
 }
 
@@ -62,6 +62,71 @@ enum class ActionType(
             ParamSpec("body", ParamKind.TEXT, "", placeholder = "Message"),
         ),
         summary = "Opens the chat with your message typed in. \"Automatically\" also presses Send (needs Accessibility, phone unlocked).",
+    ),
+    CALL(
+        "Call", "Call {number}", Category.Calls, Tint.Green, "phone",
+        listOf(ParamSpec("number", ParamKind.TEXT, "", placeholder = "Phone number")),
+        summary = "Calls straight away with the Make calls permission; otherwise opens the dialer.",
+    ),
+    SEND_SMS(
+        "Send SMS", "Send SMS to {number} {mode}", Category.Messages, Tint.Green, "quote",
+        listOf(
+            ParamSpec("number", ParamKind.TEXT, "", placeholder = "Phone number"),
+            ParamSpec("mode", ParamKind.CHOICE, "and let me tap Send", listOf("and let me tap Send", "automatically")),
+            ParamSpec("body", ParamKind.TEXT, "", placeholder = "Message"),
+        ),
+        summary = "\"Automatically\" sends without opening Messages (needs the Send SMS permission).",
+    ),
+    EMAIL(
+        "Send Email", "Email {to} about {subject}", Category.Messages, Tint.Blue, "send",
+        listOf(
+            ParamSpec("to", ParamKind.TEXT, "", placeholder = "Address"),
+            ParamSpec("subject", ParamKind.TEXT, "", placeholder = "Subject"),
+            ParamSpec("body", ParamKind.TEXT, "", placeholder = "Message"),
+        ),
+        summary = "Opens your email app with everything filled in.",
+    ),
+    SHARE(
+        "Share", "Share {input}", Category.Messages, Tint.Blue, "share",
+        listOf(ParamSpec("input", ParamKind.INPUT, "@prev", placeholder = "Text")),
+    ),
+    TIMER(
+        "Start Timer", "Start a timer for {minutes} {label}", Category.Clock, Tint.Orange, "timer",
+        listOf(
+            ParamSpec("minutes", ParamKind.NUMBER, "10", suffix = " min", min = 1, max = 1440),
+            ParamSpec("label", ParamKind.TEXT, "", placeholder = "Label"),
+        ),
+        summary = "Starts a countdown in your Clock app.",
+    ),
+    ALARM(
+        "Set Alarm", "Set an alarm for {time} {label}", Category.Clock, Tint.Orange, "clock",
+        listOf(
+            ParamSpec("time", ParamKind.TEXT, "06:00", placeholder = "HH:mm"),
+            ParamSpec("label", ParamKind.TEXT, "", placeholder = "Label"),
+        ),
+        summary = "Adds an alarm to your Clock app.",
+    ),
+    ADD_EVENT(
+        "Add Calendar Event", "Add event {title} at {start} for {minutes}", Category.Clock, Tint.Red, "calendar",
+        listOf(
+            ParamSpec("title", ParamKind.TEXT, "", placeholder = "Title"),
+            ParamSpec("start", ParamKind.TEXT, "tomorrow 09:00", placeholder = "When"),
+            ParamSpec("minutes", ParamKind.NUMBER, "60", suffix = " min", min = 5, max = 1440),
+        ),
+        summary = "Adds to your calendar quietly with Calendar access; otherwise opens the calendar to confirm.",
+    ),
+    UPCOMING_EVENTS(
+        "Get Upcoming Events", "Get events in the next {hours}", Category.Clock, Tint.Red, "calendar",
+        listOf(ParamSpec("hours", ParamKind.NUMBER, "24", suffix = " hours", min = 1, max = 720)),
+        output = "Upcoming Events",
+    ),
+    LOCATION(
+        "Get Current Location", "Get current location", Category.Location, Tint.Blue, "pin",
+        output = "Current Location", summary = "Latitude and longitude, e.g. -6.20000, 106.81667.",
+    ),
+    OPEN_MAPS(
+        "Open in Maps", "Show {query} in Maps", Category.Location, Tint.Blue, "pin",
+        listOf(ParamSpec("query", ParamKind.INPUT, "@prev", placeholder = "Place or address")),
     ),
     DND(
         "Do Not Disturb", "Turn {state} Do Not Disturb", Category.Sleep, Tint.Indigo, "moon",

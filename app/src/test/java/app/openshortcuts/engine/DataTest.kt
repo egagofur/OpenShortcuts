@@ -68,6 +68,8 @@ class DataTest {
         assertEquals("2026-11-25T06:40:15", Data.date("now", now))
         assertEquals("2026-11-25T23:00:00", Data.date("23:00", now))
         assertEquals("2026-11-26T00:00:00", Data.date("tomorrow", now))
+        assertEquals("2026-11-26T09:00:00", Data.date("tomorrow 09:00", now))
+        assertEquals("2026-11-25T07:05:00", Data.date("today 7:05", now))
         assertEquals("2026-11-27T23:00:00", Data.adjust("2026-11-25 23:00", "Add", "2", "days", now))
         assertEquals("90", Data.between("2026-11-25 22:00", "2026-11-25 23:30", "minutes", now))
         assertEquals("2026-11-25", Data.format("today", "yyyy-MM-dd", now, Locale.US))

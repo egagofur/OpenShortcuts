@@ -101,7 +101,7 @@ Apple has hundreds of actions. This table compares by area and names what OpenSh
 
 | Area | Apple examples | OpenShortcuts today | Gap / Android route |
 |---|---|---|---|
-| Calls | Call, FaceTime | ✅ End WhatsApp call, End phone call | ❌ Start a call (`ACTION_CALL`), start a WhatsApp call (deep link) |
+| Calls | Call, FaceTime | ✅ Call, End WhatsApp call, End phone call | ❌ Start a WhatsApp call |
 | Focus / sound | Set Focus, ringer, volume | ✅ Do Not Disturb, ringer mode, volume | ❌ Per-app DND rules |
 | Display | Brightness, appearance, Night Shift | ✅ Brightness | ❌ Dark mode (needs `WRITE_SECURE_SETTINGS` via a one-time adb grant), auto-rotate |
 | Media | Play/Pause, Skip, Play Music | ✅ Play, Pause, Next, Previous | ❌ Pick a playlist or app |
@@ -110,9 +110,9 @@ Apple has hundreds of actions. This table compares by area and names what OpenSh
 | Apps | Open App, app intents | ✅ Open app | ❌ Close app (not possible), App Actions |
 | Web | Open URLs, Get Contents of URL, Search Web | ✅ Open URL | ❌ HTTP requests (needs internet permission) |
 | Text | Text, Speak, Translate, Dictate, Copy | ✅ Text, Speak Text, Copy to Clipboard | ❌ Speak Text (built-in TextToSpeech, easy) |
-| Sharing / messages | Share, Copy to Clipboard, Send Message, Mail | 🟡 Reply on WhatsApp (from the notification, works while locked), Send WhatsApp Message (you tap Send, or automatic with opt-in Accessibility), Copy | No SMS or email yet |
-| Calendar / Reminders | Add event, Get upcoming events | ❌ | Calendar provider (permission) |
-| Location / Maps | Get current location, directions, weather | ❌ | LocationManager; weather needs internet |
+| Sharing / messages | Share, Copy to Clipboard, Send Message, Mail | ✅ Reply on WhatsApp, Send WhatsApp Message, Send SMS (tap or automatic), Send Email (compose), Share, Copy | Email can't be sent without you tapping Send |
+| Calendar / Reminders / Clock | Add event, Get upcoming events, Start Timer, Alarm | ✅ Add Calendar Event, Get Upcoming Events, Start Timer, Set Alarm | ❌ Reminders (no system reminders app on Android) |
+| Location / Maps | Get current location, directions, weather | ✅ Get Current Location, Open in Maps | ❌ Weather and travel time (need internet) |
 | Documents / files | Save File, Get File, PDF, QR code | ❌ | Storage Access Framework |
 | Photos / camera | Take Photo, Get Latest Photos | ❌ | MediaStore |
 | Health | Log health sample | ❌ | Health Connect |
@@ -140,7 +140,7 @@ Apple has hundreds of actions. This table compares by area and names what OpenSh
 | 1. Building | 16 | 5 | 4 | 0 |
 | 2. Ways to run | 5 | 0 | 4 | 4 |
 | 3. Triggers (Apple's 20) | 4 | 3 | 10 | 3 |
-| 4. Action areas | 1 of 17 fully | 10 | 6 | 0 |
+| 4. Action areas | 5 of 17 fully | 7 | 5 | 0 |
 | 5. Sharing and sync | 3 | 2 | 3 | 1 |
 
 OpenShortcuts covers the core editor and the night-time use case. The biggest gaps are ways to run a shortcut, event triggers, and variables and loops.

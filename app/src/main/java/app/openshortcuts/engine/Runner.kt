@@ -288,6 +288,30 @@ object Runner {
                 sendWhatsApp(st, fill(st, a.p("number")), fill(st, a.p("body")), auto = a.p("mode") == "automatically")
                 prev
             }
+            ActionType.CALL -> { open(st, Phone.callIntent(ctx, fill(st, a.p("number"))), "Call ${fill(st, a.p("number"))}"); prev }
+            ActionType.SEND_SMS -> {
+                val number = fill(st, a.p("number")); val body = fill(st, a.p("body"))
+                if (a.p("mode") == "automatically") { Phone.sendSms(ctx, number, body); log += "SMS sent" }
+                else open(st, Phone.smsIntent(number, body), "Send SMS")
+                prev
+            }
+            ActionType.EMAIL -> {
+                open(st, Phone.emailIntent(fill(st, a.p("to")), fill(st, a.p("subject")), fill(st, a.p("body"))), "Send email"); prev
+            }
+            ActionType.SHARE -> input(st, a, "input").also { open(st, Phone.shareIntent(it), "Share") }
+            ActionType.TIMER -> {
+                open(st, Phone.timerIntent(a.p("minutes").toIntOrNull() ?: 10, fill(st, a.p("label"))), "Start timer"); prev
+            }
+            ActionType.ALARM -> { open(st, Phone.alarmIntent(fill(st, a.p("time")), fill(st, a.p("label"))), "Set alarm"); prev }
+            ActionType.ADD_EVENT -> {
+                val title = fill(st, a.p("title"))
+                Phone.addEvent(ctx, title, fill(st, a.p("start")), a.p("minutes").toIntOrNull() ?: 60)
+                    ?.let { open(st, it, "Add “$title” to your calendar") } ?: run { log += "Event added" }
+                prev
+            }
+            ActionType.UPCOMING_EVENTS -> Phone.upcoming(ctx, a.p("hours").toIntOrNull() ?: 24)
+            ActionType.LOCATION -> Phone.location(ctx)
+            ActionType.OPEN_MAPS -> input(st, a, "input").also { open(st, Phone.mapsIntent(it), "Open in Maps") }
             ActionType.LOCK -> {
                 if (!LockService.lock()) fail("Allow lock screen access: turn on OpenShortcuts under Accessibility.")
                 prev
@@ -434,6 +458,23 @@ object Runner {
             if (!sent) { SendService.cancel(); fail("Couldn't press Send in WhatsApp. Is the phone unlocked?") }
             st.log += "WhatsApp message sent"
         } else st.log += "WhatsApp opened with your message"
+    }
+
+    /**
+     * Open another app's screen. Android blocks this from the background unless one of our
+     * accessibility services is on; then a notification opens it on tap instead.
+     */
+    private fun open(st: State, intent: Intent, title: String) {
+        val ctx = st.ctx
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (!st.foreground && !SendService.isEnabled(ctx) && !LockService.isEnabled(ctx)) {
+            Notifs.openLater(ctx, title, "Tap to continue.", intent)
+            st.log += "$title: waiting in a notification"
+            return
+        }
+        try { ctx.startActivity(intent) } catch (_: android.content.ActivityNotFoundException) {
+            fail("No app on this phone can do “$title”.")
+        }
     }
 
     /** Speak and wait until the voice finishes (so a following Lock Screen doesn't cut it off). */
