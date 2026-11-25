@@ -126,7 +126,7 @@ Apple has hundreds of actions. This table compares by area and names what OpenSh
 | Share as iCloud link | 🟡 | Share sends a `.openshortcut` file plus a readable recipe; no web link |
 | Export / import a file ("Anyone", "People Who Know Me") | ✅ | `.openshortcut` file. Import from the share sheet, "Open with", or + → Import; you review the actions and warnings before adding |
 | Import questions (asked when someone adds a shared shortcut) | ❌ | |
-| Gallery of ready-made shortcuts | 🟡 | 4 starter shortcuts and 2 starter automations; no browsable gallery |
+| Gallery of ready-made shortcuts | ✅ | 12 shortcuts in 4 sections (+ → Browse the Gallery); review before adding, bundled automations start off |
 | Sync across devices | ❌ | Would need an account or Google Drive; the app is offline-only today |
 | Automations synced but disabled on other devices | ⛔ | No sync yet |
 | Privacy per shortcut ("Allow Running When Locked") | ❌ | |
@@ -141,7 +141,7 @@ Apple has hundreds of actions. This table compares by area and names what OpenSh
 | 2. Ways to run | 6 | 0 | 3 | 4 |
 | 3. Triggers (Apple's 20) | 4 | 3 | 10 | 3 |
 | 4. Action areas | 5 of 17 fully | 7 | 5 | 0 |
-| 5. Sharing and sync | 3 | 2 | 3 | 1 |
+| 5. Sharing and sync | 4 | 1 | 3 | 1 |
 
 OpenShortcuts covers the core editor and the night-time use case. The biggest gaps are ways to run a shortcut, event triggers, and variables and loops.
 

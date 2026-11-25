@@ -78,7 +78,7 @@ object Portable {
         )
     }
 
-    private fun uniqueName(name: String, lib: Library): String {
+    fun uniqueName(name: String, lib: Library): String {
         if (lib.shortcuts.none { it.name == name }) return name
         var n = 2
         while (lib.shortcuts.any { it.name == "$name $n" }) n++

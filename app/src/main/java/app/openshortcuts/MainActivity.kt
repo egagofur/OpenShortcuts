@@ -47,6 +47,7 @@ sealed interface Route {
     data class Editor(val id: String) : Route
     data class Auto(val id: String) : Route
     data object Setup : Route
+    data object Gallery : Route
 }
 
 class MainActivity : ComponentActivity() {
@@ -162,6 +163,7 @@ private fun App() {
                 )
             }
             Route.Setup -> SetupScreen(resumeTick, onBack = ::pop)
+            Route.Gallery -> app.openshortcuts.ui.GalleryScreen(onBack = ::pop, onOpen = { push(Route.Editor(it)) })
         }
     }
 
@@ -182,6 +184,7 @@ private fun App() {
         },
         onImport = { newShortcut = false; pickFile.launch(arrayOf("*/*")) },
         onDescribe = { newShortcut = false; describing = true },
+        onGallery = { newShortcut = false; push(Route.Gallery) },
     )
     if (describing) app.openshortcuts.ui.DescribeDialog(
         onDismiss = { describing = false },

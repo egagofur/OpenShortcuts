@@ -402,10 +402,11 @@ fun VariableChips(names: List<String>, onInsert: (String) -> Unit) {
 }
 
 @Composable
-fun NewShortcutDialog(onDismiss: () -> Unit, onNew: () -> Unit, onImport: () -> Unit, onDescribe: () -> Unit) {
+fun NewShortcutDialog(onDismiss: () -> Unit, onNew: () -> Unit, onImport: () -> Unit, onDescribe: () -> Unit, onGallery: () -> Unit) {
     DuoDialog(onDismiss) {
         DialogTitle("New Shortcut")
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            ChoiceRow("Browse the Gallery", false, "grid", Tint.Orange.color(), onGallery)
             ChoiceRow("Describe what it should do", false, "quote", Tint.Purple.color(), onDescribe)
             ChoiceRow("Start from scratch", false, "plus", Tint.Blue.color(), onNew)
             ChoiceRow("Import a shortcut file", false, "down", Tint.Gray.color(), onImport)
@@ -424,6 +425,16 @@ private val SENSITIVE = mapOf(
     app.openshortcuts.model.ActionType.OPEN_APP to "open apps",
     app.openshortcuts.model.ActionType.COPY to "change the clipboard",
     app.openshortcuts.model.ActionType.RUN_SHORTCUT to "run your other shortcuts",
+    app.openshortcuts.model.ActionType.REPLY_WHATSAPP to "reply to WhatsApp messages for you",
+    app.openshortcuts.model.ActionType.SEND_WHATSAPP to "send WhatsApp messages",
+    app.openshortcuts.model.ActionType.SEND_SMS to "send SMS",
+    app.openshortcuts.model.ActionType.CALL to "make phone calls",
+    app.openshortcuts.model.ActionType.EMAIL to "write emails",
+    app.openshortcuts.model.ActionType.LOCK to "lock your screen",
+    app.openshortcuts.model.ActionType.ADD_EVENT to "add calendar events",
+    app.openshortcuts.model.ActionType.UPCOMING_EVENTS to "read your calendar",
+    app.openshortcuts.model.ActionType.LOCATION to "read your location",
+    app.openshortcuts.model.ActionType.SHARE to "share text",
 )
 
 /** Like Apple's "Add Shortcut" sheet: show what it does before it's added. */
@@ -440,7 +451,8 @@ fun ImportDialog(
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(s.name, style = Theme.t.title, color = c.ink)
-                Text("${s.actions.size} action${if (s.actions.size == 1) "" else "s"}", style = Theme.t.small, color = c.ink2)
+                val n = s.actions.count { !it.type.isMarker }
+                Text("$n action${if (n == 1) "" else "s"}", style = Theme.t.small, color = c.ink2)
             }
         }
         Spacer(Modifier.height(16.dp))
