@@ -264,6 +264,7 @@ private fun AutomationList(
     onOpen: (Automation) -> Unit, onToggle: (Automation) -> Unit, onDelete: (Automation) -> Unit,
 ) {
     val c = Theme.c
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     LazyColumn(
         modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.topBar.only(WindowInsetsSides.Top + WindowInsetsSides.Start)),
         contentPadding = PaddingValues(start = Dimens.gutter, end = 4.dp, bottom = bottomPad),
@@ -272,13 +273,13 @@ private fun AutomationList(
         item { Header("Automation", "Runs shortcuts for you, even while you sleep") }
         items(lib.automations, key = { it.id }) { a ->
             val target = lib.shortcuts.firstOrNull { it.id == a.shortcutId }
-            SwipeToDelete(a.headline(), onDelete = { onDelete(a) }, modifier = Modifier.animateItem()) {
+            SwipeToDelete(a.headline(ctx), onDelete = { onDelete(a) }, modifier = Modifier.animateItem()) {
             Card(Modifier.fillMaxWidth().pressable(label = "Edit automation", onClick = { onOpen(a) })) {
                 Row(Modifier.padding(start = 16.dp, end = 12.dp, top = 14.dp, bottom = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconTile(a.kind.glyph(), a.kind.tint().color(), size = 34.dp)
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(a.headline(), style = Theme.t.label, color = c.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(a.headline(ctx), style = Theme.t.label, color = c.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         Text(
                             target?.let { "Run ${it.name}" } ?: "Choose a shortcut",
                             style = Theme.t.small, color = if (target == null) c.danger else c.ink2,
@@ -297,7 +298,13 @@ private fun AutomationList(
     }
 }
 
-fun Automation.headline(): String = when (kind) {
+/** An app's name for headlines; falls back to the package when the app isn't installed. */
+fun appLabel(ctx: android.content.Context?, pkg: String): String =
+    if (pkg.isBlank()) "any app" else ctx?.let { c ->
+        runCatching { c.packageManager.getApplicationLabel(c.packageManager.getApplicationInfo(pkg, 0)).toString() }.getOrNull()
+    } ?: pkg.substringAfterLast('.').replaceFirstChar { it.uppercase() }
+
+fun Automation.headline(ctx: android.content.Context? = null): String = when (kind) {
     TriggerKind.Time -> "At ${timeOfDay.hhmm()}, ${days.daysLabel().lowercase()}"
     TriggerKind.WhatsAppCallLong -> "WhatsApp call over $callMinutes min, ${windowStart.hhmm()}–${windowEnd.hhmm()}"
     TriggerKind.Charger -> if (on) "Charger connected" else "Charger disconnected"
@@ -305,6 +312,13 @@ fun Automation.headline(): String = when (kind) {
     TriggerKind.Dnd -> "Do Not Disturb turns ${if (on) "on" else "off"}"
     TriggerKind.WiFi -> if (on) "Wi-Fi connects" else "Wi-Fi disconnects"
     TriggerKind.WhatsAppMessage -> "WhatsApp message from ${text.ifBlank { "anyone" }}"
+    TriggerKind.App -> if (app.isBlank()) "An app opens" else "${appLabel(ctx, app)} is ${if (on) "opened" else "closed"}"
+    TriggerKind.AppNotification -> "Notification from ${appLabel(ctx, app)}" + if (text.isNotBlank()) " with “$text”" else ""
+    TriggerKind.Alarm -> if (on) "An alarm goes off" else "An alarm is stopped"
+    TriggerKind.Bluetooth -> "${text.ifBlank { "Any Bluetooth device" }} ${if (on) "connects" else "disconnects"}"
+    TriggerKind.Headphones -> "Headphones ${if (on) "connected" else "disconnected"}"
+    TriggerKind.AirplaneMode -> "Airplane Mode turns ${if (on) "on" else "off"}"
+    TriggerKind.BatterySaver -> "Battery Saver turns ${if (on) "on" else "off"}"
 }
 
 fun TriggerKind.glyph(): String = when (this) {
@@ -315,6 +329,13 @@ fun TriggerKind.glyph(): String = when (this) {
     TriggerKind.Dnd -> "moon"
     TriggerKind.WiFi -> "wifi"
     TriggerKind.WhatsAppMessage -> "quote"
+    TriggerKind.App -> "grid"
+    TriggerKind.AppNotification -> "bell"
+    TriggerKind.Alarm -> "alarm"
+    TriggerKind.Bluetooth -> "bluetooth"
+    TriggerKind.Headphones -> "headphones"
+    TriggerKind.AirplaneMode -> "airplane"
+    TriggerKind.BatterySaver -> "battery"
 }
 
 fun TriggerKind.tint(): app.openshortcuts.model.Tint = when (this) {
@@ -323,6 +344,13 @@ fun TriggerKind.tint(): app.openshortcuts.model.Tint = when (this) {
     TriggerKind.BatteryLevel -> app.openshortcuts.model.Tint.Orange
     TriggerKind.Dnd -> app.openshortcuts.model.Tint.Indigo
     TriggerKind.WiFi -> app.openshortcuts.model.Tint.Teal
+    TriggerKind.App -> app.openshortcuts.model.Tint.Indigo
+    TriggerKind.AppNotification -> app.openshortcuts.model.Tint.Red
+    TriggerKind.Alarm -> app.openshortcuts.model.Tint.Orange
+    TriggerKind.Bluetooth -> app.openshortcuts.model.Tint.Blue
+    TriggerKind.Headphones -> app.openshortcuts.model.Tint.Pink
+    TriggerKind.AirplaneMode -> app.openshortcuts.model.Tint.Orange
+    TriggerKind.BatterySaver -> app.openshortcuts.model.Tint.Yellow
 }
 
 /** Floating segmented control, same material as the editor's bottom sheet. */

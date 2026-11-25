@@ -112,7 +112,7 @@ fun DialogTitle(text: String, sub: String? = null) {
 }
 
 @Composable
-private fun ChoiceRow(text: String, selected: Boolean, glyph: String? = null, tint: androidx.compose.ui.graphics.Color? = null, onClick: () -> Unit) {
+fun ChoiceRow(text: String, selected: Boolean, glyph: String? = null, tint: androidx.compose.ui.graphics.Color? = null, onClick: () -> Unit) {
     val c = Theme.c
     Row(
         Modifier.fillMaxWidth().heightIn(min = 50.dp)
@@ -155,9 +155,9 @@ fun Field(value: String, onChange: (String) -> Unit, placeholder: String, number
     if (autofocus) LaunchedEffect(Unit) { runCatching { fr.requestFocus() } }
 }
 
-private data class AppEntry(val pkg: String, val label: String)
+data class AppEntry(val pkg: String, val label: String)
 
-private fun launchableApps(ctx: Context): List<AppEntry> {
+fun launchableApps(ctx: Context): List<AppEntry> {
     val pm = ctx.packageManager
     return pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)
         .map { AppEntry(it.activityInfo.packageName, it.loadLabel(pm).toString()) }
@@ -425,20 +425,31 @@ fun ResultDialog(r: Runner.Result, onDismiss: () -> Unit, onSetup: () -> Unit) {
     }
 }
 
+private typealias TK = app.openshortcuts.model.TriggerKind
+
 @Composable
 fun NewAutomationDialog(onDismiss: () -> Unit, onPick: (app.openshortcuts.model.TriggerKind) -> Unit) {
+    // Grouped like Apple's "New Automation" list: what starts it, by where it comes from.
+    val groups = run {
+        listOf(
+            "Time" to listOf(TK.Time to "Time of Day", TK.Alarm to "Alarm"),
+            "Apps & Messages" to listOf(TK.App to "App", TK.AppNotification to "Notification", TK.WhatsAppMessage to "WhatsApp Message", TK.WhatsAppCallLong to "WhatsApp Call Runs Long"),
+            "Connections" to listOf(TK.WiFi to "Wi-Fi", TK.Bluetooth to "Bluetooth", TK.Headphones to "Headphones", TK.AirplaneMode to "Airplane Mode"),
+            "Power & Focus" to listOf(TK.Charger to "Charger", TK.BatteryLevel to "Battery Level", TK.BatterySaver to "Battery Saver", TK.Dnd to "Do Not Disturb"),
+        )
+    }
     DuoDialog(onDismiss) {
         DialogTitle("New Automation", "Choose what starts it.")
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(
-                app.openshortcuts.model.TriggerKind.Time to "Time of day",
-                app.openshortcuts.model.TriggerKind.WhatsAppCallLong to "WhatsApp call runs long",
-                app.openshortcuts.model.TriggerKind.WhatsAppMessage to "WhatsApp message arrives",
-                app.openshortcuts.model.TriggerKind.Charger to "Charger",
-                app.openshortcuts.model.TriggerKind.BatteryLevel to "Battery level",
-                app.openshortcuts.model.TriggerKind.Dnd to "Do Not Disturb",
-                app.openshortcuts.model.TriggerKind.WiFi to "Wi-Fi",
-            ).forEach { (k, label) -> ChoiceRow(label, false, k.glyph(), k.tint().color()) { onPick(k) } }
+        groups.forEachIndexed { gi, (title, kinds) ->
+            if (gi > 0) Spacer(Modifier.height(14.dp))
+            SettingsGroup(title) {
+                kinds.forEachIndexed { i, (k, label) ->
+                    if (i > 0) SettingsDivider()
+                    SettingsRow(label, k.glyph(), k.tint().color(), onClick = { onPick(k) }) {
+                        Glyph("chevronRight", Theme.c.ink3, size = 16.dp)
+                    }
+                }
+            }
         }
     }
 }
@@ -590,7 +601,7 @@ fun ImportDialog(
                 IconTile(a.kind.glyph(), a.kind.tint().color(), size = 28.dp)
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(a.headline(), style = Theme.t.body, color = c.ink)
+                    Text(a.headline(LocalContext.current), style = Theme.t.body, color = c.ink)
                     Text("Added switched off. Turn it on in Automation once it looks right.", style = Theme.t.small, color = c.ink2)
                 }
             }

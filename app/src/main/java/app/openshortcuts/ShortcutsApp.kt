@@ -20,7 +20,7 @@ class ShortcutsApp : Application() {
         super.onCreate()
         Store.init(this)
         Notifs.channels(this)
-        Store.onChange = { Scheduler.rescheduleAll(this, it); Launchers.sync(this, it) }
+        Store.onChange = { Scheduler.rescheduleAll(this, it); Launchers.sync(this, it); app.openshortcuts.engine.EventHost.current?.watchApps() }
         Scheduler.rescheduleAll(this)
         Launchers.sync(this)
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {

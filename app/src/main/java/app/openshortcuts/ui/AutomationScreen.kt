@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -98,6 +99,8 @@ fun AutomationScreen(
     val needs = buildList {
         // Call and event triggers all run inside the notification-listener service.
         if (a.kind != TriggerKind.Time) add(Perm.CallAccess)
+        if (a.kind == TriggerKind.App) add(Perm.UsageAccess)
+        if (a.kind == TriggerKind.Bluetooth) add(Perm.Bluetooth)
         add(Perm.Notifications); add(Perm.Alarms); add(Perm.Battery)
         target?.let { addAll(Perm.missing(ctx, it)) }
     }.distinct().filterNot { it.granted(ctx) }
@@ -142,6 +145,22 @@ fun AutomationScreen(
                     words("When Wi-Fi") + Seg.Pill(if (a.on) "connects" else "disconnects") { onChange(a.copy(on = !a.on)) })
                 TriggerKind.WhatsAppMessage -> SentenceCard(a.kind.glyph(), a.kind.tint().color(),
                     words("When a WhatsApp message arrives from") + Seg.Pill(a.text.ifBlank { "anyone" }) { dialog = "sender" })
+                TriggerKind.App -> SentenceCard(a.kind.glyph(), a.kind.tint().color(),
+                    words("When") + Seg.Pill(if (a.app.isBlank()) "App" else appLabel(ctx, a.app)) { dialog = "app" } +
+                        words("is") + Seg.Pill(if (a.on) "opened" else "closed") { onChange(a.copy(on = !a.on)) })
+                TriggerKind.AppNotification -> SentenceCard(a.kind.glyph(), a.kind.tint().color(),
+                    words("When a notification arrives from") + Seg.Pill(appLabel(ctx, a.app)) { dialog = "app" } +
+                        words("containing") + Seg.Pill(a.text.ifBlank { "anything" }) { dialog = "text" })
+                TriggerKind.Alarm -> SentenceCard(a.kind.glyph(), a.kind.tint().color(),
+                    words("When an alarm") + Seg.Pill(if (a.on) "goes off" else "is stopped") { onChange(a.copy(on = !a.on)) })
+                TriggerKind.Bluetooth -> SentenceCard(a.kind.glyph(), a.kind.tint().color(),
+                    words("When") + Seg.Pill(a.text.ifBlank { "any device" }) { dialog = "text" } + Seg.Pill(if (a.on) "connects" else "disconnects") { onChange(a.copy(on = !a.on)) })
+                TriggerKind.Headphones -> SentenceCard(a.kind.glyph(), a.kind.tint().color(),
+                    words("When headphones are") + Seg.Pill(if (a.on) "connected" else "disconnected") { onChange(a.copy(on = !a.on)) })
+                TriggerKind.AirplaneMode -> SentenceCard(a.kind.glyph(), a.kind.tint().color(),
+                    words("When Airplane Mode turns") + Seg.Pill(if (a.on) "on" else "off") { onChange(a.copy(on = !a.on)) })
+                TriggerKind.BatterySaver -> SentenceCard(a.kind.glyph(), a.kind.tint().color(),
+                    words("When Battery Saver turns") + Seg.Pill(if (a.on) "on" else "off") { onChange(a.copy(on = !a.on)) })
             }
             Box(Modifier.fillMaxWidth().height(14.dp), contentAlignment = Alignment.Center) {
                 Box(Modifier.width(2.dp).height(14.dp).background(c.ink3.copy(alpha = 0.45f)))
@@ -157,11 +176,19 @@ fun AutomationScreen(
                     }
                 }) else null,
             )
-            if (a.kind == TriggerKind.WhatsAppMessage || a.kind == TriggerKind.BatteryLevel) {
+            val inputNote = when (a.kind) {
+                TriggerKind.WhatsAppMessage -> "The message text goes to the shortcut as its input, for Show Result or If Previous Result."
+                TriggerKind.BatteryLevel -> "The battery percentage goes to the shortcut as its input."
+                TriggerKind.AppNotification -> "The notification's text is the shortcut's input; {Notification Title} and {Notification App} are set too."
+                TriggerKind.App -> "The app's name goes to the shortcut as its input."
+                TriggerKind.Bluetooth -> "The device's name goes to the shortcut as its input."
+                TriggerKind.Alarm -> "Works with your phone's Clock app while its alarm notification is showing."
+                else -> null
+            }
+            if (inputNote != null) {
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    if (a.kind == TriggerKind.WhatsAppMessage) "The message text goes to the shortcut as its input, for Show Result or If Previous Result."
-                    else "The battery percentage goes to the shortcut as its input.",
+                    inputNote,
                     style = Theme.t.small, color = c.ink2, modifier = Modifier.padding(horizontal = 6.dp),
                 )
             }
@@ -214,6 +241,31 @@ fun AutomationScreen(
             Field(v, { v = it }, "Anyone")
             Spacer(Modifier.height(12.dp))
             PrimaryButton("Done", Modifier.fillMaxWidth()) { onChange(a.copy(text = v.trim())); dialog = null }
+        }
+        "text" -> DuoDialog({ dialog = null }) {
+            val bt = a.kind == TriggerKind.Bluetooth
+            DialogTitle(if (bt) "Device" else "Containing", if (bt) "Part of the device's name, like “Buds” or “Car”. Leave empty for any device." else "Words the notification must contain. Leave empty for any notification.")
+            var v by remember { mutableStateOf(a.text) }
+            Field(v, { v = it }, if (bt) "Any device" else "Anything")
+            Spacer(Modifier.height(12.dp))
+            PrimaryButton("Done", Modifier.fillMaxWidth()) { onChange(a.copy(text = v.trim())); dialog = null }
+        }
+        "app" -> DuoDialog({ dialog = null }) {
+            DialogTitle("App")
+            val apps = remember { launchableApps(ctx) }
+            var q by remember { mutableStateOf("") }
+            Field(q, { q = it }, "Search apps", autofocus = false)
+            Spacer(Modifier.height(10.dp))
+            androidx.compose.foundation.lazy.LazyColumn(Modifier.heightIn(max = if (isShort) 200.dp else 380.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                // Notifications can come from any app; the App trigger needs one.
+                if (a.kind == TriggerKind.AppNotification && q.isBlank()) item(key = "any") {
+                    ChoiceRow("Any app", a.app.isBlank(), "grid", Tint.Gray.color()) { onChange(a.copy(app = "")); dialog = null }
+                }
+                items(apps.filter { q.isBlank() || it.label.contains(q, true) }.size) { i ->
+                    val app = apps.filter { q.isBlank() || it.label.contains(q, true) }[i]
+                    ChoiceRow(app.label, app.pkg == a.app) { onChange(a.copy(app = app.pkg)); dialog = null }
+                }
+            }
         }
         "days" -> DaysDialog(a.days, onDismiss = { dialog = null }) { onChange(a.copy(days = it)) }
         "minutes" -> DuoDialog({ dialog = null }) {

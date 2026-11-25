@@ -47,7 +47,7 @@ private data class Group(val title: String, val footer: String?, val perms: List
 
 private val GROUPS = listOf(
     Group("Automations", "These keep night automations on time and alive while the screen is off.",
-        listOf(Perm.CallAccess, Perm.Notifications, Perm.Alarms, Perm.Battery)),
+        listOf(Perm.CallAccess, Perm.Notifications, Perm.Alarms, Perm.Battery, Perm.UsageAccess, Perm.Bluetooth)),
     Group("Phone control", null,
         listOf(Perm.Dnd, Perm.WriteSettings, Perm.PhoneCalls, Perm.Accessibility, Perm.AutoSend)),
     Group("Personal data", "Needed only by shortcuts that use them.",
@@ -69,6 +69,8 @@ private fun Perm.look(): Pair<String, Tint> = when (this) {
     Perm.Calendar -> "calendar" to Tint.Red
     Perm.Location -> "pin" to Tint.Blue
     Perm.Contacts -> "person" to Tint.Gray
+    Perm.UsageAccess -> "grid" to Tint.Indigo
+    Perm.Bluetooth -> "bluetooth" to Tint.Blue
 }
 
 /** `tick` changes on every resume so states re-read after returning from Settings. */

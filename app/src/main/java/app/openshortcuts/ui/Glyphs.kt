@@ -17,6 +17,10 @@ import androidx.compose.ui.unit.dp
 object Glyphs {
     private val strokes = mapOf(
         "person" to listOf("M12 4.5a3.75 3.75 0 1 0 0 7.5a3.75 3.75 0 1 0 0-7.5z", "M4.75 20c.9-3.4 3.7-5.5 7.25-5.5s6.35 2.1 7.25 5.5"),
+        "bluetooth" to listOf("M7 7.5l10 9-5 4.5V3l5 4.5-10 9"),
+        "headphones" to listOf("M4.5 17v-4a7.5 7.5 0 0 1 15 0v4", "M4.5 15H7a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1H5.5a1 1 0 0 1-1-1z", "M19.5 15H17a1 1 0 0 0-1 1v3.5a1 1 0 0 0 1 1h1.5a1 1 0 0 0 1-1z"),
+        "airplane" to listOf("M12 2.5c.8 0 1.5.7 1.5 1.5v5l7 4v2l-7-2v4.5l2 1.5v1.5L12 19.5 8.5 20.5V19l2-1.5V13l-7 2v-2l7-4V4c0-.8.7-1.5 1.5-1.5z"),
+        "alarm" to listOf("M12 6.5a7 7 0 1 0 0 14a7 7 0 1 0 0-14z", "M12 10v3.5l2.5 1.5", "M4 6l3-2.5M20 6l-3-2.5"),
         "chevronLeft" to listOf("M15 5l-7 7 7 7"),
         "chevronRight" to listOf("M9.5 5.5l6.5 6.5-6.5 6.5"),
         "chevronDown" to listOf("M6.5 9.5l5.5 5.5 5.5-5.5"),

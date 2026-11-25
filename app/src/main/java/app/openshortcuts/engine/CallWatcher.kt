@@ -35,6 +35,7 @@ class CallWatcher : NotificationListenerService() {
         Events.dnd(applicationContext, interruptionFilter)
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
+        Events.notification(applicationContext, sbn)
         if (sbn.packageName !in WHATSAPP) return
         if (isOngoingCall(sbn)) {
             if (callKey != sbn.key) markStarted(sbn)
@@ -46,6 +47,7 @@ class CallWatcher : NotificationListenerService() {
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
+        Events.removed(applicationContext, sbn)
         if (sbn.key == callKey) markEnded()
     }
 

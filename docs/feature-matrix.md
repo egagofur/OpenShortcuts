@@ -66,25 +66,27 @@ The **Android route** column says how a missing feature would be built. "Listene
 | Apple trigger | OpenShortcuts | Notes / Android route |
 |---|---|---|
 | Time of Day | ✅ | Daily, weekdays, weekends or chosen days; exact alarms; survives reboot |
-| Alarm | ❌ | Android only says when the *next* alarm changes, not when it rings. Partial at best |
+| Alarm | 🟡 | Goes off / is stopped, read from the Clock app's alarm notification. Snoozed isn't told apart from stopped |
 | Sleep | 🟡 | Covered by the quiet-hours window on the WhatsApp trigger; no real sleep detection |
 | Arrive / Leave | ❌ | Geofence with `LocationManager.addProximityAlert`, background location permission |
 | CarPlay | ❌ | Android Auto / car mode (`UiModeManager`) |
-| Email | ❌ | Listener host, filtered to mail apps |
-| Message | 🟡 | WhatsApp messages, filtered by contact or group name; the text becomes the shortcut's input. SMS not yet |
+| Email | 🟡 | Notification trigger: pick the mail app and the words to look for |
+| Message | 🟡 | WhatsApp messages by contact or group; any other app (SMS, Telegram…) through the Notification trigger |
 | Transaction (Wallet) | ⛔ | |
 | Wi-Fi | 🟡 | Connects / disconnects, any network. Picking a network by name needs location permission (not yet) |
-| Bluetooth | ❌ | Connect/disconnect broadcasts can still be received when the app isn't running |
+| Bluetooth | ✅ | Connects / disconnects, any device or part of its name; the name becomes the input |
 | Apple Watch Workout | ⛔ | |
 | NFC | ❌ | NFC tag intent filter with an OpenShortcuts tag URI |
-| App (opened / closed) | ❌ | Usage access or an accessibility service |
-| Airplane Mode | ❌ | Listener host |
+| App (opened / closed) | ✅ | Usage access; checked every 1.5 s only while the screen is on and an App automation exists |
+| Airplane Mode | ✅ | Turns on / turns off |
 | Do Not Disturb / Focus | ✅ | Turns on / turns off |
-| Low Power Mode | ❌ | Battery saver broadcast in the listener host |
+| Low Power Mode | ✅ | Battery Saver turns on / off |
 | Battery Level | ✅ | Rises above / falls below a percentage; the level becomes the shortcut's input |
 | Charger | ✅ | Connected / disconnected |
 | Sound Recognition | ⛔ | System feature, not exposed to apps |
 | — (not in Apple) WhatsApp call runs long | ✅ | Call length plus quiet hours; OpenShortcuts only |
+| — (not in Apple) Headphones | ✅ | Wired, USB or Bluetooth headphones connected / disconnected |
+| — (not in Apple) Notification from any app | ✅ | Any app or one app, optionally containing some words; title and app become variables |
 
 **Run options**
 
@@ -139,7 +141,7 @@ Apple has hundreds of actions. This table compares by area and names what OpenSh
 |---|---|---|---|---|
 | 1. Building | 16 | 6 | 3 | 0 |
 | 2. Ways to run | 6 | 0 | 3 | 4 |
-| 3. Triggers (Apple's 20) | 4 | 3 | 10 | 3 |
+| 3. Triggers (Apple's 20) | 8 | 5 | 3 | 3 |
 | 4. Action areas | 5 of 17 fully | 7 | 5 | 0 |
 | 5. Sharing and sync | 4 | 1 | 3 | 1 |
 
@@ -150,7 +152,7 @@ OpenShortcuts covers the core editor and the night-time use case. The biggest ga
 Ordered by value for the effort:
 
 1. ~~**Ways to run:** Home Screen icon, Quick Settings tile, long-press app shortcuts.~~ Done. Widget is still open.
-2. ~~**Triggers through the listener host:** Charger, Battery Level, Do Not Disturb, Wi-Fi, WhatsApp message.~~ Done. Still open: Bluetooth, Wi-Fi by network name, SMS.
+2. ~~**Triggers through the listener host:** Charger, Battery Level, Do Not Disturb, Wi-Fi, WhatsApp message.~~ Done. Since then: App, Notification, Alarm, Bluetooth, Headphones, Airplane Mode, Battery Saver. Still open: Arrive / Leave, NFC, Wi-Fi by network name.
 3. ~~**Scripting:** variables, Repeat, Choose from Menu, Ask for Input.~~ Done. Still open: lists, Repeat with Each, dictionaries.
 4. ~~**Export / import file.**~~ Done.
 5. ~~**Lock Screen and Speak Text actions.**~~ Done.

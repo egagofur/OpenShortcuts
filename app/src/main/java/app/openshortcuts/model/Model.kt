@@ -395,7 +395,7 @@ enum class ActionType(
 }
 
 /** Names you can drop into any text as {Name}. */
-val BUILT_IN_VARIABLES = listOf("Shortcut Input", "Shared Subject", "Message Sender", "Message Chat", "Previous Result", "Current Date", "Current Time", "Clipboard", "Repeat Index", "Repeat Item", "Menu Result")
+val BUILT_IN_VARIABLES = listOf("Shortcut Input", "Shared Subject", "Message Sender", "Message Chat", "Notification Title", "Notification App", "Previous Result", "Current Date", "Current Time", "Clipboard", "Repeat Index", "Repeat Item", "Menu Result")
 
 fun variableNames(actions: List<Action>): List<String> =
     (BUILT_IN_VARIABLES + actions.filter { it.type == ActionType.SET_VARIABLE }.map { it.p("name").trim() })
@@ -427,6 +427,16 @@ enum class TriggerKind(val title: String, val event: Boolean = true) {
     Dnd("Do Not Disturb"),
     WiFi("Wi-Fi"),
     WhatsAppMessage("WhatsApp Message"),
+    /** A chosen app comes to the front (on) or leaves it (off). Needs usage access. */
+    App("App"),
+    /** A notification from any app (or one chosen app), optionally containing some text. */
+    AppNotification("Notification"),
+    /** The clock app's alarm goes off (on) or is stopped (off). */
+    Alarm("Alarm"),
+    Bluetooth("Bluetooth"),
+    Headphones("Headphones"),
+    AirplaneMode("Airplane Mode"),
+    BatterySaver("Battery Saver"),
 }
 
 /**
@@ -449,8 +459,10 @@ data class Automation(
     val on: Boolean = true,
     /** Battery threshold in percent. */
     val level: Int = 20,
-    /** WhatsApp message: sender name must contain this (blank = anyone). */
+    /** WhatsApp message: sender name must contain this (blank = anyone). Bluetooth: device name. Notification: words to look for. */
     val text: String = "",
+    /** App and Notification triggers: the app's package (blank = any app, for notifications). */
+    val app: String = "",
 )
 
 data class Library(

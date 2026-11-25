@@ -89,6 +89,10 @@ object Describe {
         appendLine("- WhatsAppMessage: a WhatsApp message arrives; text = part of the sender or group name (empty = anyone). The message text is {Shortcut Input}; {Message Sender} and {Message Chat} are set.")
         appendLine("- Charger: on = connected, off = disconnected. BatteryLevel: on = rises above level, off = falls below level; the level is {Shortcut Input}.")
         appendLine("- Dnd: on = Do Not Disturb turns on. WiFi: on = connects.")
+        appendLine("- App: on = the app opens, off = it closes; app = its Android package name (e.g. com.instagram.android). The app's name is {Shortcut Input}.")
+        appendLine("- AppNotification: a notification arrives; app = package name or \"\" for any app; text = words it must contain (\"\" = any). Its text is {Shortcut Input}; {Notification Title} and {Notification App} are set.")
+        appendLine("- Alarm: on = an alarm goes off, off = an alarm is stopped. Bluetooth: on = connects; text = part of the device name (\"\" = any). Headphones: on = connected.")
+        appendLine("- AirplaneMode: on = turns on. BatterySaver: on = turns on.")
         appendLine("Fill every automation field; ones that don't apply take any value (\"00:00\", 0, false, \"\"). warnFirst = false: automations run on their own. Set it true only when the user explicitly asks to be asked or warned first.")
         appendLine()
         appendLine("note: one or two plain sentences telling the person what you built and anything they still need to fill in or allow.")
@@ -115,6 +119,7 @@ object Describe {
             "on" to mapOf("type" to "boolean"),
             "level" to mapOf("type" to "integer"),
             "text" to mapOf("type" to "string"),
+            "app" to mapOf("type" to "string"),
             "warnFirst" to mapOf("type" to "boolean"),
         ))
         val root = obj(mapOf(
@@ -207,6 +212,7 @@ object Describe {
                 on = a.optBoolean("on", true),
                 level = a.optInt("level", 20).coerceIn(1, 99),
                 text = a.optString("text").take(60),
+                app = a.optString("app").take(120),
                 warnFirst = a.optBoolean("warnFirst", false),
                 shortcutId = imported.shortcut.id,
                 // Starts off: you turn it on after checking it.
