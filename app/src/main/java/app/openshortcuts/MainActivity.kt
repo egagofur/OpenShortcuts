@@ -169,10 +169,10 @@ private fun App() {
 
     if (newAuto) NewAutomationDialog(onDismiss = { newAuto = false }) { kind ->
         newAuto = false
-        // Event triggers run straight away by default; time and call triggers warn first.
+        // Runs on its own (no warning) unless you turn on "Ask before running".
         // No shortcut picked yet, so a new trigger never runs something you didn't choose.
         val a = Automation(kind = kind, shortcutId = "", callMinutes = 45,
-            windowStart = 23 * 60, windowEnd = 5 * 60, warnFirst = !kind.event)
+            windowStart = 23 * 60, windowEnd = 5 * 60, warnFirst = false)
         Store.upsert(a); push(Route.Auto(a.id))
     }
     if (newShortcut) app.openshortcuts.ui.NewShortcutDialog(

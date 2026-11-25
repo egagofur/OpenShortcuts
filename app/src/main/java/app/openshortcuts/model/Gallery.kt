@@ -39,7 +39,7 @@ object Gallery {
                 a(ActionType.LOCK),
             ))
         },
-        Item("Sleep & Calls", "Hang Up Late Calls", "When a WhatsApp call goes past 45 minutes between 23:00 and 05:00, warn you, then end it and lock the phone.",
+        Item("Sleep & Calls", "Hang Up Late Calls", "When a WhatsApp call goes past 45 minutes between 23:00 and 05:00, end it, turn on Do Not Disturb and lock the phone.",
             Tint.Green, "phoneOff") {
             val s = shortcut("Hang Up Late Calls", Tint.Green, "phoneOff",
                 a(ActionType.END_WHATSAPP_CALL),
@@ -47,7 +47,7 @@ object Gallery {
                 a(ActionType.LOCK),
             )
             s to Automation(kind = TriggerKind.WhatsAppCallLong, callMinutes = 45, windowStart = 23 * 60, windowEnd = 5 * 60,
-                shortcutId = s.id, enabled = false, warnFirst = true)
+                shortcutId = s.id, enabled = false)
         },
         Item("Sleep & Calls", "Asleep Auto-Reply", "Between 22:00 and 06:00, answer WhatsApp messages with “$ASLEEP”.",
             Tint.Purple, "quote") {

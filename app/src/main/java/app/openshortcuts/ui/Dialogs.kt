@@ -4,6 +4,9 @@ import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -63,6 +66,8 @@ import kotlinx.coroutines.launch
 class RunController(private val ctx: Context) {
     var running by mutableStateOf<String?>(null); private set
     var done by mutableStateOf<String?>(null); private set
+    /** Briefly set when a run ends in an error, so its tile can shake. */
+    var failed by mutableStateOf<String?>(null); private set
     var result by mutableStateOf<Runner.Result?>(null)
     /** A question the running shortcut is waiting on (Choose from Menu, Ask for Input). */
     var prompt by mutableStateOf<Pair<Runner.Prompt, CompletableDeferred<String?>>?>(null); private set
@@ -81,6 +86,7 @@ class RunController(private val ctx: Context) {
         running = s.id
         job = (ctx.applicationContext as ShortcutsApp).scope.launch {
             val r = try { Runner.run(ctx, s, foreground = true, ask = ask, input = input, vars = vars) } finally { running = null }
+            if (r.error != null) { failed = s.id; delay(400); if (failed == s.id) failed = null }
             if (r.error != null || r.shown.isNotEmpty()) result = r
             else {
                 done = s.id
@@ -239,74 +245,126 @@ fun DetailsDialog(
     onDismiss: () -> Unit, onChange: (Shortcut) -> Unit, onDelete: () -> Unit, onSetup: () -> Unit,
 ) {
     val c = Theme.c
+    val ctx = LocalContext.current
+    val view = androidx.compose.ui.platform.LocalView.current
     var confirmDelete by remember { mutableStateOf(false) }
+    var name by remember { mutableStateOf(s.name) }
+    fun edit(f: (Shortcut) -> Shortcut) = onChange(f(s.copy(name = name.trim().ifBlank { s.name })))
+    val automations = remember(s.id) { app.openshortcuts.model.Store.library.value.automations.count { it.shortcutId == s.id } }
+    var tileOn by remember { mutableStateOf(app.openshortcuts.engine.Launchers.tileShortcutId(ctx) == s.id) }
+
     DuoDialog(onDismiss) {
-        DialogTitle("Details")
-        var name by remember { mutableStateOf(s.name) }
-        Field(name, { name = it; if (it.isNotBlank()) onChange(s.copy(name = it.trim())) }, "Name", autofocus = false)
-        Spacer(Modifier.height(10.dp))
-        val ctx = LocalContext.current
-        var tileOn by remember { mutableStateOf(app.openshortcuts.engine.Launchers.tileShortcutId(ctx) == s.id) }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (app.openshortcuts.engine.Launchers.canPin(ctx)) {
-                QuietButton("Home Screen", Modifier.weight(1f)) { app.openshortcuts.engine.Launchers.pin(ctx, s) }
+        // Identity: live preview of the icon beside the name it will carry.
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            val tint by androidx.compose.animation.animateColorAsState(s.tint.color(), tween(220, easing = Motion.easeOut), label = "tint")
+            Box(Modifier.size(56.dp).clip(RoundedCornerShape(15.dp)).background(tint), contentAlignment = Alignment.Center) {
+                androidx.compose.animation.AnimatedContent(
+                    s.glyph, label = "glyph",
+                    transitionSpec = {
+                        (androidx.compose.animation.fadeIn(tween(160)) + androidx.compose.animation.scaleIn(tween(200, easing = Motion.easeOut), initialScale = 0.7f)) togetherWith
+                            androidx.compose.animation.fadeOut(tween(100))
+                    },
+                ) { g -> Glyph(g, androidx.compose.ui.graphics.Color.White, size = 32.dp) }
             }
-            QuietButton(if (tileOn) "In Quick Settings" else "Quick Settings", Modifier.weight(1f), color = if (tileOn) c.positive else c.accent) {
-                app.openshortcuts.engine.Launchers.offerTile(ctx, s); tileOn = true
-            }
-        }
-        Spacer(Modifier.height(16.dp))
-        Spacer(Modifier.height(8.dp))
-        Row(
-            Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                .pressable(scale = 0.98f, label = "Show in Share Sheet") { onChange(s.copy(inShareSheet = !s.inShareSheet, name = name.ifBlank { s.name })) }
-                .clip(RoundedCornerShape(14.dp)).background(c.bg).padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Glyph("share", c.ink2, size = 20.dp)
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text("Show in Share Sheet", style = Theme.t.body, color = c.ink)
-                Text("Run it on text you share or select", style = Theme.t.small, color = c.ink2)
-            }
-            androidx.compose.material3.Switch(
-                checked = s.inShareSheet, onCheckedChange = null,
-                colors = androidx.compose.material3.SwitchDefaults.colors(checkedTrackColor = c.positive, checkedThumbColor = androidx.compose.ui.graphics.Color.White,
-                    uncheckedTrackColor = c.fill, uncheckedThumbColor = c.ink3, uncheckedBorderColor = c.fill),
-            )
-        }
-        Spacer(Modifier.height(16.dp))
-        Text("Colour", style = Theme.t.small, color = c.ink2)
-        Spacer(Modifier.height(8.dp))
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Tint.entries.forEach { t ->
-                Box(
-                    Modifier.size(36.dp).pressable(scale = 0.9f, label = t.name) { onChange(s.copy(tint = t, name = name.ifBlank { s.name })) }
-                        .clip(CircleShape).background(t.color())
-                        .then(if (t == s.tint) Modifier.border(3.dp, c.card, CircleShape) else Modifier),
-                    contentAlignment = Alignment.Center,
-                ) { if (t == s.tint) Glyph("check", androidx.compose.ui.graphics.Color.White, size = 18.dp) }
+                Field(name, { name = it; if (it.isNotBlank()) onChange(s.copy(name = it.trim())) }, "Name", autofocus = false)
             }
         }
-        Spacer(Modifier.height(16.dp))
-        Text("Icon", style = Theme.t.small, color = c.ink2)
-        Spacer(Modifier.height(8.dp))
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Glyphs.names.forEach { g ->
-                Box(
-                    Modifier.size(40.dp).pressable(scale = 0.9f, label = g) { onChange(s.copy(glyph = g, name = name.ifBlank { s.name })) }
-                        .clip(RoundedCornerShape(11.dp)).background(if (g == s.glyph) s.tint.color() else c.bg),
-                    contentAlignment = Alignment.Center,
-                ) { Glyph(g, if (g == s.glyph) androidx.compose.ui.graphics.Color.White else c.ink2, size = 22.dp) }
+
+        Spacer(Modifier.height(20.dp))
+        SettingsGroup("Run from") {
+            if (app.openshortcuts.engine.Launchers.canPin(ctx)) {
+                SettingsRow("Home Screen", "home", app.openshortcuts.model.Tint.Blue.color(), "Add an icon that runs it in one tap",
+                    onClick = { app.openshortcuts.engine.Launchers.pin(ctx, s) }) { Glyph("plus", c.accent, size = 18.dp) }
+                SettingsDivider()
+            }
+            SettingsRow("Quick Settings", "grid", app.openshortcuts.model.Tint.Gray.color(),
+                if (tileOn) "Swipe down twice, then tap its tile" else "Put it in the pull-down panel",
+                onClick = { app.openshortcuts.engine.Launchers.offerTile(ctx, s); tileOn = true; view.confirm() }) {
+                androidx.compose.animation.AnimatedContent(tileOn, label = "tile") { on ->
+                    if (on) Glyph("check", c.positive, size = 18.dp) else Glyph("plus", c.accent, size = 18.dp)
+                }
+            }
+            SettingsDivider()
+            SettingsRow("Share Sheet", "share", app.openshortcuts.model.Tint.Teal.color(), "Run it on text you share or select",
+                onClick = { edit { it.copy(inShareSheet = !it.inShareSheet) } }) {
+                DuoSwitch(s.inShareSheet)
             }
         }
+
+        Spacer(Modifier.height(18.dp))
+        SettingsGroup("Colour") {
+            FlowRow(
+                Modifier.padding(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Tint.entries.forEach { t ->
+                    val on = t == s.tint
+                    val ring by androidx.compose.animation.core.animateDpAsState(if (on) 3.dp else 0.dp, Motion.settle(), label = "ring")
+                    Box(
+                        Modifier.size(36.dp).pressable(scale = 0.88f, label = t.name) { view.tick(); edit { it.copy(tint = t) } }
+                            .clip(CircleShape).background(t.color())
+                            .border(ring, c.bg, CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) { if (on) Glyph("check", androidx.compose.ui.graphics.Color.White, size = 18.dp) }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(18.dp))
+        SettingsGroup("Icon") {
+            FlowRow(
+                Modifier.padding(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Glyphs.names.forEach { g ->
+                    val on = g == s.glyph
+                    val fill by androidx.compose.animation.animateColorAsState(if (on) s.tint.color() else c.card, tween(180, easing = Motion.easeOut), label = "iconFill")
+                    Box(
+                        Modifier.size(40.dp).pressable(scale = 0.88f, label = g) { view.tick(); edit { it.copy(glyph = g) } }
+                            .clip(RoundedCornerShape(11.dp)).background(fill),
+                        contentAlignment = Alignment.Center,
+                    ) { Glyph(g, if (on) androidx.compose.ui.graphics.Color.White else c.ink2, size = 22.dp) }
+                }
+            }
+        }
+
         if (missing.isNotEmpty()) {
-            Spacer(Modifier.height(16.dp))
-            QuietButton("Allow ${missing.size} permission${if (missing.size > 1) "s" else ""}", Modifier.fillMaxWidth(), onClick = onSetup)
+            Spacer(Modifier.height(18.dp))
+            SettingsGroup {
+                SettingsRow(
+                    "Allow ${missing.size} permission${if (missing.size > 1) "s" else ""}", "sliders", app.openshortcuts.model.Tint.Orange.color(),
+                    missing.joinToString(", ") { it.title }, onClick = onSetup,
+                ) { Glyph("chevronRight", c.ink3, size = 16.dp) }
+            }
         }
-        Spacer(Modifier.height(10.dp))
-        if (!confirmDelete) QuietButton("Delete Shortcut", Modifier.fillMaxWidth(), color = c.danger) { confirmDelete = true }
-        else PrimaryButton("Delete “${s.name}” and its automations", Modifier.fillMaxWidth(), color = c.danger, onClick = onDelete)
+
+        Spacer(Modifier.height(18.dp))
+        // Delete asks once, in place. Short labels: the name is already at the top of this sheet.
+        androidx.compose.animation.AnimatedContent(
+            confirmDelete, label = "delete",
+            transitionSpec = { androidx.compose.animation.fadeIn(tween(160)) togetherWith androidx.compose.animation.fadeOut(tween(100)) using androidx.compose.animation.SizeTransform(clip = false) },
+        ) { asking ->
+            if (!asking) SettingsGroup {
+                SettingsRow("Delete Shortcut", "trash", c.danger, titleColor = c.danger, onClick = { confirmDelete = true; view.tick() })
+            } else {
+                val into = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
+                LaunchedEffect(Unit) { kotlinx.coroutines.delay(180); into.bringIntoView() }
+                Column(Modifier.bringIntoViewRequester(into).padding(bottom = 16.dp)) {
+                Text(
+                    if (automations == 0) "Delete this shortcut? You can't undo this."
+                    else "Delete this shortcut and its $automations automation${if (automations > 1) "s" else ""}? You can't undo this.",
+                    style = Theme.t.small, color = c.ink2, modifier = Modifier.padding(horizontal = 6.dp),
+                )
+                Spacer(Modifier.height(10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    QuietButton("Cancel", Modifier.weight(1f), color = c.ink) { confirmDelete = false }
+                    PrimaryButton("Delete", Modifier.weight(1f), color = c.danger) { view.confirm(); onDelete() }
+                }
+            }
+            }
+        }
     }
 }
 

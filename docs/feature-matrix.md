@@ -90,8 +90,8 @@ The **Android route** column says how a missing feature would be built. "Listene
 
 | Apple option | OpenShortcuts | Notes |
 |---|---|---|
-| Ask before running (notification you tap to run) | 🟡 | Works the other way round: a one-minute warning with Snooze / Not now / Run now, and the shortcut runs unless you stop it |
-| Run without asking | ✅ | Turn off "Warn me a minute before" |
+| Ask before running (notification you tap to run) | 🟡 | Opt-in per automation: a one-minute notice with Snooze / Not now / Run now, and the shortcut runs unless you stop it |
+| Run without asking | ✅ | The default for every automation |
 | Turn an automation on or off | ✅ | Switch in the list and in the editor |
 | Filter the list by on / off | ❌ | |
 

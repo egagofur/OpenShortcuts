@@ -20,7 +20,10 @@ object Store {
     fun init(context: Context) {
         if (::file.isInitialized) return
         file = File(context.filesDir, "library.json")
-        state.value = runCatching { decode(JSONObject(file.readText())) }.getOrNull() ?: Seeds.library().also { save(it) }
+        val json = runCatching { JSONObject(file.readText()) }.getOrNull()
+        state.value = json?.let { runCatching { decode(it) }.getOrNull() } ?: Seeds.library().also { save(it) }
+        // v1 libraries asked before every run; v2 runs on its own. Write the migration down once.
+        if (json != null && json.optInt("v", 1) < 2) save(state.value)
     }
 
     fun shortcut(id: String) = state.value.shortcuts.firstOrNull { it.id == id }
@@ -51,6 +54,12 @@ object Store {
         )
     }
 
+    /** Undo for a delete: puts it back where it was. */
+    fun restore(a: Automation, index: Int) = update { lib ->
+        val rest = lib.automations.filterNot { it.id == a.id }
+        lib.copy(automations = rest.toMutableList().apply { add(index.coerceIn(0, size), a) })
+    }
+
     fun deleteAutomation(id: String) = update { lib -> lib.copy(automations = lib.automations.filterNot { it.id == id }) }
 
     private fun save(lib: Library) {
@@ -62,7 +71,7 @@ object Store {
     // --- JSON ---------------------------------------------------------------
 
     private fun encode(lib: Library) = JSONObject().apply {
-        put("v", 1)
+        put("v", 2)
         put("shortcuts", JSONArray(lib.shortcuts.map { s ->
             JSONObject().apply {
                 put("id", s.id); put("name", s.name); put("tint", s.tint.name); put("glyph", s.glyph); put("share", s.inShareSheet)
@@ -105,7 +114,7 @@ object Store {
                 days = (0 until (days?.length() ?: 0)).map { days!!.getInt(it) }.toSet(),
                 callMinutes = a.optInt("callMinutes", 30), windowStart = a.optInt("windowStart", 22 * 60),
                 windowEnd = a.optInt("windowEnd", 6 * 60), shortcutId = a.optString("shortcutId"),
-                enabled = a.optBoolean("enabled", true), warnFirst = a.optBoolean("warn", true),
+                enabled = a.optBoolean("enabled", true), warnFirst = a.optBoolean("warn", false) && o.optInt("v", 1) >= 2,
                 on = a.optBoolean("on", true), level = a.optInt("level", 20), text = a.optString("text"),
             )
         }.orEmpty()

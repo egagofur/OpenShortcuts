@@ -89,7 +89,7 @@ object Describe {
         appendLine("- WhatsAppMessage: a WhatsApp message arrives; text = part of the sender or group name (empty = anyone). The message text is {Shortcut Input}; {Message Sender} and {Message Chat} are set.")
         appendLine("- Charger: on = connected, off = disconnected. BatteryLevel: on = rises above level, off = falls below level; the level is {Shortcut Input}.")
         appendLine("- Dnd: on = Do Not Disturb turns on. WiFi: on = connects.")
-        appendLine("Fill every automation field; ones that don't apply take any value (\"00:00\", 0, false, \"\"). warnFirst = true shows a one-minute warning before running; use it for anything that ends calls or sends messages at night.")
+        appendLine("Fill every automation field; ones that don't apply take any value (\"00:00\", 0, false, \"\"). warnFirst = false: automations run on their own. Set it true only when the user explicitly asks to be asked or warned first.")
         appendLine()
         appendLine("note: one or two plain sentences telling the person what you built and anything they still need to fill in or allow.")
     }
@@ -207,7 +207,7 @@ object Describe {
                 on = a.optBoolean("on", true),
                 level = a.optInt("level", 20).coerceIn(1, 99),
                 text = a.optString("text").take(60),
-                warnFirst = a.optBoolean("warnFirst", true),
+                warnFirst = a.optBoolean("warnFirst", false),
                 shortcutId = imported.shortcut.id,
                 // Starts off: you turn it on after checking it.
                 enabled = false,

@@ -172,12 +172,12 @@ fun AutomationScreen(
             }
             Spacer(gap)
             SentenceCard("bell", Tint.Red.color(),
-                words("Warn me a minute before") + Seg.Pill(if (a.warnFirst) "On" else "Off") { onChange(a.copy(warnFirst = !a.warnFirst)) })
+                words("Ask before running") + Seg.Pill(if (a.warnFirst) "On" else "Off") { onChange(a.copy(warnFirst = !a.warnFirst)) })
             Spacer(Modifier.height(10.dp))
             Text(
                 if (a.kind == TriggerKind.WhatsAppCallLong)
-                    "If you're still awake, the warning lets you snooze 30 minutes or skip. If you fell asleep, the call ends by itself."
-                else "The warning lets you skip this run or snooze it 30 minutes.",
+                    if (a.warnFirst) "A notification gives you a minute to snooze or skip. If you fell asleep, the call ends by itself." else "Runs by itself, with no notification to approve."
+                else if (a.warnFirst) "A notification gives you a minute to skip this run or snooze it 30 minutes." else "Runs by itself, with no notification to approve.",
                 style = Theme.t.small, color = c.ink2, modifier = Modifier.padding(horizontal = 6.dp),
             )
 

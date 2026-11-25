@@ -322,6 +322,7 @@ private fun ActionCard(
     val body = t.params.firstOrNull { it.key == "body" }
 
     Box(Modifier.padding(start = 18.dp * level)) {
+        SwipeToDelete(t.title, onDelete = onRemove) {
         Card(Modifier.fillMaxWidth().pressable(scale = 0.985f, label = "More for ${t.title}", onLongClick = { menu = true }, onClick = {})) {
             Row(Modifier.padding(start = 16.dp, end = 4.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconTile(t.glyph, t.tint.color())
@@ -363,6 +364,7 @@ private fun ActionCard(
                     VariableChips(app.openshortcuts.model.variableNames(all)) { text += it; onBody(text) }
                 }
             }
+        }
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, containerColor = c.raised, shape = RoundedCornerShape(18.dp)) {
             listOf(

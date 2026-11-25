@@ -12,6 +12,9 @@ import android.view.View
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -161,7 +164,7 @@ fun TokenPill(text: String, modifier: Modifier = Modifier, glyph: String? = null
         horizontalArrangement = Arrangement.spacedBy(5.dp),
     ) {
         if (glyph != null) IconTile(glyph, glyphColor ?: c.accent, size = 20.dp)
-        Text(text, style = Theme.t.token, color = c.accent, maxLines = 1)
+        Text(text, style = Theme.t.token, color = c.accent, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
     }
 }
 
@@ -226,31 +229,72 @@ fun rememberBattery(): BatteryState {
     return state
 }
 
+/**
+ * Level ring on the rail. The arc eases to each new level; while charging a soft glow breathes
+ * behind it, and plugging in pops the bolt in with a single ripple and one haptic.
+ */
 @Composable
 fun BatteryRing(state: BatteryState) {
     val c = Theme.c
-    val arc = when {
-        state.charging -> c.positive
-        state.level <= 20 -> c.danger
-        else -> c.ink
+    val view = LocalView.current
+    val reduced = Theme.reduced
+    val arc by androidx.compose.animation.animateColorAsState(
+        when {
+            state.charging -> c.positive
+            state.level <= 20 -> c.danger
+            else -> c.ink
+        }, tween(300, easing = Motion.easeOut), label = "arcColor",
+    )
+    val level by animateFloatAsState(state.level / 100f, if (reduced) tween(0) else Motion.settle(), label = "level")
+    val bolt by animateFloatAsState(
+        if (state.charging) 1f else 0f,
+        if (reduced) tween(0) else if (state.charging) spring(dampingRatio = 0.5f, stiffness = 500f) else tween(150, easing = Motion.easeOut),
+        label = "bolt",
+    )
+    // One ripple per plug-in, not on first composition.
+    val ripple = remember { Animatable(1f) }
+    var was by remember { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(state.charging) {
+        val before = was
+        was = state.charging
+        if (before == false && state.charging) {
+            view.confirm()
+            if (!reduced) { ripple.snapTo(0f); ripple.animateTo(1f, tween(700, easing = Motion.easeOut)) }
+        }
     }
+    val glow = if (state.charging && !reduced) {
+        val t = androidx.compose.animation.core.rememberInfiniteTransition(label = "charge")
+        t.animateFloat(
+            0.10f, 0.32f,
+            androidx.compose.animation.core.infiniteRepeatable(tween(1400, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+                androidx.compose.animation.core.RepeatMode.Reverse),
+            label = "glow",
+        ).value
+    } else 0f
+
     Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
         Canvas(Modifier.size(38.dp)) {
             val w = 3.dp.toPx()
             val inset = w / 2
             val sz = Size(size.width - w, size.height - w)
+            if (ripple.value < 1f) {
+                val r = size.minDimension / 2 * (1f + 0.35f * ripple.value)
+                drawCircle(c.positive.copy(alpha = 0.45f * (1f - ripple.value)), r, style = Stroke(2.dp.toPx()))
+            }
+            if (glow > 0f) drawCircle(c.positive.copy(alpha = glow), size.minDimension / 2 - w)
             drawArc(c.fill, 0f, 360f, false, Offset(inset, inset), sz, style = Stroke(w))
-            drawArc(arc, -90f, 360f * state.level / 100f, false, Offset(inset, inset), sz, style = Stroke(w, cap = StrokeCap.Round))
+            drawArc(arc, -90f, 360f * level, false, Offset(inset, inset), sz, style = Stroke(w, cap = StrokeCap.Round))
         }
-        if (state.charging) {
-            Glyph("boltFill", c.positive, size = 10.dp, modifier = Modifier.align(Alignment.TopCenter).padding(top = 7.dp))
+        if (bolt > 0.01f) {
+            Glyph("boltFill", c.positive, size = 10.dp, modifier = Modifier.align(Alignment.TopCenter).padding(top = 7.dp)
+                .graphicsLayer { scaleX = bolt; scaleY = bolt; alpha = bolt.coerceAtMost(1f) })
         }
         Text(
             "${state.level}",
             style = Theme.t.small.copy(fontSize = 11.sp, fontFeatureSettings = "tnum"),
             color = c.ink,
             textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = if (state.charging) 6.dp else 0.dp),
+            modifier = Modifier.graphicsLayer { translationY = 6.dp.toPx() * bolt.coerceIn(0f, 1f) },
         )
     }
 }
@@ -321,22 +365,31 @@ fun DuoDialog(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit
 
 @Composable
 fun PrimaryButton(text: String, modifier: Modifier = Modifier, color: Color = Theme.c.accent, onClick: () -> Unit) {
-    Box(
-        modifier
-            .height(50.dp)
-            .pressable(label = text, onClick = onClick)
-            .clip(RoundedCornerShape(25.dp))
-            .background(color),
-        contentAlignment = Alignment.Center,
-    ) { Text(text, style = Theme.t.label.copy(fontSize = 17.sp), color = Color.White) }
+    ButtonBox(text, modifier, fill = color, ink = Color.White, onClick = onClick)
 }
 
 @Composable
 fun QuietButton(text: String, modifier: Modifier = Modifier, color: Color = Theme.c.accent, onClick: () -> Unit) {
+    ButtonBox(text, modifier, fill = Theme.c.fill, ink = color, onClick = onClick)
+}
+
+/** Grows with its label: a long name wraps to two lines inside the pill instead of spilling out. */
+@Composable
+private fun ButtonBox(text: String, modifier: Modifier, fill: Color, ink: Color, onClick: () -> Unit) {
     Box(
-        modifier.height(50.dp).pressable(label = text, onClick = onClick).clip(RoundedCornerShape(25.dp)).background(Theme.c.fill),
+        modifier
+            .heightIn(min = 50.dp)
+            .pressable(label = text, onClick = onClick)
+            .clip(RoundedCornerShape(25.dp))
+            .background(fill)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
         contentAlignment = Alignment.Center,
-    ) { Text(text, style = Theme.t.label.copy(fontSize = 17.sp), color = color) }
+    ) {
+        Text(
+            text, style = Theme.t.label.copy(fontSize = 17.sp), color = ink, textAlign = TextAlign.Center,
+            maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+        )
+    }
 }
 
 @Composable

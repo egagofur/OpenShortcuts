@@ -37,6 +37,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -44,6 +47,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
@@ -71,6 +76,9 @@ fun HomeScreen(
     onSetup: () -> Unit,
 ) {
     val c = Theme.c
+    // Last swiped-away automation, kept for a few seconds so it can come back.
+    var removed by remember { mutableStateOf<Pair<Automation, Int>?>(null) }
+    LaunchedEffect(removed) { if (removed != null) { kotlinx.coroutines.delay(5000); removed = null } }
     Row(Modifier.fillMaxSize().background(c.bg)) {
         Box(Modifier.weight(1f).fillMaxSize()) {
             val bottomPad = 112.dp
@@ -80,7 +88,10 @@ fun HomeScreen(
                 label = "tab",
             ) { t ->
                 if (t == 0) ShortcutGrid(lib, runs, missingSetup, bottomPad, onEdit, onSetup)
-                else AutomationList(lib, bottomPad, onAutomation, onToggle)
+                else AutomationList(lib, bottomPad, onAutomation, onToggle) { a ->
+                    removed = a to lib.automations.indexOfFirst { it.id == a.id }
+                    app.openshortcuts.model.Store.deleteAutomation(a.id)
+                }
             }
             TabBar(
                 tab = tab, onTab = onTab,
@@ -89,6 +100,12 @@ fun HomeScreen(
                     .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Start))
                     .padding(start = 16.dp, bottom = 16.dp),
             )
+            Box(Modifier.fillMaxSize().padding(bottom = 72.dp)) {
+                UndoBar(removed?.let { "Automation deleted" }, "Undo") {
+                    removed?.let { (a, i) -> app.openshortcuts.model.Store.restore(a, i) }
+                    removed = null
+                }
+            }
         }
         Rail(
             { GlassCircle("plus", if (tab == 0) "New shortcut" else "New automation", onClick = onNew) },
@@ -124,7 +141,7 @@ private fun ShortcutGrid(
         }
         if (missing.isNotEmpty()) item(span = { GridItemSpan(2) }) { SetupBanner(missing, onSetup) }
         items(lib.shortcuts, key = { it.id }) { s ->
-            ShortcutTile(s, running = runs.running == s.id, done = runs.done == s.id,
+            ShortcutTile(s, running = runs.running == s.id, done = runs.done == s.id, failed = runs.failed == s.id,
                 onRun = { runs.run(s) }, onEdit = { onEdit(s) })
         }
         if (lib.shortcuts.isEmpty()) item(span = { GridItemSpan(2) }) {
@@ -155,12 +172,47 @@ private fun SetupBanner(missing: List<Perm>, onSetup: () -> Unit) {
 }
 
 @Composable
-private fun ShortcutTile(s: Shortcut, running: Boolean, done: Boolean, onRun: () -> Unit, onEdit: () -> Unit) {
+private fun ShortcutTile(s: Shortcut, running: Boolean, done: Boolean, failed: Boolean, onRun: () -> Unit, onEdit: () -> Unit) {
     val base = s.tint.color()
+    val view = androidx.compose.ui.platform.LocalView.current
+    val reduced = Theme.reduced
+    // Finished: one small "pop". Failed: a short horizontal shake, like a wrong passcode.
+    val pop = remember { androidx.compose.animation.core.Animatable(1f) }
+    val shake = remember { androidx.compose.animation.core.Animatable(0f) }
+    LaunchedEffect(done) {
+        if (done) {
+            view.confirm()
+            if (!reduced) {
+                pop.animateTo(1.04f, androidx.compose.animation.core.tween(120, easing = Motion.easeOut))
+                pop.animateTo(1f, androidx.compose.animation.core.spring(dampingRatio = 0.55f, stiffness = 400f))
+            }
+        }
+    }
+    LaunchedEffect(failed) {
+        if (failed) {
+            view.performHapticFeedback(if (android.os.Build.VERSION.SDK_INT >= 30) android.view.HapticFeedbackConstants.REJECT else android.view.HapticFeedbackConstants.LONG_PRESS)
+            if (!reduced) {
+                shake.snapTo(0f)
+                shake.animateTo(0f, androidx.compose.animation.core.keyframes {
+                    durationMillis = 360
+                    -10f at 50; 9f at 110; -6f at 170; 4f at 230; -2f at 290
+                })
+            }
+        }
+    }
+    // Long-running shortcut: the tile breathes so it's clearly still working.
+    val breathe = if (running && !reduced) {
+        androidx.compose.animation.core.rememberInfiniteTransition(label = "run").animateFloat(
+            1f, 0.82f,
+            androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(700), androidx.compose.animation.core.RepeatMode.Reverse),
+            label = "breathe",
+        ).value
+    } else 1f
     Box(
         Modifier
             .fillMaxWidth()
             .height(108.dp)
+            .graphicsLayer { scaleX = pop.value; scaleY = pop.value; translationX = shake.value * density; alpha = breathe }
             .pressable(label = "Run ${s.name}", onLongClick = onEdit, onClick = onRun)
             .clip(RoundedCornerShape(22.dp))
             .background(base),
@@ -193,7 +245,10 @@ private fun ShortcutTile(s: Shortcut, running: Boolean, done: Boolean, onRun: ()
 }
 
 @Composable
-private fun AutomationList(lib: Library, bottomPad: androidx.compose.ui.unit.Dp, onOpen: (Automation) -> Unit, onToggle: (Automation) -> Unit) {
+private fun AutomationList(
+    lib: Library, bottomPad: androidx.compose.ui.unit.Dp,
+    onOpen: (Automation) -> Unit, onToggle: (Automation) -> Unit, onDelete: (Automation) -> Unit,
+) {
     val c = Theme.c
     LazyColumn(
         modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.topBar.only(WindowInsetsSides.Top + WindowInsetsSides.Start)),
@@ -203,6 +258,7 @@ private fun AutomationList(lib: Library, bottomPad: androidx.compose.ui.unit.Dp,
         item { Header("Automation", "Runs shortcuts for you, even while you sleep") }
         items(lib.automations, key = { it.id }) { a ->
             val target = lib.shortcuts.firstOrNull { it.id == a.shortcutId }
+            SwipeToDelete(a.headline(), onDelete = { onDelete(a) }, modifier = Modifier.animateItem()) {
             Card(Modifier.fillMaxWidth().pressable(label = "Edit automation", onClick = { onOpen(a) })) {
                 Row(Modifier.padding(start = 16.dp, end = 12.dp, top = 14.dp, bottom = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconTile(a.kind.glyph(), a.kind.tint().color(), size = 34.dp)
@@ -212,16 +268,13 @@ private fun AutomationList(lib: Library, bottomPad: androidx.compose.ui.unit.Dp,
                         Text(
                             target?.let { "Run ${it.name}" } ?: "Choose a shortcut",
                             style = Theme.t.small, color = if (target == null) c.danger else c.ink2,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
                     }
-                    Switch(
-                        checked = a.enabled, onCheckedChange = { onToggle(a) },
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = c.positive, checkedThumbColor = Color.White,
-                            uncheckedTrackColor = c.fill, uncheckedThumbColor = c.ink3, uncheckedBorderColor = c.fill,
-                        ),
-                    )
+                    Spacer(Modifier.width(8.dp))
+                    DuoSwitch(a.enabled) { onToggle(a) }
                 }
+            }
             }
         }
         if (lib.automations.isEmpty()) item {

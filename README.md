@@ -2,7 +2,7 @@
 
 Shortcuts-style automation for Android. Build routines out of small actions, run them with one tap, or let them run on their own: at a time of day, or when a WhatsApp call goes on too long.
 
-It started with one problem: falling asleep on a WhatsApp call and waking up to a hot phone and a dead battery. OpenShortcuts can end that call for you, after a one-minute warning you can snooze.
+It started with one problem: falling asleep on a WhatsApp call and waking up to a hot phone and a dead battery. OpenShortcuts can end that call for you, on its own.
 
 <p>
   <img src="docs/screenshots/home.png" width="260" alt="Shortcut library with Sleep Mode, Hang Up WhatsApp, Battery Check and Good Morning tiles">
@@ -19,7 +19,7 @@ It started with one problem: falling asleep on a WhatsApp call and waking up to 
   - *Time of day*: daily, weekdays, or any days you pick.
   - *WhatsApp call runs long*: “when a call lasts 45 min, only between 23:00 and 05:00”.
   - *WhatsApp message* (from anyone, or a contact or group you name), *Charger*, *Battery level*, *Do Not Disturb*, *Wi-Fi*.
-  - Optional one-minute warning with **Snooze 30 min / Not now / Run now**, so it never hangs up on you while you're awake.
+  - Automations run on their own, with no notification to approve. Turn on **Ask before running** for one that should give you a minute to **Snooze 30 min / Not now / Run now** first.
 - **63 actions**: end a WhatsApp call, reply to or send a WhatsApp message, call, send SMS, compose email, share, start a timer, set an alarm, add or read calendar events, get your location, open Maps, end a phone call, lock the screen, speak text, Do Not Disturb, ringer mode, pause/play media, volume, brightness, flashlight, vibrate, battery level, open app, open URL, text, notifications and more.
 - **Run from anywhere**: a Home Screen icon per shortcut, a Quick Settings tile, the app icon's long-press menu (also shown in launcher search), and **Run Shortcut** in Android's share sheet or the menu that appears when you select text, with that text as the shortcut's input.
 - **Gallery**: 12 ready-made shortcuts (Sleep Mode, Hang Up Late Calls, Asleep Auto-Reply, Urgent Alert, Pomodoro, Low Battery Saver, Share My Location…), each shown in full before you add it.
@@ -69,7 +69,7 @@ Open **Setup** (the sliders button) and allow what your shortcuts use:
 | Permission | Used for |
 |---|---|
 | Notification access | Seeing WhatsApp's call and pressing Hang up |
-| Notifications | Results and the one-minute warning |
+| Notifications | What an automation did, and the optional “Ask before running” notice |
 | Do Not Disturb | Do Not Disturb and silent ringer |
 | Modify system settings | Brightness |
 | Phone calls | Ending regular cellular calls |

@@ -17,7 +17,7 @@ import app.openshortcuts.model.Shortcut
 /** Everything the app may need, with plain reasons. `runtime` = ask with the system dialog. */
 enum class Perm(val title: String, val why: String, val runtime: String? = null, val more: List<String> = emptyList()) {
     CallAccess("Notification access", "Lets OpenShortcuts see WhatsApp's call and press its Hang up button."),
-    Notifications("Notifications", "Shows results and the one-minute warning before an automation runs.",
+    Notifications("Notifications", "Shows what an automation did, and the optional “Ask before running” notice.",
         Manifest.permission.POST_NOTIFICATIONS),
     Dnd("Do Not Disturb", "Turns Do Not Disturb on and off, and sets the ringer to silent."),
     WriteSettings("Modify system settings", "Changes screen brightness."),

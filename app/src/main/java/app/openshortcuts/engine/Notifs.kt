@@ -82,7 +82,7 @@ object Notifs {
             .setCategory(Notification.CATEGORY_REMINDER)
             .setWhen(System.currentTimeMillis() + Scheduler.WARN_LEAD_MS)
             .setUsesChronometer(true).setChronometerCountDown(true)
-            .setTimeoutAfter(Scheduler.WARN_LEAD_MS + 5_000)
+            .setTimeoutAfter(Scheduler.WARN_LEAD_MS)
             .addAction(action(ctx, ACTION_SNOOZE, a.id, "Snooze 30 min"))
             .addAction(action(ctx, ACTION_SKIP, a.id, "Not now"))
             .addAction(action(ctx, ACTION_RUN, a.id, "Run now"))

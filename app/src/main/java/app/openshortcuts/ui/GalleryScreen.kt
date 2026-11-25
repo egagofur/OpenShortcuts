@@ -109,22 +109,7 @@ fun GalleryScreen(onBack: () -> Unit, onOpen: (String) -> Unit) {
     androidx.compose.runtime.LaunchedEffect(lastAdded) {
         if (lastAdded != null) { kotlinx.coroutines.delay(4000); lastAdded = null }
     }
-    lastAdded?.let { id ->
-        // Quiet confirmation with a way into the editor.
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
-            Row(
-                Modifier.windowInsetsPadding(WindowInsets.topBar.only(WindowInsetsSides.Bottom)).padding(16.dp)
-                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(24.dp)).background(c.ink)
-                    .padding(start = 18.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text("Added to your shortcuts", style = Theme.t.label, color = c.bg)
-                Spacer(Modifier.width(10.dp))
-                Box(Modifier.pressable(label = "Open") { lastAdded = null; onOpen(id) }.clip(androidx.compose.foundation.shape.RoundedCornerShape(18.dp))
-                    .background(c.accent).padding(horizontal = 14.dp, vertical = 8.dp)) {
-                    Text("Open", style = Theme.t.label, color = androidx.compose.ui.graphics.Color.White)
-                }
-            }
-        }
+    Box(Modifier.fillMaxSize()) {
+        UndoBar(lastAdded?.let { "Added to your shortcuts" }, "Open") { lastAdded?.let { id -> lastAdded = null; onOpen(id) } }
     }
 }

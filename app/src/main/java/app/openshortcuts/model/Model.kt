@@ -442,7 +442,8 @@ data class Automation(
     val windowEnd: Int = 6 * 60,
     val shortcutId: String = "",
     val enabled: Boolean = true,
-    val warnFirst: Boolean = true,
+    /** Off by default: automations run on their own. On = post a one-minute "about to run" notification first. */
+    val warnFirst: Boolean = false,
     /** Charger connected, battery rises above, DND turns on, Wi-Fi connects. `false` = the opposite. */
     val on: Boolean = true,
     /** Battery threshold in percent. */
