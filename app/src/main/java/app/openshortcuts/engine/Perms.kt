@@ -28,6 +28,7 @@ enum class Perm(val title: String, val why: String, val runtime: String? = null,
     Call("Make phone calls", "Lets the Call action dial straight away instead of opening the dialer.", Manifest.permission.CALL_PHONE),
     Sms("Send SMS", "Lets “Send SMS … automatically” send without opening Messages. Standard SMS charges apply.", Manifest.permission.SEND_SMS),
     Calendar("Calendar", "Adds events and reads your upcoming ones.", Manifest.permission.WRITE_CALENDAR, listOf(Manifest.permission.READ_CALENDAR)),
+    Contacts("Contacts", "Lets you pick a person when a shortcut calls, texts, emails or sends a WhatsApp message. Only what you pick is saved.", Manifest.permission.READ_CONTACTS),
     Location("Location", "Gets your current location for “Get Current Location”.", Manifest.permission.ACCESS_FINE_LOCATION, listOf(Manifest.permission.ACCESS_COARSE_LOCATION)),
     AutoSend("Automatic WhatsApp sending", "Optional. Lets “Send WhatsApp … automatically” press Send for you. It can only see WhatsApp, and only acts on a message your shortcut just typed.");
 
@@ -36,7 +37,7 @@ enum class Perm(val title: String, val why: String, val runtime: String? = null,
         Notifications -> Build.VERSION.SDK_INT < 33 || ctx.checkSelfPermission(runtime!!) == PackageManager.PERMISSION_GRANTED
         Dnd -> ctx.getSystemService(NotificationManager::class.java).isNotificationPolicyAccessGranted
         WriteSettings -> Settings.System.canWrite(ctx)
-        PhoneCalls, Call, Sms, Calendar, Location -> (listOf(runtime!!) + more).all {
+        PhoneCalls, Call, Sms, Calendar, Location, Contacts -> (listOf(runtime!!) + more).all {
             ctx.checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED
         }
         Alarms -> Build.VERSION.SDK_INT < 31 || ctx.getSystemService(AlarmManager::class.java).canScheduleExactAlarms()

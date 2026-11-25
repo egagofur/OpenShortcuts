@@ -153,19 +153,20 @@ fun IconTile(glyph: String, color: Color, size: Dp = Dimens.tile, modifier: Modi
 
 /** Blue parameter token, the heart of the Shortcuts sentence UI. */
 @Composable
-fun TokenPill(text: String, modifier: Modifier = Modifier, glyph: String? = null, glyphColor: Color? = null, onClick: () -> Unit) {
+fun TokenPill(text: String, modifier: Modifier = Modifier, glyph: String? = null, glyphColor: Color? = null, empty: Boolean = false, onClick: () -> Unit) {
     val c = Theme.c
     Row(
         modifier
             .pressable(scale = 0.95f, label = "Edit $text", onClick = onClick)
             .clip(RoundedCornerShape(9.dp))
-            .background(c.accentWash)
+            // Unfilled: the placeholder sits in a fainter pill, so what still needs choosing stands out.
+            .background(if (empty) c.accentWash.copy(alpha = 0.45f) else c.accentWash)
             .padding(horizontal = 8.dp, vertical = 1.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(5.dp),
     ) {
         if (glyph != null) IconTile(glyph, glyphColor ?: c.accent, size = 20.dp)
-        Text(text, style = Theme.t.token, color = c.accent, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        Text(text, style = Theme.t.token, color = if (empty) c.accent.copy(alpha = 0.55f) else c.accent, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
     }
 }
 

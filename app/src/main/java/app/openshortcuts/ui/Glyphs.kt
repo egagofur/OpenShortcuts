@@ -16,11 +16,13 @@ import androidx.compose.ui.unit.dp
 /** One small, consistent outline icon set on a 24 grid. Filled variants end in "Fill". */
 object Glyphs {
     private val strokes = mapOf(
+        "person" to listOf("M12 4.5a3.75 3.75 0 1 0 0 7.5a3.75 3.75 0 1 0 0-7.5z", "M4.75 20c.9-3.4 3.7-5.5 7.25-5.5s6.35 2.1 7.25 5.5"),
         "chevronLeft" to listOf("M15 5l-7 7 7 7"),
         "chevronRight" to listOf("M9.5 5.5l6.5 6.5-6.5 6.5"),
         "chevronDown" to listOf("M6.5 9.5l5.5 5.5 5.5-5.5"),
         "x" to listOf("M7.5 7.5l9 9M16.5 7.5l-9 9"),
         "plus" to listOf("M12 5v14M5 12h14"),
+        "minus" to listOf("M5 12h14"),
         "search" to listOf("M10.5 4a6.5 6.5 0 1 0 0 13a6.5 6.5 0 1 0 0-13z", "M15.5 15.5L20 20"),
         "undo" to listOf("M9 14L4 9l5-5", "M4 9h10.5a5.5 5.5 0 0 1 0 11H11"),
         "redo" to listOf("M15 14l5-5-5-5", "M20 9H9.5a5.5 5.5 0 0 0 0 11H13"),

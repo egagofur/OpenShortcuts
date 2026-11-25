@@ -14,6 +14,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CALL_PHONE" />
     <uses-permission android:name="android.permission.SEND_SMS" />
+    <!-- Contact pickers in the editor only; nothing is uploaded. -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
     <uses-permission android:name="android.permission.READ_CALENDAR" />
     <uses-permission android:name="android.permission.WRITE_CALENDAR" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -48,6 +50,7 @@
     </queries>
 
     <application
+        android:enableOnBackInvokedCallback="true"
         android:name=".ShortcutsApp"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"

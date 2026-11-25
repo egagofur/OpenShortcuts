@@ -134,6 +134,21 @@ private fun Wheel(values: List<Int>, selected: Int, format: (Int) -> String, onS
     }
 }
 
+/** Hour and minute wheels on one selection band, 24-hour. */
+@Composable
+fun TimeWheels(h: Int, m: Int, onH: (Int) -> Unit, onM: (Int) -> Unit) {
+    val c = Theme.c
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        // Selection band behind the centre row.
+        Box(Modifier.fillMaxWidth().height(ROW).clip(RoundedCornerShape(10.dp)).background(c.fill))
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+            Wheel((0..23).toList(), h, { "%02d".format(it) }, onH, Modifier.width(72.dp))
+            Text(":", style = Theme.t.title, color = c.ink, modifier = Modifier.padding(horizontal = 6.dp))
+            Wheel((0..59).toList(), m, { "%02d".format(it) }, onM, Modifier.width(72.dp))
+        }
+    }
+}
+
 /** iOS wheel time picker in a Duo dialog. Minutes in steps of 1, 24-hour. */
 @Composable
 fun TimeWheelDialog(title: String, minutes: Int, onDismiss: () -> Unit, onDone: (Int) -> Unit) {
@@ -142,15 +157,7 @@ fun TimeWheelDialog(title: String, minutes: Int, onDismiss: () -> Unit, onDone: 
     var m by remember { mutableIntStateOf(minutes % 60) }
     DuoDialog(onDismiss) {
         DialogTitle(title)
-        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            // Selection band behind the centre row.
-            Box(Modifier.fillMaxWidth().height(ROW).clip(RoundedCornerShape(10.dp)).background(c.fill))
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                Wheel((0..23).toList(), h, { "%02d".format(it) }, { h = it }, Modifier.width(72.dp))
-                Text(":", style = Theme.t.title, color = c.ink, modifier = Modifier.padding(horizontal = 6.dp))
-                Wheel((0..59).toList(), m, { "%02d".format(it) }, { m = it }, Modifier.width(72.dp))
-            }
-        }
+        TimeWheels(h, m, { h = it }, { m = it })
         Spacer(Modifier.height(16.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             QuietButton("Cancel", Modifier.weight(1f), color = c.ink, onClick = onDismiss)

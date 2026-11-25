@@ -265,8 +265,8 @@ fun EditorScreen(shortcut: Shortcut, runs: RunController, onBack: () -> Unit, on
     editing?.let { (i, spec) ->
         val a = s.actions.getOrNull(i)
         if (a == null) { editing = null; return@let }
-        ParamDialog(a, spec, s, i, onDismiss = { editing = null }) { value ->
-            draft.actions { it[i] = a.copy(params = a.params + (spec.key to value)) }
+        ParamDialog(a, spec, s, i, onDismiss = { editing = null }) { values ->
+            draft.actions { it[i] = a.copy(params = a.params + values) }
             editing = null
         }
     }
@@ -310,6 +310,13 @@ fun tokenFor(ctx: android.content.Context, a: Action, spec: ParamSpec, all: List
     val v = a.p(spec.key)
     return when (spec.kind) {
         ParamKind.NUMBER -> TokenView(v + spec.suffix)
+        // A picked contact shows as the person, like Apple's contact tokens; typed numbers show as typed.
+        ParamKind.PHONE, ParamKind.EMAIL -> a.params[spec.key + ".name"]?.takeIf { it.isNotBlank() && v.isNotBlank() }
+            ?.let { TokenView(it, "person", monogramTint(it)) }
+            ?: TokenView(v.ifBlank { spec.placeholder }, empty = v.isBlank())
+        ParamKind.DATETIME -> TokenView(dayTimeLabel(v).ifBlank { spec.placeholder }, empty = v.isBlank())
+        // The send mode's full wording lives in its picker; in the sentence it stays short.
+        ParamKind.CHOICE -> TokenView(if (v == "and let me tap Send") "for review" else v)
         ParamKind.SHORTCUT -> Store.shortcut(v)?.let { TokenView(it.name, it.glyph, it.tint.color()) } ?: TokenView(spec.placeholder, empty = true)
         ParamKind.APP -> if (v.isBlank()) TokenView(spec.placeholder, empty = true)
             else TokenView(runCatching { ctx.packageManager.getApplicationLabel(ctx.packageManager.getApplicationInfo(v, 0)).toString() }.getOrDefault(v))
@@ -354,7 +361,7 @@ private fun ActionCard(
                         } else if (key != "body") {
                             val spec = t.params.first { it.key == key }
                             val tok = tokenFor(ctx, action, spec, all, index)
-                            TokenPill(tok.text, glyph = tok.glyph, glyphColor = tok.tint) { onParam(spec) }
+                            TokenPill(tok.text, glyph = tok.glyph, glyphColor = tok.tint, empty = tok.empty) { onParam(spec) }
                         }
                     }
                 }

@@ -34,6 +34,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -42,6 +43,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -163,50 +165,74 @@ private fun launchableApps(ctx: Context): List<AppEntry> {
 }
 
 @Composable
-fun ParamDialog(a: Action, spec: ParamSpec, owner: Shortcut, index: Int, onDismiss: () -> Unit, onDone: (String) -> Unit) {
+fun ParamDialog(a: Action, spec: ParamSpec, owner: Shortcut, index: Int, onDismiss: () -> Unit, onDone: (Map<String, String>) -> Unit) {
     val c = Theme.c
     val ctx = LocalContext.current
+    val vars = app.openshortcuts.model.variableNames(owner.actions)
+    // Contact params also keep the person's name, so the token can say "Mama" instead of digits.
+    fun done(v: String, name: String? = null) = onDone(buildMap {
+        put(spec.key, v)
+        if (spec.kind == ParamKind.PHONE || spec.kind == ParamKind.EMAIL) put(spec.key + ".name", name.orEmpty())
+    })
     DuoDialog(onDismiss) {
         DialogTitle(a.type.title)
         when (spec.kind) {
             ParamKind.CHOICE -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                spec.choices.forEach { ChoiceRow(it, it == a.p(spec.key)) { onDone(it) } }
+                spec.choices.forEach { ChoiceRow(it, it == a.p(spec.key)) { done(it) } }
             }
             ParamKind.NUMBER -> {
                 var v by remember { mutableStateOf(a.p(spec.key)) }
-                if (spec.max <= 100) {
-                    val f = (v.toFloatOrNull() ?: spec.min.toFloat()).coerceIn(spec.min.toFloat(), spec.max.toFloat())
-                    Text("${f.toInt()}${spec.suffix}", style = Theme.t.large.copy(fontFeatureSettings = "tnum"), color = c.ink)
+                val n = (v.toIntOrNull() ?: spec.min).coerceIn(spec.min, spec.max)
+                if (spec.suffix.trim() == "%") {
+                    // Levels read best as a slider, like Control Centre.
+                    Text("$n${spec.suffix}", style = Theme.t.large.copy(fontFeatureSettings = "tnum"), color = c.ink)
                     Slider(
-                        value = f, onValueChange = { v = it.toInt().toString() },
+                        value = n.toFloat(), onValueChange = { v = it.toInt().toString() },
                         valueRange = spec.min.toFloat()..spec.max.toFloat(),
-                        colors = SliderDefaults.colors(thumbColor = c.accent, activeTrackColor = c.accent, inactiveTrackColor = c.fill),
+                        colors = SliderDefaults.colors(thumbColor = androidx.compose.ui.graphics.Color.White, activeTrackColor = c.accent, inactiveTrackColor = c.fill),
                     )
                 } else {
-                    Field(v, { s -> v = s.filter(Char::isDigit).take(5) }, spec.suffix.trim().ifEmpty { "Number" }, number = true)
+                    // Counts and durations step like UIStepper; long ranges also take typing.
+                    NumberStepper(n, spec.min, spec.max, if (spec.max > 100) 5 else 1, spec.suffix) { v = it.toString() }
+                    if (spec.max > 100) {
+                        Spacer(Modifier.height(10.dp))
+                        Field(v, { s -> v = s.filter(Char::isDigit).take(5) }, spec.suffix.trim().ifEmpty { "Number" }, number = true, autofocus = false)
+                    }
                 }
                 Spacer(Modifier.height(16.dp))
-                PrimaryButton("Done", Modifier.fillMaxWidth()) {
-                    onDone(((v.toIntOrNull() ?: spec.min).coerceIn(spec.min, spec.max)).toString())
-                }
+                PrimaryButton("Done", Modifier.fillMaxWidth()) { done(n.toString()) }
             }
-            ParamKind.TEXT, ParamKind.TIME -> {
+            ParamKind.PHONE, ParamKind.EMAIL -> ContactPicker(
+                email = spec.kind == ParamKind.EMAIL,
+                whatsapp = a.type == app.openshortcuts.model.ActionType.SEND_WHATSAPP,
+                current = a.p(spec.key), variables = vars,
+            ) { v, name -> done(v, name) }
+            ParamKind.TIME -> {
+                val (h0, m0) = a.p(spec.key).split(":").let { (it.getOrNull(0)?.toIntOrNull() ?: 6) to (it.getOrNull(1)?.toIntOrNull() ?: 0) }
+                var h by remember { mutableIntStateOf(h0.coerceIn(0, 23)) }
+                var m by remember { mutableIntStateOf(m0.coerceIn(0, 59)) }
+                TimeWheels(h, m, { h = it }, { m = it })
+                Spacer(Modifier.height(16.dp))
+                PrimaryButton("Done", Modifier.fillMaxWidth()) { done("%02d:%02d".format(h, m)) }
+            }
+            ParamKind.DATETIME -> DayTimePicker(a.p(spec.key)) { done(it) }
+            ParamKind.TEXT -> {
                 var v by remember { mutableStateOf(a.p(spec.key)) }
                 Field(v, { v = it }, spec.placeholder)
                 // Names aren't templates; everything else can mix in variables.
                 if (spec.key != "name") {
                     Spacer(Modifier.height(10.dp))
-                    VariableChips(app.openshortcuts.model.variableNames(owner.actions)) { v += it }
+                    VariableChips(vars) { v += it }
                 }
                 Spacer(Modifier.height(16.dp))
-                PrimaryButton("Done", Modifier.fillMaxWidth()) { onDone(v) }
+                PrimaryButton("Done", Modifier.fillMaxWidth()) { done(v) }
             }
             ParamKind.SHORTCUT -> {
                 val options = Store.library.value.shortcuts.filter { it.id != owner.id }
                 if (options.isEmpty()) Text("Make another shortcut first.", style = Theme.t.body, color = c.ink2)
                 LazyColumn(Modifier.heightIn(max = 380.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     items(options, key = { it.id }) { s ->
-                        ChoiceRow(s.name, s.id == a.p(spec.key), s.glyph, s.tint.color()) { onDone(s.id) }
+                        ChoiceRow(s.name, s.id == a.p(spec.key), s.glyph, s.tint.color()) { done(s.id) }
                     }
                 }
             }
@@ -217,22 +243,22 @@ fun ParamDialog(a: Action, spec: ParamSpec, owner: Shortcut, index: Int, onDismi
                 Spacer(Modifier.height(10.dp))
                 LazyColumn(Modifier.heightIn(max = 380.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     items(apps.filter { q.isBlank() || it.label.contains(q, true) }, key = { it.pkg }) { app ->
-                        ChoiceRow(app.label, app.pkg == a.p(spec.key)) { onDone(app.pkg) }
+                        ChoiceRow(app.label, app.pkg == a.p(spec.key)) { done(app.pkg) }
                     }
                 }
             }
             ParamKind.INPUT -> {
                 val tok = tokenFor(ctx, a.copy(params = a.params + (spec.key to "@prev")), spec, owner.actions, index)
-                ChoiceRow("${tok.text} (from the action above)", a.p(spec.key) == "@prev", tok.glyph ?: "layers", tok.tint) { onDone("@prev") }
+                ChoiceRow("${tok.text} (from the action above)", a.p(spec.key) == "@prev", tok.glyph ?: "layers", tok.tint) { done("@prev") }
                 Spacer(Modifier.height(14.dp))
                 Text("Or type text", style = Theme.t.small, color = c.ink2)
                 Spacer(Modifier.height(6.dp))
                 var v by remember { mutableStateOf(a.p(spec.key).takeIf { it != "@prev" }.orEmpty()) }
                 Field(v, { v = it }, "Text", autofocus = false)
                 Spacer(Modifier.height(10.dp))
-                VariableChips(app.openshortcuts.model.variableNames(owner.actions)) { v += it }
+                VariableChips(vars) { v += it }
                 Spacer(Modifier.height(16.dp))
-                PrimaryButton("Use this text", Modifier.fillMaxWidth()) { onDone(v) }
+                PrimaryButton("Use this text", Modifier.fillMaxWidth()) { done(v) }
             }
         }
     }
@@ -449,16 +475,38 @@ fun PromptDialog(p: Runner.Prompt, onAnswer: (String?) -> Unit) {
 @Composable
 fun VariableChips(names: List<String>, onInsert: (String) -> Unit) {
     val c = Theme.c
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        names.forEach { n ->
-            Row(
-                Modifier.pressable(scale = 0.95f, label = "Insert $n") { onInsert("{$n}") }
-                    .clip(RoundedCornerShape(10.dp)).background(c.accentWash).padding(horizontal = 9.dp, vertical = 5.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Glyph("braces", c.accent, size = 14.dp)
-                Spacer(Modifier.width(4.dp))
-                Text(n, style = Theme.t.small, color = c.accent)
+    // One quiet "Variables" chip; the list opens on demand so the field stays the focus.
+    var open by remember { mutableStateOf(false) }
+    val chevron by androidx.compose.animation.core.animateFloatAsState(if (open) 180f else 0f, Motion.settle(), label = "chev")
+    Column {
+        Row(
+            Modifier.pressable(scale = 0.95f, label = if (open) "Hide variables" else "Show variables") { open = !open }
+                .clip(RoundedCornerShape(10.dp)).background(c.fill).padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Glyph("braces", c.ink2, size = 14.dp)
+            Spacer(Modifier.width(5.dp))
+            Text("Variables", style = Theme.t.small, color = c.ink2)
+            Spacer(Modifier.width(3.dp))
+            Glyph("chevronDown", c.ink2, size = 14.dp, modifier = Modifier.graphicsLayer { rotationZ = chevron })
+        }
+        androidx.compose.animation.AnimatedVisibility(
+            open,
+            enter = androidx.compose.animation.expandVertically(tween(200, easing = Motion.easeOut)) + androidx.compose.animation.fadeIn(tween(150)),
+            exit = androidx.compose.animation.shrinkVertically(tween(150, easing = Motion.easeOut)) + androidx.compose.animation.fadeOut(tween(100)),
+        ) {
+            FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                names.forEach { n ->
+                    Row(
+                        Modifier.pressable(scale = 0.95f, label = "Insert $n") { onInsert("{$n}") }
+                            .clip(RoundedCornerShape(10.dp)).background(c.accentWash).padding(horizontal = 9.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Glyph("braces", c.accent, size = 14.dp)
+                        Spacer(Modifier.width(4.dp))
+                        Text(n, style = Theme.t.small, color = c.accent)
+                    }
+                }
             }
         }
     }

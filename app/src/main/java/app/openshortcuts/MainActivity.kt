@@ -2,23 +2,16 @@ package app.openshortcuts
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -34,13 +27,11 @@ import app.openshortcuts.model.TriggerKind
 import app.openshortcuts.ui.AutomationScreen
 import app.openshortcuts.ui.EditorScreen
 import app.openshortcuts.ui.HomeScreen
-import app.openshortcuts.ui.Motion
 import app.openshortcuts.ui.NewAutomationDialog
 import app.openshortcuts.ui.ResultDialog
 import app.openshortcuts.ui.RunController
 import app.openshortcuts.ui.SetupScreen
 import app.openshortcuts.ui.ShortcutsTheme
-import app.openshortcuts.ui.Theme
 
 sealed interface Route {
     data object Home : Route
@@ -85,7 +76,8 @@ class MainActivity : ComponentActivity() {
 private fun App() {
     val ctx = LocalContext.current
     val lib by Store.library.collectAsStateWithLifecycle()
-    var stack by remember { mutableStateOf(listOf<Route>(Route.Home)) }
+    val navScope = androidx.compose.runtime.rememberCoroutineScope()
+    val nav = remember { app.openshortcuts.ui.NavState<Route>(Route.Home, navScope) }
     var tab by remember { mutableIntStateOf(0) }
     var resumeTick by remember { mutableIntStateOf(0) }
     var newAuto by remember { mutableStateOf(false) }
@@ -101,9 +93,10 @@ private fun App() {
 
     LifecycleResumeEffect(Unit) { resumeTick++; onPauseOrDispose { } }
 
-    fun push(r: Route) { stack = stack + r }
-    fun pop() { if (stack.size > 1) stack = stack.dropLast(1) }
-    BackHandler(enabled = stack.size > 1) { pop() }
+    fun push(r: Route) = nav.push(r)
+    fun pop() = nav.pop()
+    // The system back gesture drives the pop frame by frame, like iOS's edge swipe.
+    androidx.activity.compose.PredictiveBackHandler(enabled = nav.stack.size > 1) { events -> nav.predictive(events) }
 
     val missingSetup = remember(lib, resumeTick) {
         buildList {
@@ -114,25 +107,8 @@ private fun App() {
         }.distinct().filterNot { it.granted(ctx) }
     }
 
-    val reduced = Theme.reduced
-    var lastDepth by remember { mutableIntStateOf(1) }
-    AnimatedContent(
-        targetState = stack,
-        contentKey = { it.last() },
-        transitionSpec = {
-            val forward = targetState.size >= lastDepth
-            lastDepth = targetState.size
-            if (reduced) fadeIn(tween(180)) togetherWith fadeOut(tween(120))
-            else {
-                // Enter and leave along the same path: push from the right, pop back to the right.
-                val dir = if (forward) 1 else -1
-                (slideInHorizontally(tween(320, easing = Motion.easeOut)) { w -> dir * w / 4 } + fadeIn(tween(220))) togetherWith
-                    (slideOutHorizontally(tween(320, easing = Motion.easeOut)) { w -> -dir * w / 6 } + fadeOut(tween(160)))
-            }
-        },
-        label = "nav",
-    ) { st ->
-        when (val r = st.last()) {
+    app.openshortcuts.ui.NavHost(nav) { route ->
+        when (val r = route) {
             Route.Home -> HomeScreen(
                 lib = lib, tab = tab, runs = runs, missingSetup = missingSetup,
                 onTab = { tab = it },
@@ -146,7 +122,7 @@ private fun App() {
             )
             is Route.Editor -> {
                 val s = remember(r.id) { Store.shortcut(r.id) }
-                if (s == null) pop() else EditorScreen(
+                if (s == null) LaunchedEffect(r) { nav.popIfTop(r) } else EditorScreen(
                     s, runs, onBack = ::pop,
                     onDelete = { Store.deleteShortcut(s.id); pop() },
                     onSetup = { push(Route.Setup) },
@@ -154,7 +130,7 @@ private fun App() {
             }
             is Route.Auto -> {
                 val a = lib.automations.firstOrNull { it.id == r.id }
-                if (a == null) pop() else AutomationScreen(
+                if (a == null) LaunchedEffect(r) { nav.popIfTop(r) } else AutomationScreen(
                     a, lib,
                     onChange = { Store.upsert(it) }, onBack = ::pop,
                     onDelete = { Store.deleteAutomation(a.id); pop() },
@@ -198,7 +174,7 @@ private fun App() {
                 draft = null
                 Store.upsert(d.imported.shortcut)
                 d.automation?.let { Store.upsert(it) }
-                stack = listOf(Route.Home); tab = 0
+                nav.reset(listOf(Route.Home)); tab = 0
                 push(Route.Editor(d.imported.shortcut.id))
             },
         )
@@ -210,7 +186,7 @@ private fun App() {
             onAdd = {
                 app.openshortcuts.model.Portable.incoming.value = null
                 Store.upsert(imp.shortcut)
-                stack = listOf(Route.Home); tab = 0
+                nav.reset(listOf(Route.Home)); tab = 0
                 push(Route.Editor(imp.shortcut.id))
             },
         )

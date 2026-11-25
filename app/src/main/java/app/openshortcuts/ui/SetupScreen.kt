@@ -51,7 +51,7 @@ private val GROUPS = listOf(
     Group("Phone control", null,
         listOf(Perm.Dnd, Perm.WriteSettings, Perm.PhoneCalls, Perm.Accessibility, Perm.AutoSend)),
     Group("Personal data", "Needed only by shortcuts that use them.",
-        listOf(Perm.Call, Perm.Sms, Perm.Calendar, Perm.Location)),
+        listOf(Perm.Contacts, Perm.Call, Perm.Sms, Perm.Calendar, Perm.Location)),
 )
 
 private fun Perm.look(): Pair<String, Tint> = when (this) {
@@ -68,6 +68,7 @@ private fun Perm.look(): Pair<String, Tint> = when (this) {
     Perm.Sms -> "quote" to Tint.Green
     Perm.Calendar -> "calendar" to Tint.Red
     Perm.Location -> "pin" to Tint.Blue
+    Perm.Contacts -> "person" to Tint.Gray
 }
 
 /** `tick` changes on every resume so states re-read after returning from Settings. */

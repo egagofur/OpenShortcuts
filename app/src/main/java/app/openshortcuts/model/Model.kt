@@ -3,7 +3,8 @@ package app.openshortcuts.model
 import java.util.UUID
 
 /** How a parameter is edited when its token pill is tapped. */
-enum class ParamKind { TEXT, NUMBER, CHOICE, TIME, APP, SHORTCUT, INPUT }
+/** PHONE / EMAIL pick from contacts (or take typed text); DATETIME is a day plus a time. */
+enum class ParamKind { TEXT, NUMBER, CHOICE, TIME, APP, SHORTCUT, INPUT, PHONE, EMAIL, DATETIME }
 
 data class ParamSpec(
     val key: String,
@@ -57,7 +58,7 @@ enum class ActionType(
     SEND_WHATSAPP(
         "Send WhatsApp Message", "Send WhatsApp to {number} {mode}", Category.Messages, Tint.Green, "send",
         listOf(
-            ParamSpec("number", ParamKind.TEXT, "", placeholder = "Phone number"),
+            ParamSpec("number", ParamKind.PHONE, "", placeholder = "Contact"),
             ParamSpec("mode", ParamKind.CHOICE, "and let me tap Send", listOf("and let me tap Send", "automatically")),
             ParamSpec("body", ParamKind.TEXT, "", placeholder = "Message"),
         ),
@@ -65,13 +66,13 @@ enum class ActionType(
     ),
     CALL(
         "Call", "Call {number}", Category.Calls, Tint.Green, "phone",
-        listOf(ParamSpec("number", ParamKind.TEXT, "", placeholder = "Phone number")),
+        listOf(ParamSpec("number", ParamKind.PHONE, "", placeholder = "Contact")),
         summary = "Calls straight away with the Make phone calls permission; otherwise opens the dialer.",
     ),
     SEND_SMS(
         "Send SMS", "Send SMS to {number} {mode}", Category.Messages, Tint.Green, "quote",
         listOf(
-            ParamSpec("number", ParamKind.TEXT, "", placeholder = "Phone number"),
+            ParamSpec("number", ParamKind.PHONE, "", placeholder = "Contact"),
             ParamSpec("mode", ParamKind.CHOICE, "and let me tap Send", listOf("and let me tap Send", "automatically")),
             ParamSpec("body", ParamKind.TEXT, "", placeholder = "Message"),
         ),
@@ -80,7 +81,7 @@ enum class ActionType(
     EMAIL(
         "Send Email", "Email {to} about {subject}", Category.Messages, Tint.Blue, "send",
         listOf(
-            ParamSpec("to", ParamKind.TEXT, "", placeholder = "Address"),
+            ParamSpec("to", ParamKind.EMAIL, "", placeholder = "Contact"),
             ParamSpec("subject", ParamKind.TEXT, "", placeholder = "Subject"),
             ParamSpec("body", ParamKind.TEXT, "", placeholder = "Message"),
         ),
@@ -101,7 +102,7 @@ enum class ActionType(
     ALARM(
         "Set Alarm", "Set an alarm for {time} {label}", Category.Clock, Tint.Orange, "clock",
         listOf(
-            ParamSpec("time", ParamKind.TEXT, "06:00", placeholder = "HH:mm"),
+            ParamSpec("time", ParamKind.TIME, "06:00", placeholder = "Time"),
             ParamSpec("label", ParamKind.TEXT, "", placeholder = "Label"),
         ),
         summary = "Adds an alarm to your Clock app.",
@@ -110,7 +111,7 @@ enum class ActionType(
         "Add Calendar Event", "Add event {title} at {start} for {minutes}", Category.Clock, Tint.Red, "calendar",
         listOf(
             ParamSpec("title", ParamKind.TEXT, "", placeholder = "Title"),
-            ParamSpec("start", ParamKind.TEXT, "tomorrow 09:00", placeholder = "When"),
+            ParamSpec("start", ParamKind.DATETIME, "tomorrow 09:00", placeholder = "When"),
             ParamSpec("minutes", ParamKind.NUMBER, "60", suffix = " min", min = 5, max = 1440),
         ),
         summary = "Adds to your calendar quietly with Calendar access; otherwise opens the calendar to confirm.",

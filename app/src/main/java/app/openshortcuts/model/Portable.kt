@@ -59,7 +59,7 @@ object Portable {
             val p = a.optJSONObject("params") ?: JSONObject()
             // Only keep parameters this action knows, so a file can't smuggle in extra data.
             val known = type.params.map { it.key }.toSet()
-            var params = p.keys().asSequence().filter { it in known }.associateWith { p.getString(it).take(4_000) }
+            var params = p.keys().asSequence().filter { it in known || it.removeSuffix(".name") in known }.associateWith { p.getString(it).take(4_000) }
             if (type == ActionType.RUN_SHORTCUT) {
                 params = params + ("shortcut" to (lib.shortcuts.firstOrNull { it.name == params["shortcut"] }?.id ?: ""))
             }
