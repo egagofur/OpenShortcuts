@@ -59,23 +59,56 @@ object Scheduler {
     fun rescheduleAll(ctx: Context, lib: Library = Store.library.value) {
         lib.automations.forEach { a ->
             cancel(ctx, "time", a.id)
-            if (a.kind == TriggerKind.Time && a.enabled) at(ctx, "time", a.id, nextTime(a))
+            if (a.kind == TriggerKind.Time && a.enabled) nextTime(ctx, a)?.let { at(ctx, "time", a.id, it) }
         }
         if (CallWatcher.callActive) armCallTriggers(ctx, CallWatcher.callStartedAt) else disarmCallTriggers(ctx)
     }
 
-    fun nextTime(a: Automation, from: Long = System.currentTimeMillis()): Long {
-        val c = Calendar.getInstance().apply {
-            timeInMillis = from
-            set(Calendar.HOUR_OF_DAY, a.timeOfDay / 60); set(Calendar.MINUTE, a.timeOfDay % 60)
-            set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+    /**
+     * Where sunrise/sunset is worked out: the phone's last known location (no GPS fix is started),
+     * remembered so it still works when location is briefly unavailable.
+     */
+    fun place(ctx: Context): When.Place? {
+        val prefs = ctx.getSharedPreferences("place", Context.MODE_PRIVATE)
+        val fresh = runCatching {
+            if (ctx.checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED) null
+            else {
+                val lm = ctx.getSystemService(android.location.LocationManager::class.java)
+                lm.getProviders(true).mapNotNull { lm.getLastKnownLocation(it) }.maxByOrNull { it.time }
+            }
+        }.getOrNull()
+        if (fresh != null) {
+            prefs.edit().putFloat("lat", fresh.latitude.toFloat()).putFloat("lon", fresh.longitude.toFloat()).apply()
+            return When.Place(fresh.latitude, fresh.longitude)
         }
-        if (c.timeInMillis <= from) c.add(Calendar.DAY_OF_YEAR, 1)
-        repeat(7) {
-            if (a.days.isEmpty() || c.get(Calendar.DAY_OF_WEEK) in a.days) return c.timeInMillis
-            c.add(Calendar.DAY_OF_YEAR, 1)
-        }
-        return c.timeInMillis
+        if (!prefs.contains("lat")) return null
+        return When.Place(prefs.getFloat("lat", 0f).toDouble(), prefs.getFloat("lon", 0f).toDouble())
+    }
+
+    /**
+     * Ask for one current location (network first, so it's quick and light) and remember it.
+     * Used when the phone has no recent fix; [done] gets whether one arrived.
+     */
+    fun refreshPlace(ctx: Context, done: (Boolean) -> Unit) {
+        if (ctx.checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED) { done(false); return }
+        val lm = ctx.getSystemService(android.location.LocationManager::class.java)
+        val provider = listOf(android.location.LocationManager.NETWORK_PROVIDER, android.location.LocationManager.FUSED_PROVIDER, android.location.LocationManager.GPS_PROVIDER)
+            .firstOrNull { runCatching { lm.isProviderEnabled(it) }.getOrDefault(false) } ?: run { done(false); return }
+        runCatching {
+            lm.getCurrentLocation(provider, null, ctx.mainExecutor) { loc ->
+                if (loc != null) ctx.getSharedPreferences("place", Context.MODE_PRIVATE).edit()
+                    .putFloat("lat", loc.latitude.toFloat()).putFloat("lon", loc.longitude.toFloat()).apply()
+                done(loc != null)
+            }
+        }.onFailure { done(false) }
+    }
+
+    /** Next run in epoch millis, or null when there is none (a one-off date that passed). */
+    fun nextTime(ctx: Context, a: Automation, from: Long = System.currentTimeMillis()): Long? {
+        val zone = java.time.ZoneId.systemDefault()
+        val start = java.time.LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(from), zone)
+        val place = if (a.timeMode == "sunrise" || a.timeMode == "sunset") place(ctx) else null
+        return When.next(a, start, place, zone)?.atZone(zone)?.toInstant()?.toEpochMilli()
     }
 
     fun armCallTriggers(ctx: Context, startedAt: Long) {
@@ -119,7 +152,10 @@ object Scheduler {
         if (isCall && !CallWatcher.callActive) { Notifs.cancelWarn(ctx, a.id); return null }
         return when (stage) {
             "time" -> {
-                at(ctx, "time", a.id, nextTime(a, now + 60_000))
+                val next = nextTime(ctx, a, now + 60_000)
+                if (next != null) at(ctx, "time", a.id, next)
+                // A one-off has done its job: switch it off so the list shows it won't run again.
+                else if (a.timeMode == "once") Store.upsert(a.copy(enabled = false))
                 if (a.warnFirst) handle(ctx, "warn", a) else runNow(ctx, a)
             }
             "call" -> {

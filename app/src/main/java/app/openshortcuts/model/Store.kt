@@ -90,6 +90,7 @@ object Store {
                 put("windowStart", a.windowStart); put("windowEnd", a.windowEnd)
                 put("shortcutId", a.shortcutId); put("enabled", a.enabled); put("warn", a.warnFirst)
                 put("on", a.on); put("level", a.level); put("text", a.text); put("app", a.app)
+                put("timeMode", a.timeMode); put("offset", a.offset); put("every", a.every); put("date", a.date); put("monthDay", a.monthDay)
             }
         }))
     }
@@ -116,6 +117,8 @@ object Store {
                 windowEnd = a.optInt("windowEnd", 6 * 60), shortcutId = a.optString("shortcutId"),
                 enabled = a.optBoolean("enabled", true), warnFirst = a.optBoolean("warn", false) && o.optInt("v", 1) >= 2,
                 on = a.optBoolean("on", true), level = a.optInt("level", 20), text = a.optString("text"), app = a.optString("app"),
+                timeMode = a.optString("timeMode", "time"), offset = a.optInt("offset"), every = a.optInt("every", 60),
+                date = a.optString("date"), monthDay = a.optInt("monthDay"),
             )
         }.orEmpty()
         return Library(shortcuts, automations)

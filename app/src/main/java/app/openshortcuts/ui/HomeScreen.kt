@@ -305,7 +305,7 @@ fun appLabel(ctx: android.content.Context?, pkg: String): String =
     } ?: pkg.substringAfterLast('.').replaceFirstChar { it.uppercase() }
 
 fun Automation.headline(ctx: android.content.Context? = null): String = when (kind) {
-    TriggerKind.Time -> "At ${timeOfDay.hhmm()}, ${days.daysLabel().lowercase()}"
+    TriggerKind.Time -> timeHeadline(this)
     TriggerKind.WhatsAppCallLong -> "WhatsApp call over $callMinutes min, ${windowStart.hhmm()}–${windowEnd.hhmm()}"
     TriggerKind.Charger -> if (on) "Charger connected" else "Charger disconnected"
     TriggerKind.BatteryLevel -> "Battery ${if (on) "rises above" else "falls below"} $level%"

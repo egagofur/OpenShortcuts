@@ -263,3 +263,88 @@ object Data {
     }
 
 }
+
+/**
+ * When an automation's time trigger next fires. Pure (no Android), so it can be unit-tested.
+ * Sunrise/sunset use the NOAA sunrise equation; without a location they fall back to 06:00 / 18:00.
+ */
+object When {
+    data class Place(val lat: Double, val lon: Double)
+
+    /** Sunrise and sunset on [day] in [zone], or null in polar day/night. */
+    fun sun(day: java.time.LocalDate, place: Place, zone: java.time.ZoneId): Pair<java.time.LocalTime, java.time.LocalTime>? {
+        val rad = Math.PI / 180
+        val jDate = day.toEpochDay() + 2440587.5 + 0.5 // noon UTC
+        val n = kotlin.math.ceil(jDate - 2451545.0 + 0.0008)
+        val jStar = n - place.lon / 360.0
+        val m = ((357.5291 + 0.98560028 * jStar) % 360 + 360) % 360
+        val c = 1.9148 * kotlin.math.sin(m * rad) + 0.02 * kotlin.math.sin(2 * m * rad) + 0.0003 * kotlin.math.sin(3 * m * rad)
+        val lambda = ((m + c + 180 + 102.9372) % 360 + 360) % 360
+        val jTransit = 2451545.0 + jStar + 0.0053 * kotlin.math.sin(m * rad) - 0.0069 * kotlin.math.sin(2 * lambda * rad)
+        val sinDec = kotlin.math.sin(lambda * rad) * kotlin.math.sin(23.4397 * rad)
+        val cosDec = kotlin.math.cos(kotlin.math.asin(sinDec))
+        val cosW = (kotlin.math.sin(-0.833 * rad) - kotlin.math.sin(place.lat * rad) * sinDec) / (kotlin.math.cos(place.lat * rad) * cosDec)
+        if (cosW < -1 || cosW > 1) return null
+        val w = kotlin.math.acos(cosW) / rad
+        fun local(j: Double) = java.time.Instant.ofEpochMilli(((j - 2440587.5) * 86_400_000).toLong()).atZone(zone).toLocalTime()
+        return local(jTransit - w / 360) to local(jTransit + w / 360)
+    }
+
+    private fun dayOk(a: app.openshortcuts.model.Automation, d: java.time.LocalDate): Boolean {
+        val cal = d.dayOfWeek.value % 7 + 1 // java.time Monday=1 … Sunday=7 → Calendar Sunday=1
+        return when {
+            a.timeMode == "time" && a.monthDay > 0 -> d.dayOfMonth == minOf(a.monthDay, d.lengthOfMonth())
+            else -> a.days.isEmpty() || cal in a.days
+        }
+    }
+
+    /** The first run strictly after [from], or null if there is none (a one-off date that passed). */
+    fun next(
+        a: app.openshortcuts.model.Automation,
+        from: java.time.LocalDateTime,
+        place: Place?,
+        zone: java.time.ZoneId = java.time.ZoneId.systemDefault(),
+    ): java.time.LocalDateTime? {
+        val at = java.time.LocalTime.of(a.timeOfDay / 60 % 24, a.timeOfDay % 60)
+        when (a.timeMode) {
+            "once" -> {
+                val d = runCatching { java.time.LocalDate.parse(a.date) }.getOrNull() ?: return null
+                return d.atTime(at).takeIf { it.isAfter(from) }
+            }
+            "every" -> {
+                val step = a.every.coerceAtLeast(15).toLong()
+                val allDay = a.windowStart == a.windowEnd
+                for (i in 0..8) {
+                    val d = from.toLocalDate().plusDays(i.toLong())
+                    if (!dayOk(a, d)) continue
+                    val start = if (allDay) d.atStartOfDay() else d.atTime(a.windowStart / 60, a.windowStart % 60)
+                    val end = if (allDay) d.plusDays(1).atStartOfDay()
+                        else d.atTime(a.windowEnd / 60, a.windowEnd % 60).let { if (a.windowEnd <= a.windowStart) it.plusDays(1) else it }
+                    var t = start
+                    if (from >= start) {
+                        val k = java.time.Duration.between(start, from).toMinutes() / step + 1
+                        t = start.plusMinutes(k * step)
+                    }
+                    if (t.isAfter(from) && !t.isAfter(end)) return t
+                }
+                return null
+            }
+            else -> {
+                for (i in 0..62) {
+                    val d = from.toLocalDate().plusDays(i.toLong())
+                    if (!dayOk(a, d)) continue
+                    val t = when (a.timeMode) {
+                        "sunrise", "sunset" -> {
+                            val s = place?.let { sun(d, it, zone) }
+                            val base = if (a.timeMode == "sunrise") s?.first ?: java.time.LocalTime.of(6, 0) else s?.second ?: java.time.LocalTime.of(18, 0)
+                            d.atTime(base).plusMinutes(a.offset.toLong()).withSecond(0).withNano(0)
+                        }
+                        else -> d.atTime(at)
+                    }
+                    if (t.isAfter(from)) return t
+                }
+                return null
+            }
+        }
+    }
+}

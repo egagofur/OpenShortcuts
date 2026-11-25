@@ -101,6 +101,7 @@ fun AutomationScreen(
         if (a.kind != TriggerKind.Time) add(Perm.CallAccess)
         if (a.kind == TriggerKind.App) add(Perm.UsageAccess)
         if (a.kind == TriggerKind.Bluetooth) add(Perm.Bluetooth)
+        if (a.kind == TriggerKind.Time && (a.timeMode == "sunrise" || a.timeMode == "sunset")) add(Perm.Location)
         add(Perm.Notifications); add(Perm.Alarms); add(Perm.Battery)
         target?.let { addAll(Perm.missing(ctx, it)) }
     }.distinct().filterNot { it.granted(ctx) }
@@ -121,9 +122,7 @@ fun AutomationScreen(
 
             val gap = Modifier.height(12.dp)
             when (a.kind) {
-                TriggerKind.Time -> SentenceCard("clock", Tint.Blue.color(),
-                    words("When it's") + Seg.Pill(a.timeOfDay.hhmm()) { pickTime(a.timeOfDay) { onChange(a.copy(timeOfDay = it)) } } +
-                        Seg.Pill(a.days.daysLabel()) { dialog = "days" })
+                TriggerKind.Time -> TimeTriggerCard(a, onChange) { cur, set -> pickTime(cur, set) }
                 TriggerKind.WhatsAppCallLong -> {
                     SentenceCard("phone", Tint.Green.color(),
                         words("When a WhatsApp call lasts") + Seg.Pill("${a.callMinutes} min") { dialog = "minutes" })

@@ -306,11 +306,11 @@ fun dayTimeLabel(v: String): String {
 
 /** Today, Tomorrow and the next five days as chips, then the time on wheels. */
 @Composable
-fun DayTimePicker(current: String, onDone: (String) -> Unit) {
+fun DayTimePicker(current: String, daysAhead: Int = 6, onDone: (String) -> Unit) {
     val c = Theme.c
     val m = Regex("^(today|tomorrow|\\d{4}-\\d{2}-\\d{2})\\s+(\\d{1,2}):(\\d{2})$", RegexOption.IGNORE_CASE).find(current.trim())
     val today = LocalDate.now()
-    val days = listOf("today", "tomorrow") + (2..6).map { ISO_DAY.format(today.plusDays(it.toLong())) }
+    val days = listOf("today", "tomorrow") + (2..daysAhead).map { ISO_DAY.format(today.plusDays(it.toLong())) }
     var day by remember { mutableStateOf(m?.groupValues?.get(1)?.lowercase()?.takeIf { it in days } ?: "tomorrow") }
     var h by remember { mutableIntStateOf(m?.groupValues?.get(2)?.toIntOrNull() ?: 9) }
     var min by remember { mutableIntStateOf(m?.groupValues?.get(3)?.toIntOrNull() ?: 0) }

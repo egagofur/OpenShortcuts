@@ -463,6 +463,16 @@ data class Automation(
     val text: String = "",
     /** App and Notification triggers: the app's package (blank = any app, for notifications). */
     val app: String = "",
+    /** Time trigger: "time" (a clock time), "sunrise", "sunset", "every" (an interval) or "once" (one date). */
+    val timeMode: String = "time",
+    /** Sunrise/sunset: minutes before (negative) or after (positive). */
+    val offset: Int = 0,
+    /** "every": minutes between runs, inside windowStart–windowEnd (equal = all day). */
+    val every: Int = 60,
+    /** "once": the date, yyyy-MM-dd, at timeOfDay. */
+    val date: String = "",
+    /** "time": repeat monthly on this day of the month (1–31); 0 = use [days] instead. */
+    val monthDay: Int = 0,
 )
 
 data class Library(
