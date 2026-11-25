@@ -8,7 +8,10 @@ Free, open-source automation for Android, inspired by iOS Shortcuts: build routi
   <img alt="Kotlin" src="https://img.shields.io/badge/Kotlin-Jetpack%20Compose-7f52ff?logo=kotlin&logoColor=white">
   <img alt="No root" src="https://img.shields.io/badge/root-not%20needed-0a84ff">
   <img alt="On-device" src="https://img.shields.io/badge/runs-on%20device-34c759">
+  <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-8a8a90"></a>
 </p>
+
+<p align="center"><a href="https://github.com/egagofur/OpenShortcuts/releases/latest/download/OpenShortcuts.apk"><b>Download the APK</b></a> · <a href="https://egagofur.github.io/OpenShortcuts/">Website</a> · <a href="../../releases">All releases</a></p>
 
 <p align="center"><img src="docs/images/hero.png" alt="OpenShortcuts: shortcut library, the Sleep Mode editor and a WhatsApp call automation on Android phones" width="100%"></p>
 
@@ -77,7 +80,7 @@ No app can open a WhatsApp chat behind a PIN-locked screen; this is the closest 
 
 ## Install
 
-Download the latest APK from **[Releases](../../releases)**, or build it yourself:
+Download **[OpenShortcuts.apk](https://github.com/egagofur/OpenShortcuts/releases/latest/download/OpenShortcuts.apk)** from the latest release and open it on your phone (allow installing from your browser when Android asks). Or build it yourself:
 
 ```bash
 ./gradlew :app:assembleDebug
@@ -143,6 +146,10 @@ adb -s emulator-5554 shell am start -n com.whatsapp/dev.test.fakewa.CallActivity
 - Signed release builds on GitHub and F-Droid
 
 Ideas and bug reports are welcome in [Issues](../../issues). If OpenShortcuts saves your battery tonight, a ⭐ helps others find it.
+
+## License
+
+[MIT](LICENSE). Use it, change it, ship it.
 
 ---
 

@@ -1,0 +1,16 @@
+# The Anthropic SDK maps JSON with Jackson and Kotlin reflection.
+-keep class com.anthropic.** { *; }
+-keep class com.fasterxml.jackson.** { *; }
+-keep class kotlin.Metadata { *; }
+-keepattributes *Annotation*, Signature, InnerClasses, EnclosingMethod, RuntimeVisibleAnnotations, RuntimeVisibleParameterAnnotations
+-dontwarn com.fasterxml.jackson.**
+-dontwarn org.slf4j.**
+-dontwarn okhttp3.internal.platform.**
+-dontwarn org.conscrypt.**
+-dontwarn org.bouncycastle.**
+-dontwarn org.openjsse.**
+-dontwarn java.beans.**
+-dontwarn javax.annotation.**
+-dontwarn com.google.auto.value.AutoValue
+-dontwarn java.lang.reflect.AnnotatedParameterizedType
+-dontwarn java.lang.reflect.AnnotatedType

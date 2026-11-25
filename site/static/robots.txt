@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://egagofur.github.io/OpenShortcuts/sitemap.xml
