@@ -183,13 +183,13 @@ private fun SmartLockRow() {
     val locationOn = remember { ctx.getSystemService(android.location.LocationManager::class.java).isLocationEnabled }
     SettingsRow(
         "Smart Lock or Extend Unlock", "lock", Tint.Blue.color(),
-        "Tap Open and enter your PIN, then choose Smart Lock → Trusted places and add Home. The phone then stays open without a PIN while you're home." +
+        "Tap Open and search for Smart Lock (on Oppo: Password & biometrics → Smart Lock). Enter your PIN, then add Home as a trusted place. The phone then stays open without a PIN while you're home." +
             if (locationOn) "" else " Turn Location on too: trusted places need it.",
-        actionLabel = "Open lock screen settings",
+        actionLabel = "Search Settings for Smart Lock",
         onClick = {
-            // Lock-screen settings hold Smart Lock on most phones (Android asks for the PIN first);
-            // fall back to the security page, then to Settings itself.
-            listOf("android.settings.LOCK_SCREEN_SETTINGS", android.provider.Settings.ACTION_SECURITY_SETTINGS, android.provider.Settings.ACTION_SETTINGS)
+            // Phones keep Smart Lock in different places and don't let apps open it directly,
+            // so open Settings search (where "Smart Lock" always turns up), else Settings itself.
+            listOf("com.android.settings.action.SETTINGS_SEARCH", android.provider.Settings.ACTION_SETTINGS)
                 .firstOrNull { a -> runCatching { ctx.startActivity(android.content.Intent(a)) }.isSuccess }
         },
     ) {
