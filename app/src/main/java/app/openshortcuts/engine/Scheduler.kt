@@ -1,5 +1,6 @@
 package app.openshortcuts.engine
 
+import app.openshortcuts.model.TimeMode
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
@@ -20,19 +21,22 @@ import java.util.Calendar
 object Scheduler {
     const val WARN_LEAD_MS = 60_000L
     const val SNOOZE_MS = 30 * 60_000L
-    private val STAGES = listOf("time", "call", "warn", "run")
+    enum class Stage(val key: String) {
+        Time("time"), Call("call"), Warn("warn"), Run("run");
+        companion object { fun of(key: String?) = entries.firstOrNull { it.key == key } }
+    }
 
     private fun alarms(ctx: Context) = ctx.getSystemService(AlarmManager::class.java)
 
-    fun pending(ctx: Context, stage: String, id: String, create: Boolean = true): PendingIntent? {
+    fun pending(ctx: Context, stage: Stage, id: String, create: Boolean = true): PendingIntent? {
         val intent = Intent(ctx, AlarmReceiver::class.java)
-            .setData(Uri.parse("shortcuts://$stage/$id"))
-            .putExtra("stage", stage).putExtra("id", id)
+            .setData(Uri.parse("shortcuts://${stage.key}/$id"))
+            .putExtra("stage", stage.key).putExtra("id", id)
         val flags = PendingIntent.FLAG_IMMUTABLE or (if (create) PendingIntent.FLAG_UPDATE_CURRENT else PendingIntent.FLAG_NO_CREATE)
         return PendingIntent.getBroadcast(ctx, 0, intent, flags)
     }
 
-    fun at(ctx: Context, stage: String, id: String, whenMs: Long) {
+    fun at(ctx: Context, stage: Stage, id: String, whenMs: Long) {
         val pi = pending(ctx, stage, id) ?: return
         val am = alarms(ctx)
         if (Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms()) {
@@ -42,16 +46,16 @@ object Scheduler {
         }
     }
 
-    fun cancel(ctx: Context, stage: String, id: String) {
+    fun cancel(ctx: Context, stage: Stage, id: String) {
         pending(ctx, stage, id, create = false)?.let { alarms(ctx).cancel(it); it.cancel() }
     }
 
-    fun cancelAll(ctx: Context, id: String) = STAGES.forEach { cancel(ctx, it, id) }
+    fun cancelAll(ctx: Context, id: String) = Stage.entries.forEach { cancel(ctx, it, id) }
 
     fun rescheduleAll(ctx: Context, lib: Library = Store.library.value) {
         lib.automations.forEach { a ->
-            cancel(ctx, "time", a.id)
-            if (a.kind == TriggerKind.Time && a.enabled) nextTime(ctx, a)?.let { at(ctx, "time", a.id, it) }
+            cancel(ctx, Stage.Time, a.id)
+            if (a.kind == TriggerKind.Time && a.enabled) nextTime(ctx, a)?.let { at(ctx, Stage.Time, a.id, it) }
         }
         if (CallWatcher.callActive) armCallTriggers(ctx, CallWatcher.callStartedAt) else disarmCallTriggers(ctx)
         Geo.sync(ctx, lib)
@@ -91,7 +95,7 @@ object Scheduler {
     fun nextTime(ctx: Context, a: Automation, from: Long = System.currentTimeMillis()): Long? {
         val zone = java.time.ZoneId.systemDefault()
         val start = java.time.LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(from), zone)
-        val place = if (a.timeMode == "sunrise" || a.timeMode == "sunset") place(ctx) else null
+        val place = if (a.timeMode.sun) place(ctx) else null
         return When.next(a, start, place, zone)?.atZone(zone)?.toInstant()?.toEpochMilli()
     }
 
@@ -100,8 +104,8 @@ object Scheduler {
         Store.library.value.automations.forEach { a ->
             if (a.kind != TriggerKind.WhatsAppCallLong) return@forEach
             if (!a.enabled) { cancelAll(ctx, a.id); return@forEach }
-            if (pending(ctx, "warn", a.id, false) != null || pending(ctx, "run", a.id, false) != null) return@forEach
-            at(ctx, "call", a.id, maxOf(startedAt + a.callMinutes * 60_000L, now + 2_000))
+            if (pending(ctx, Stage.Warn, a.id, false) != null || pending(ctx, Stage.Run, a.id, false) != null) return@forEach
+            at(ctx, Stage.Call, a.id, maxOf(startedAt + a.callMinutes * 60_000L, now + 2_000))
         }
     }
 
@@ -124,7 +128,7 @@ object Scheduler {
     fun minuteOfDay(now: Long = System.currentTimeMillis()) =
         Calendar.getInstance().apply { timeInMillis = now }.let { it.get(Calendar.HOUR_OF_DAY) * 60 + it.get(Calendar.MINUTE) }
 
-    fun handle(ctx: Context, stage: String, a: Automation): Job? {
+    fun handle(ctx: Context, stage: Stage, a: Automation): Job? {
         // A fired alarm leaves its PendingIntent alive; drop it so "is one pending?" stays truthful.
         cancel(ctx, stage, a.id)
         val now = System.currentTimeMillis()
@@ -132,24 +136,24 @@ object Scheduler {
         if (!a.enabled) { cancelAll(ctx, a.id); return null }
         if (isCall && !CallWatcher.callActive) { Notifs.cancelWarn(ctx, a.id); return null }
         return when (stage) {
-            "time" -> {
+            Stage.Time -> {
                 val next = nextTime(ctx, a, now + 60_000)
-                if (next != null) at(ctx, "time", a.id, next)
-                else if (a.timeMode == "once") Store.upsert(a.copy(enabled = false))
-                if (a.warnFirst) handle(ctx, "warn", a) else runNow(ctx, a)
+                if (next != null) at(ctx, Stage.Time, a.id, next)
+                else if (a.timeMode == TimeMode.Once) Store.upsert(a.copy(enabled = false))
+                if (a.warnFirst) handle(ctx, Stage.Warn, a) else runNow(ctx, a)
             }
-            "call" -> {
+            Stage.Call -> {
                 if (inWindow(minuteOfDay(now), a.windowStart, a.windowEnd)) {
-                    if (a.warnFirst) handle(ctx, "warn", a) else runNow(ctx, a)
+                    if (a.warnFirst) handle(ctx, Stage.Warn, a) else runNow(ctx, a)
                 } else {
-                    at(ctx, "call", a.id, nextWindowStart(a.windowStart, now)); null
+                    at(ctx, Stage.Call, a.id, nextWindowStart(a.windowStart, now)); null
                 }
             }
-            "warn" -> {
+            Stage.Warn -> {
                 Notifs.warn(ctx, a)
-                at(ctx, "run", a.id, now + WARN_LEAD_MS); null
+                at(ctx, Stage.Run, a.id, now + WARN_LEAD_MS); null
             }
-            "run" -> runNow(ctx, a)
+            Stage.Run -> runNow(ctx, a)
             else -> null
         }
     }
@@ -157,14 +161,14 @@ object Scheduler {
     fun fireEvent(ctx: Context, a: Automation, input: String, vars: Map<String, String> = emptyMap()) {
         val saved = org.json.JSONObject().put("input", input).put("vars", org.json.JSONObject(vars as Map<*, *>))
         inputs(ctx).edit().putString(a.id, saved.toString()).apply()
-        if (a.warnFirst) handle(ctx, "warn", a) else runNow(ctx, a)
+        if (a.warnFirst) handle(ctx, Stage.Warn, a) else runNow(ctx, a)
     }
 
     private fun inputs(ctx: Context) = ctx.getSharedPreferences("pending_inputs", Context.MODE_PRIVATE)
 
     fun runNow(ctx: Context, a: Automation): Job? {
         Notifs.cancelWarn(ctx, a.id)
-        cancel(ctx, "run", a.id); cancel(ctx, "warn", a.id)
+        cancel(ctx, Stage.Run, a.id); cancel(ctx, Stage.Warn, a.id)
         val s = Store.shortcut(a.shortcutId) ?: return null
         val saved = runCatching { org.json.JSONObject(inputs(ctx).getString(a.id, "{}")!!) }.getOrDefault(org.json.JSONObject())
         inputs(ctx).edit().remove(a.id).apply()
@@ -179,14 +183,14 @@ object Scheduler {
 
     fun snooze(ctx: Context, a: Automation) {
         Notifs.cancelWarn(ctx, a.id)
-        cancel(ctx, "run", a.id)
-        val stage = if (a.kind == TriggerKind.WhatsAppCallLong) "call" else "warn"
+        cancel(ctx, Stage.Run, a.id)
+        val stage = if (a.kind == TriggerKind.WhatsAppCallLong) Stage.Call else Stage.Warn
         at(ctx, stage, a.id, System.currentTimeMillis() + SNOOZE_MS)
     }
 
     fun skip(ctx: Context, a: Automation) {
         Notifs.cancelWarn(ctx, a.id)
-        cancel(ctx, "run", a.id); cancel(ctx, "warn", a.id); cancel(ctx, "call", a.id)
+        cancel(ctx, Stage.Run, a.id); cancel(ctx, Stage.Warn, a.id); cancel(ctx, Stage.Call, a.id)
     }
 }
 
@@ -200,7 +204,7 @@ class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         Store.init(context)
         val a = Store.automation(intent.getStringExtra("id") ?: return) ?: return
-        await(Scheduler.handle(context, intent.getStringExtra("stage") ?: return, a))
+        await(Scheduler.handle(context, Scheduler.Stage.of(intent.getStringExtra("stage")) ?: return, a))
     }
 }
 

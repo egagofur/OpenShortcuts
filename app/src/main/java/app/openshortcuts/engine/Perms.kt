@@ -1,5 +1,6 @@
 package app.openshortcuts.engine
 
+import app.openshortcuts.model.TimeMode
 import android.Manifest
 import android.app.AlarmManager
 import android.app.NotificationManager
@@ -15,7 +16,7 @@ import app.openshortcuts.model.ActionType
 import app.openshortcuts.model.Shortcut
 
 enum class Perm(val title: String, val why: String, val runtime: String? = null, val more: List<String> = emptyList()) {
-    CallAccess("Notification access", "Lets OpenShortcuts see WhatsApp's call and press its Hang up button."),
+    NotificationListener("Notification access", "Lets OpenShortcuts see WhatsApp's call and press its Hang up button."),
     Notifications("Notifications", "Shows what an automation did, and the optional “Ask before running” notice.",
         Manifest.permission.POST_NOTIFICATIONS),
     Dnd("Do Not Disturb", "Turns Do Not Disturb on and off, and sets the ringer to silent."),
@@ -36,7 +37,7 @@ enum class Perm(val title: String, val why: String, val runtime: String? = null,
     AutoSend("Automatic WhatsApp sending", "Optional. Lets “Send WhatsApp … automatically” press Send for you. It can only see WhatsApp, and only acts on a message your shortcut just typed.");
 
     fun granted(ctx: Context): Boolean = when (this) {
-        CallAccess -> CallWatcher.isEnabled(ctx)
+        NotificationListener -> CallWatcher.isEnabled(ctx)
         Notifications -> Build.VERSION.SDK_INT < 33 || ctx.checkSelfPermission(runtime!!) == PackageManager.PERMISSION_GRANTED
         Dnd -> ctx.getSystemService(NotificationManager::class.java).isNotificationPolicyAccessGranted
         WriteSettings -> Settings.System.canWrite(ctx)
@@ -73,7 +74,7 @@ enum class Perm(val title: String, val why: String, val runtime: String? = null,
     fun settingsIntent(ctx: Context): Intent {
         val pkg = Uri.parse("package:${ctx.packageName}")
         return when (this) {
-            CallAccess -> if (Build.VERSION.SDK_INT >= 30)
+            NotificationListener -> if (Build.VERSION.SDK_INT >= 30)
                 Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS).putExtra(
                     Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME,
                     ComponentName(ctx, CallWatcher::class.java).flattenToString(),
@@ -99,7 +100,7 @@ enum class Perm(val title: String, val why: String, val runtime: String? = null,
         }
 
         fun forAction(t: ActionType): List<Perm> = when (t) {
-            ActionType.END_WHATSAPP_CALL, ActionType.REPLY_WHATSAPP -> listOf(CallAccess, Autostart)
+            ActionType.END_WHATSAPP_CALL, ActionType.REPLY_WHATSAPP -> listOf(NotificationListener, Autostart)
             ActionType.END_PHONE_CALL -> listOf(PhoneCalls)
             ActionType.DND, ActionType.RINGER -> listOf(Dnd)
             ActionType.BRIGHTNESS -> listOf(WriteSettings)
@@ -115,11 +116,11 @@ enum class Perm(val title: String, val why: String, val runtime: String? = null,
 
         fun forAutomation(a: app.openshortcuts.model.Automation): List<Perm> = buildList {
             val k = a.kind
-            if (k != app.openshortcuts.model.TriggerKind.Time) add(CallAccess)
+            if (k != app.openshortcuts.model.TriggerKind.Time) add(NotificationListener)
             if (k == app.openshortcuts.model.TriggerKind.App) add(UsageAccess)
             if (k == app.openshortcuts.model.TriggerKind.Bluetooth) add(Bluetooth)
             if (k == app.openshortcuts.model.TriggerKind.Location) { add(Location); add(BackgroundLocation) }
-            if (k == app.openshortcuts.model.TriggerKind.Time && (a.timeMode == "sunrise" || a.timeMode == "sunset")) add(Location)
+            if (k == app.openshortcuts.model.TriggerKind.Time && (a.timeMode.sun)) add(Location)
             add(Notifications); add(Alarms); add(Battery); add(Autostart)
         }
 

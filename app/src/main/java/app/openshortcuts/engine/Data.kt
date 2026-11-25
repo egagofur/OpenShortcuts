@@ -1,5 +1,6 @@
 package app.openshortcuts.engine
 
+import app.openshortcuts.model.TimeMode
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.LocalDate
@@ -265,10 +266,9 @@ object When {
     }
 
     private fun dayOk(a: app.openshortcuts.model.Automation, d: java.time.LocalDate): Boolean {
-        val cal = d.dayOfWeek.value % 7 + 1
         return when {
-            a.timeMode == "time" && a.monthDay > 0 -> d.dayOfMonth == minOf(a.monthDay, d.lengthOfMonth())
-            else -> a.days.isEmpty() || cal in a.days
+            a.timeMode == TimeMode.Time && a.monthDay != null -> d.dayOfMonth == minOf(a.monthDay, d.lengthOfMonth())
+            else -> a.days.isEmpty() || d.dayOfWeek in a.days
         }
     }
 
@@ -280,11 +280,11 @@ object When {
     ): java.time.LocalDateTime? {
         val at = java.time.LocalTime.of(a.timeOfDay / 60 % 24, a.timeOfDay % 60)
         when (a.timeMode) {
-            "once" -> {
+            TimeMode.Once -> {
                 val d = runCatching { java.time.LocalDate.parse(a.date) }.getOrNull() ?: return null
                 return d.atTime(at).takeIf { it.isAfter(from) }
             }
-            "every" -> {
+            TimeMode.Every -> {
                 val step = a.every.coerceAtLeast(15).toLong()
                 val allDay = a.windowStart == a.windowEnd
                 for (i in 0..8) {
@@ -307,9 +307,9 @@ object When {
                     val d = from.toLocalDate().plusDays(i.toLong())
                     if (!dayOk(a, d)) continue
                     val t = when (a.timeMode) {
-                        "sunrise", "sunset" -> {
+                        TimeMode.Sunrise, TimeMode.Sunset -> {
                             val s = place?.let { sun(d, it, zone) }
-                            val base = if (a.timeMode == "sunrise") s?.first ?: java.time.LocalTime.of(6, 0) else s?.second ?: java.time.LocalTime.of(18, 0)
+                            val base = if (a.timeMode == TimeMode.Sunrise) s?.first ?: java.time.LocalTime.of(6, 0) else s?.second ?: java.time.LocalTime.of(18, 0)
                             d.atTime(base).plusMinutes(a.offset.toLong()).withSecond(0).withNano(0)
                         }
                         else -> d.atTime(at)

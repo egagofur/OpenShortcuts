@@ -56,7 +56,7 @@ object Gallery {
                 a(ActionType.END_IF),
                 a(ActionType.END_IF),
             )
-            s to Automation(kind = TriggerKind.WhatsAppMessage, text = "", shortcutId = s.id, enabled = false, warnFirst = false)
+            s to Automation(kind = TriggerKind.WhatsAppMessage, shortcutId = s.id, enabled = false, warnFirst = false)
         },
         Item("Sleep & Calls", "Good Morning", "Turn Do Not Disturb off, ringer back on, brighten the screen and read today's events.",
             Tint.Yellow, "sun") {

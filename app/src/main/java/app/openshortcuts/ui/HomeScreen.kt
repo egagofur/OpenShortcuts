@@ -187,13 +187,13 @@ private fun SetupBanner(missing: List<Perm>, onSetup: () -> Unit) {
     val c = Theme.c
     Card(Modifier.fillMaxWidth().pressable(onClick = onSetup, label = "Open setup")) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (Perm.CallAccess in missing) IconTile("phoneOff", app.openshortcuts.model.Tint.Green.color(), size = 34.dp)
+            if (Perm.NotificationListener in missing) IconTile("phoneOff", app.openshortcuts.model.Tint.Green.color(), size = 34.dp)
             else IconTile("sliders", app.openshortcuts.model.Tint.Gray.color(), size = 34.dp)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text("Finish setup", style = Theme.t.label, color = c.ink)
                 Text(
-                    if (Perm.CallAccess in missing) "Allow notification access so OpenShortcuts can hang up WhatsApp calls."
+                    if (Perm.NotificationListener in missing) "Allow notification access so OpenShortcuts can hang up WhatsApp calls."
                     else if (missing.size == 1) "Your shortcuts still need 1 permission." else "Your shortcuts still need ${missing.size} permissions.",
                     style = Theme.t.small, color = c.ink2,
                 )
@@ -316,11 +316,11 @@ fun Automation.headline(ctx: android.content.Context? = null): String = when (ki
     TriggerKind.BatteryLevel -> "Battery ${if (on) "rises above" else "falls below"} $level%"
     TriggerKind.Dnd -> "Do Not Disturb turns ${if (on) "on" else "off"}"
     TriggerKind.WiFi -> if (on) "Wi-Fi connects" else "Wi-Fi disconnects"
-    TriggerKind.WhatsAppMessage -> "WhatsApp message from ${text.ifBlank { "anyone" }}"
+    TriggerKind.WhatsAppMessage -> "WhatsApp message from ${sender.ifBlank { "anyone" }}"
     TriggerKind.App -> if (app.isBlank()) "An app opens" else "${appLabel(ctx, app)} is ${if (on) "opened" else "closed"}"
-    TriggerKind.AppNotification -> "Notification from ${appLabel(ctx, app)}" + if (text.isNotBlank()) " with “$text”" else ""
+    TriggerKind.AppNotification -> "Notification from ${appLabel(ctx, app)}" + if (keyword.isNotBlank()) " with “$keyword”" else ""
     TriggerKind.Alarm -> if (on) "An alarm goes off" else "An alarm is stopped"
-    TriggerKind.Bluetooth -> "${text.ifBlank { "Any Bluetooth device" }} ${if (on) "connects" else "disconnects"}"
+    TriggerKind.Bluetooth -> "${device.ifBlank { "Any Bluetooth device" }} ${if (on) "connects" else "disconnects"}"
     TriggerKind.Headphones -> "Headphones ${if (on) "connected" else "disconnected"}"
     TriggerKind.AirplaneMode -> "Airplane Mode turns ${if (on) "on" else "off"}"
     TriggerKind.BatterySaver -> "Battery Saver turns ${if (on) "on" else "off"}"

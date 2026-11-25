@@ -90,7 +90,7 @@ fun MapPicker(start: Picked?, onDismiss: () -> Unit, onDone: (Picked) -> Unit) {
     var results by remember { mutableStateOf<List<android.location.Address>>(emptyList()) }
 
     val origin = remember {
-        start?.takeIf { it.lat != 0.0 || it.lon != 0.0 }?.let { GeoPoint(it.lat, it.lon) }
+        start?.let { GeoPoint(it.lat, it.lon) }
             ?: Scheduler.place(ctx)?.let { GeoPoint(it.lat, it.lon) }
             ?: GeoPoint(-6.2, 106.82)
     }

@@ -1,5 +1,6 @@
 package app.openshortcuts.ui
 
+import app.openshortcuts.model.TimeMode
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -154,24 +155,24 @@ fun AutomationScreen(
                 TriggerKind.WiFi -> SentenceCard(a.kind.glyph(), a.kind.tint().color(),
                     words("When Wi-Fi") + Seg.Pill(if (a.on) "connects" else "disconnects") { onChange(a.copy(on = !a.on)) })
                 TriggerKind.WhatsAppMessage -> SentenceCard(a.kind.glyph(), a.kind.tint().color(),
-                    words("When a WhatsApp message arrives from") + Seg.Pill(a.text.ifBlank { "anyone" }) { dialog = "sender" })
+                    words("When a WhatsApp message arrives from") + Seg.Pill(a.sender.ifBlank { "anyone" }) { dialog = "sender" })
                 TriggerKind.App -> SentenceCard(a.kind.glyph(), a.kind.tint().color(),
                     words("When") + Seg.Pill(if (a.app.isBlank()) "App" else appLabel(ctx, a.app)) { dialog = "app" } +
                         words("is") + Seg.Pill(if (a.on) "opened" else "closed") { onChange(a.copy(on = !a.on)) })
                 TriggerKind.AppNotification -> SentenceCard(a.kind.glyph(), a.kind.tint().color(),
                     words("When a notification arrives from") + Seg.Pill(appLabel(ctx, a.app)) { dialog = "app" } +
-                        words("containing") + Seg.Pill(a.text.ifBlank { "anything" }) { dialog = "text" })
+                        words("containing") + Seg.Pill(a.keyword.ifBlank { "anything" }) { dialog = "keyword" })
                 TriggerKind.Alarm -> SentenceCard(a.kind.glyph(), a.kind.tint().color(),
                     words("When an alarm") + Seg.Pill(if (a.on) "goes off" else "is stopped") { onChange(a.copy(on = !a.on)) })
                 TriggerKind.Bluetooth -> SentenceCard(a.kind.glyph(), a.kind.tint().color(),
-                    words("When") + Seg.Pill(a.text.ifBlank { "any device" }) { dialog = "text" } + Seg.Pill(if (a.on) "connects" else "disconnects") { onChange(a.copy(on = !a.on)) })
+                    words("When") + Seg.Pill(a.device.ifBlank { "any device" }) { dialog = "device" } + Seg.Pill(if (a.on) "connects" else "disconnects") { onChange(a.copy(on = !a.on)) })
                 TriggerKind.Headphones -> SentenceCard(a.kind.glyph(), a.kind.tint().color(),
                     words("When headphones are") + Seg.Pill(if (a.on) "connected" else "disconnected") { onChange(a.copy(on = !a.on)) })
                 TriggerKind.AirplaneMode -> SentenceCard(a.kind.glyph(), a.kind.tint().color(),
                     words("When Airplane Mode turns") + Seg.Pill(if (a.on) "on" else "off") { onChange(a.copy(on = !a.on)) })
                 TriggerKind.Location -> SentenceCard(a.kind.glyph(), a.kind.tint().color(),
                     words("When I") + Seg.Pill(if (a.on) "arrive at" else "leave") { onChange(a.copy(on = !a.on)) } +
-                        Seg.Pill(if (a.lat == 0.0 && a.lon == 0.0) "Choose place" else a.place.ifBlank { "Pinned place" }) { dialog = "place" })
+                        Seg.Pill(if (a.point == null) "Choose place" else a.place.ifBlank { "Pinned place" }) { dialog = "place" })
                 TriggerKind.BatterySaver -> SentenceCard(a.kind.glyph(), a.kind.tint().color(),
                     words("When Battery Saver turns") + Seg.Pill(if (a.on) "on" else "off") { onChange(a.copy(on = !a.on)) })
             }
@@ -255,7 +256,7 @@ fun AutomationScreen(
         "sender" -> DuoDialog({ dialog = null }) {
             DialogTitle("From", "A chat that messaged you, or a WhatsApp contact.")
             HistoryPicker(
-                current = a.text, anyLabel = "Anyone", anyGlyph = "quote",
+                current = a.sender, anyLabel = "Anyone", anyGlyph = "quote",
                 load = {
                     val recent = app.openshortcuts.engine.Events.recentChats(ctx).map { HistoryItem(it, "Recent chat", "quote") }
                     val contacts = app.openshortcuts.engine.Contacts.load(ctx).filter { it.whatsapp.isNotEmpty() }
@@ -264,12 +265,12 @@ fun AutomationScreen(
                 },
                 needs = if (app.openshortcuts.engine.Contacts.allowed(ctx)) null else android.Manifest.permission.READ_CONTACTS,
                 needsText = "Allow Contacts to also list your WhatsApp contacts. Chats that messaged you show up either way.",
-            ) { onChange(a.copy(text = it)); dialog = null }
+            ) { onChange(a.copy(sender = it)); dialog = null }
         }
-        "text" -> if (a.kind == TriggerKind.Bluetooth) DuoDialog({ dialog = null }) {
+        "device" -> DuoDialog({ dialog = null }) {
             DialogTitle("Device", "Devices that have paired with this phone.")
             HistoryPicker(
-                current = a.text, anyLabel = "Any device", anyGlyph = "bluetooth",
+                current = a.device, anyLabel = "Any device", anyGlyph = "bluetooth",
                 load = {
                     runCatching {
                         ctx.getSystemService(android.bluetooth.BluetoothManager::class.java).adapter?.bondedDevices.orEmpty()
@@ -278,13 +279,14 @@ fun AutomationScreen(
                 },
                 needs = if (app.openshortcuts.engine.Perm.Bluetooth.granted(ctx)) null else "android.permission.BLUETOOTH_CONNECT",
                 needsText = "Allow Nearby devices to list the Bluetooth devices you've paired.",
-            ) { onChange(a.copy(text = it)); dialog = null }
-        } else DuoDialog({ dialog = null }) {
+            ) { onChange(a.copy(device = it)); dialog = null }
+        }
+        "keyword" -> DuoDialog({ dialog = null }) {
             DialogTitle("Containing", "Words the notification must contain. Leave empty for any notification.")
-            var v by remember { mutableStateOf(a.text) }
+            var v by remember { mutableStateOf(a.keyword) }
             Field(v, { v = it }, "Anything")
             Spacer(Modifier.height(12.dp))
-            PrimaryButton("Done", Modifier.fillMaxWidth()) { onChange(a.copy(text = v.trim())); dialog = null }
+            PrimaryButton("Done", Modifier.fillMaxWidth()) { onChange(a.copy(keyword = v.trim())); dialog = null }
         }
         "app" -> DuoDialog({ dialog = null }) {
             DialogTitle("App")
@@ -329,9 +331,9 @@ fun AutomationScreen(
             }
         }
         "place" -> MapPicker(
-            start = Picked(a.lat, a.lon, a.radius, a.place),
+            start = a.point?.let { Picked(it.lat, it.lon, a.radius, a.place) },
             onDismiss = { dialog = null },
-        ) { p -> onChange(a.copy(lat = p.lat, lon = p.lon, radius = p.radius, place = p.name)); dialog = null }
+        ) { p -> onChange(a.copy(point = app.openshortcuts.model.LatLng(p.lat, p.lon), radius = p.radius, place = p.name)); dialog = null }
         "kind" -> NewAutomationDialog(onDismiss = { dialog = null }, title = "Change Trigger", current = a.kind) { k ->
             dialog = null
             if (k != a.kind) onChange(a.switchTo(k))
@@ -358,32 +360,19 @@ fun AutomationScreen(
 }
 
 @Composable
-private fun DaysDialog(days: Set<Int>, onDismiss: () -> Unit, onChange: (Set<Int>) -> Unit) {
+private fun DaysDialog(days: Set<java.time.DayOfWeek>, onDismiss: () -> Unit, onChange: (Set<java.time.DayOfWeek>) -> Unit) {
     val c = Theme.c
-    var sel by remember { mutableStateOf(if (days.isEmpty()) (1..7).toSet() else days) }
+    var sel by remember { mutableStateOf(if (days.isEmpty()) app.openshortcuts.model.WEEK.toSet() else days) }
     DuoDialog(onDismiss) {
         DialogTitle("Repeat")
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-            listOf(2, 3, 4, 5, 6, 7, 1).forEach { d ->
-                val on = d in sel
-                Box(
-                    Modifier.weight(1f).height(44.dp)
-                        .pressable(scale = 0.9f, label = listOf("", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")[d]) {
-                            val next = if (on) sel - d else sel + d
-                            if (next.isNotEmpty()) sel = next
-                        }
-                        .clip(CircleShape).background(if (on) c.accent else c.bg),
-                    contentAlignment = Alignment.Center,
-                ) { Text(listOf("", "S", "M", "T", "W", "T", "F", "S")[d], style = Theme.t.label, color = if (on) Color.White else c.ink) }
-            }
-        }
+        DayChips(sel) { sel = it }
         Spacer(Modifier.height(18.dp))
         PrimaryButton("Done", Modifier.fillMaxWidth()) { onChange(if (sel.size == 7) emptySet() else sel); onDismiss() }
     }
 }
 
 fun Automation.switchTo(k: TriggerKind): Automation {
-    val base = copy(kind = k, on = true, text = "", app = "", level = 20, offset = 0, monthDay = 0, date = "", timeMode = "time")
+    val base = copy(kind = k, on = true, sender = "", device = "", keyword = "", app = "", level = 20, offset = 0, monthDay = null, date = "", timeMode = TimeMode.Time)
     return when (k) {
         TriggerKind.WhatsAppCallLong -> base.copy(callMinutes = 45, windowStart = 23 * 60, windowEnd = 5 * 60)
         TriggerKind.BatteryLevel -> base.copy(on = false)

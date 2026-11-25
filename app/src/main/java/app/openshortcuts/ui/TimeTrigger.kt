@@ -1,5 +1,10 @@
 package app.openshortcuts.ui
 
+import java.time.DayOfWeek
+import java.time.format.TextStyle
+import app.openshortcuts.model.WEEK
+import app.openshortcuts.model.label
+import app.openshortcuts.model.TimeMode
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -34,7 +39,6 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-private val MODES = listOf("time" to "Time", "sunrise" to "Sunrise", "sunset" to "Sunset", "every" to "Interval", "once" to "Once")
 
 fun ordinal(n: Int) = "$n" + if (n in 11..13) "th" else when (n % 10) { 1 -> "st"; 2 -> "nd"; 3 -> "rd"; else -> "th" }
 
@@ -57,15 +61,15 @@ fun dateLabel(iso: String): String = runCatching {
     }
 }.getOrDefault("Pick a date")
 
-fun repeatLabel(a: Automation) = if (a.monthDay > 0) "monthly on the ${ordinal(a.monthDay)}" else a.days.daysLabel().lowercase()
+fun repeatLabel(a: Automation) = a.monthDay?.let { "monthly on the ${ordinal(it)}" } ?: a.days.daysLabel().lowercase()
 
 fun timeHeadline(a: Automation): String = when (a.timeMode) {
-    "sunrise", "sunset" -> {
+    TimeMode.Sunrise, TimeMode.Sunset -> {
         val o = offsetLabel(a.offset)
-        (if (a.offset == 0) "At ${a.timeMode}" else "$o ${a.timeMode}").replaceFirstChar { it.uppercase() } + ", " + a.days.daysLabel().lowercase()
+        (if (a.offset == 0) "At ${a.timeMode.key}" else "$o ${a.timeMode.key}").replaceFirstChar { it.uppercase() } + ", " + a.days.daysLabel().lowercase()
     }
-    "every" -> "Every ${everyLabel(a.every)}, " + (if (a.windowStart == a.windowEnd) "all day" else "${a.windowStart.hhmm()}–${a.windowEnd.hhmm()}")
-    "once" -> "Once, ${dateLabel(a.date)} at ${a.timeOfDay.hhmm()}"
+    TimeMode.Every -> "Every ${everyLabel(a.every)}, " + (if (a.windowStart == a.windowEnd) "all day" else "${a.windowStart.hhmm()}–${a.windowEnd.hhmm()}")
+    TimeMode.Once -> "Once, ${dateLabel(a.date)} at ${a.timeOfDay.hhmm()}"
     else -> "At ${a.timeOfDay.hhmm()}, ${repeatLabel(a)}"
 }
 
@@ -75,12 +79,12 @@ fun TimeTriggerCard(a: Automation, onChange: (Automation) -> Unit, pickTime: (In
     val ctx = LocalContext.current
     var dialog by remember { mutableStateOf<String?>(null) }
 
-    Segmented(MODES.map { it.second }, MODES.indexOfFirst { it.first == a.timeMode }.coerceAtLeast(0)) { i ->
-        val mode = MODES[i].first
+    Segmented(TimeMode.entries.map { it.label }, a.timeMode.ordinal) { i ->
+        val mode = TimeMode.entries[i]
         onChange(
             when (mode) {
-                "every" -> a.copy(timeMode = mode, every = a.every.coerceAtLeast(15), windowStart = 8 * 60, windowEnd = 22 * 60)
-                "once" -> a.copy(timeMode = mode, date = a.date.ifBlank { LocalDate.now().plusDays(1).toString() })
+                TimeMode.Every -> a.copy(timeMode = mode, every = a.every.coerceAtLeast(15), windowStart = 8 * 60, windowEnd = 22 * 60)
+                TimeMode.Once -> a.copy(timeMode = mode, date = a.date.ifBlank { LocalDate.now().plusDays(1).toString() })
                 else -> a.copy(timeMode = mode)
             },
         )
@@ -88,22 +92,22 @@ fun TimeTriggerCard(a: Automation, onChange: (Automation) -> Unit, pickTime: (In
     Spacer(Modifier.height(10.dp))
 
     val segs = when (a.timeMode) {
-        "sunrise", "sunset" ->
+        TimeMode.Sunrise, TimeMode.Sunset ->
             (if (a.offset == 0) words("At") else emptyList()) +
-                Seg.Pill(if (a.offset == 0) a.timeMode else offsetLabel(a.offset)) { dialog = "offset" } +
-                (if (a.offset == 0) emptyList() else words(a.timeMode)) +
+                Seg.Pill(if (a.offset == 0) a.timeMode.key else offsetLabel(a.offset)) { dialog = "offset" } +
+                (if (a.offset == 0) emptyList() else words(a.timeMode.key)) +
                 Seg.Pill(a.days.daysLabel()) { dialog = "days" }
-        "every" -> words("Every") + Seg.Pill(everyLabel(a.every)) { dialog = "every" } +
+        TimeMode.Every -> words("Every") + Seg.Pill(everyLabel(a.every)) { dialog = "every" } +
             Seg.Pill(if (a.windowStart == a.windowEnd) "all day" else "${a.windowStart.hhmm()}–${a.windowEnd.hhmm()}") { dialog = "window" } +
             Seg.Pill(a.days.daysLabel()) { dialog = "days" }
-        "once" -> words("Once on") + Seg.Pill(dateLabel(a.date)) { dialog = "date" } + words("at") +
+        TimeMode.Once -> words("Once on") + Seg.Pill(dateLabel(a.date)) { dialog = "date" } + words("at") +
             Seg.Pill(a.timeOfDay.hhmm()) { pickTime(a.timeOfDay) { onChange(a.copy(timeOfDay = it)) } }
         else -> words("At") + Seg.Pill(a.timeOfDay.hhmm()) { pickTime(a.timeOfDay) { onChange(a.copy(timeOfDay = it)) } } +
             Seg.Pill(repeatLabel(a)) { dialog = "repeat" }
     }
-    SentenceCard(if (a.timeMode == "sunrise" || a.timeMode == "sunset") "sun" else "clock", Tint.Blue.color(), segs)
+    SentenceCard(if (a.timeMode.sun) "sun" else "clock", Tint.Blue.color(), segs)
 
-    val sun = a.timeMode == "sunrise" || a.timeMode == "sunset"
+    val sun = a.timeMode.sun
     var located by remember { mutableIntStateOf(0) }
     val next = remember(a, located) { Scheduler.nextTime(ctx, a) }
     val sunNoPlace = sun && remember(a, located) { Scheduler.place(ctx) } == null
@@ -112,14 +116,14 @@ fun TimeTriggerCard(a: Automation, onChange: (Automation) -> Unit, pickTime: (In
     }
     val locOn = remember(a, located) { ctx.getSystemService(android.location.LocationManager::class.java).isLocationEnabled }
     val allowed = remember(a, located) { app.openshortcuts.engine.Perm.Location.granted(ctx) }
-    val fallback = if (a.timeMode == "sunrise") "06:00" else "18:00"
+    val fallback = if (a.timeMode == TimeMode.Sunrise) "06:00" else "18:00"
     Spacer(Modifier.height(8.dp))
     Text(
         when {
             next == null -> "This date has passed, so it won't run again. Pick a new one."
             !sunNoPlace -> "Next run: " + nextLabel(next)
-            !allowed -> "Next run: ${nextLabel(next)}. Allow Location so this follows your real ${a.timeMode}; until then it uses $fallback."
-            !locOn -> "Next run: ${nextLabel(next)}. Location is off: turn it on once so this follows your real ${a.timeMode}. Until then it uses $fallback."
+            !allowed -> "Next run: ${nextLabel(next)}. Allow Location so this follows your real ${a.timeMode.key}; until then it uses $fallback."
+            !locOn -> "Next run: ${nextLabel(next)}. Location is off: turn it on once so this follows your real ${a.timeMode.key}. Until then it uses $fallback."
             else -> "Next run: ${nextLabel(next)}. Finding where you are… until then it uses $fallback."
         },
         style = Theme.t.small, color = if (next == null) c.danger else c.ink2,
@@ -136,7 +140,7 @@ fun TimeTriggerCard(a: Automation, onChange: (Automation) -> Unit, pickTime: (In
 
     when (dialog) {
         "repeat" -> RepeatDialog(a, onDismiss = { dialog = null }) { onChange(it); dialog = null }
-        "days" -> RepeatDialog(a.copy(monthDay = 0), weeklyOnly = true, onDismiss = { dialog = null }) { onChange(it); dialog = null }
+        "days" -> RepeatDialog(a.copy(monthDay = null), weeklyOnly = true, onDismiss = { dialog = null }) { onChange(it); dialog = null }
         "offset" -> OffsetDialog(a, onDismiss = { dialog = null }) { onChange(a.copy(offset = it)); dialog = null }
         "every" -> DuoDialog({ dialog = null }) {
             DialogTitle("Every")
@@ -182,9 +186,9 @@ private fun nextLabel(ms: Long): String {
 @Composable
 private fun RepeatDialog(a: Automation, weeklyOnly: Boolean = false, onDismiss: () -> Unit, onDone: (Automation) -> Unit) {
     val c = Theme.c
-    var mode by remember { mutableIntStateOf(if (a.monthDay > 0) 2 else if (a.days.isEmpty()) 0 else 1) }
-    var sel by remember { mutableStateOf(if (a.days.isEmpty()) (1..7).toSet() else a.days) }
-    var monthDay by remember { mutableIntStateOf(a.monthDay.takeIf { it > 0 } ?: LocalDate.now().dayOfMonth) }
+    var mode by remember { mutableIntStateOf(if (a.monthDay != null) 2 else if (a.days.isEmpty()) 0 else 1) }
+    var sel by remember { mutableStateOf(if (a.days.isEmpty()) WEEK.toSet() else a.days) }
+    var monthDay by remember { mutableIntStateOf(a.monthDay ?: LocalDate.now().dayOfMonth) }
     DuoDialog(onDismiss) {
         DialogTitle("Repeat")
         if (!weeklyOnly) {
@@ -192,20 +196,7 @@ private fun RepeatDialog(a: Automation, weeklyOnly: Boolean = false, onDismiss: 
             Spacer(Modifier.height(16.dp))
         }
         if (weeklyOnly || mode == 1) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-                listOf(2, 3, 4, 5, 6, 7, 1).forEach { d ->
-                    val on = d in sel
-                    Box(
-                        Modifier.weight(1f).height(44.dp)
-                            .pressable(scale = 0.9f, label = listOf("", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")[d]) {
-                                val next = if (on) sel - d else sel + d
-                                if (next.isNotEmpty()) sel = next
-                            }
-                            .clip(CircleShape).background(if (on) c.accent else c.bg),
-                        contentAlignment = Alignment.Center,
-                    ) { Text(listOf("", "S", "M", "T", "W", "T", "F", "S")[d], style = Theme.t.label, color = if (on) Color.White else c.ink) }
-                }
-            }
+            DayChips(sel) { sel = it }
         } else if (mode == 2) {
             Text("On the", style = Theme.t.small, color = c.ink2)
             NumberStepper(monthDay, 1, 31, 1, "") { monthDay = it }
@@ -217,9 +208,9 @@ private fun RepeatDialog(a: Automation, weeklyOnly: Boolean = false, onDismiss: 
         PrimaryButton("Done", Modifier.fillMaxWidth()) {
             onDone(
                 when {
-                    weeklyOnly || mode == 1 -> a.copy(monthDay = 0, days = if (sel.size == 7) emptySet() else sel)
+                    weeklyOnly || mode == 1 -> a.copy(monthDay = null, days = if (sel.size == 7) emptySet() else sel)
                     mode == 2 -> a.copy(monthDay = monthDay, days = emptySet())
-                    else -> a.copy(monthDay = 0, days = emptySet())
+                    else -> a.copy(monthDay = null, days = emptySet())
                 },
             )
         }
@@ -231,8 +222,8 @@ private fun OffsetDialog(a: Automation, onDismiss: () -> Unit, onDone: (Int) -> 
     var side by remember { mutableIntStateOf(if (a.offset < 0) 0 else if (a.offset == 0) 1 else 2) }
     var amount by remember { mutableIntStateOf(kotlin.math.abs(a.offset).takeIf { it > 0 } ?: 15) }
     DuoDialog(onDismiss) {
-        DialogTitle(a.timeMode.replaceFirstChar { it.uppercase() })
-        Segmented(listOf("Before", "At ${a.timeMode}", "After"), side) { side = it }
+        DialogTitle(a.timeMode.label)
+        Segmented(listOf("Before", "At ${a.timeMode.key}", "After"), side) { side = it }
         if (side != 1) {
             Spacer(Modifier.height(16.dp))
             NumberStepper(amount, 5, 240, 5, " min") { amount = it }
@@ -265,5 +256,24 @@ private fun WindowDialog(a: Automation, pickTime: (Int, (Int) -> Unit) -> Unit, 
         }
         Spacer(Modifier.height(18.dp))
         PrimaryButton("Done", Modifier.fillMaxWidth(), onClick = onDismiss)
+    }
+}
+
+@Composable
+fun DayChips(sel: Set<DayOfWeek>, onChange: (Set<DayOfWeek>) -> Unit) {
+    val c = Theme.c
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+        WEEK.forEach { d ->
+            val on = d in sel
+            Box(
+                Modifier.weight(1f).height(44.dp)
+                    .pressable(scale = 0.9f, label = d.label(TextStyle.FULL)) {
+                        val next = if (on) sel - d else sel + d
+                        if (next.isNotEmpty()) onChange(next)
+                    }
+                    .clip(CircleShape).background(if (on) c.accent else c.bg),
+                contentAlignment = Alignment.Center,
+            ) { Text(d.label(TextStyle.NARROW), style = Theme.t.label, color = if (on) Color.White else c.ink) }
+        }
     }
 }

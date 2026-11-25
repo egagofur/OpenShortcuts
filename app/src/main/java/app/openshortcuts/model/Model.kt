@@ -1,5 +1,6 @@
 package app.openshortcuts.model
 
+import java.time.DayOfWeek
 import java.util.UUID
 
 enum class ParamKind { TEXT, NUMBER, CHOICE, TIME, APP, SHORTCUT, INPUT, PHONE, EMAIL, DATETIME }
@@ -422,11 +423,23 @@ enum class TriggerKind(val title: String, val event: Boolean = true) {
     Location("Location"),
 }
 
+data class LatLng(val lat: Double, val lon: Double)
+
+enum class TimeMode(val key: String, val label: String) {
+    Time("time", "Time"), Sunrise("sunrise", "Sunrise"), Sunset("sunset", "Sunset"), Every("every", "Interval"), Once("once", "Once");
+
+    val sun: Boolean get() = this == Sunrise || this == Sunset
+
+    companion object {
+        fun of(key: String?) = entries.firstOrNull { it.key == key } ?: Time
+    }
+}
+
 data class Automation(
     val id: String = UUID.randomUUID().toString(),
     val kind: TriggerKind,
     val timeOfDay: Int = 23 * 60,
-    val days: Set<Int> = emptySet(),
+    val days: Set<DayOfWeek> = emptySet(),
     val callMinutes: Int = 30,
     val windowStart: Int = 22 * 60,
     val windowEnd: Int = 6 * 60,
@@ -435,15 +448,16 @@ data class Automation(
     val warnFirst: Boolean = false,
     val on: Boolean = true,
     val level: Int = 20,
-    val text: String = "",
+    val sender: String = "",
+    val device: String = "",
+    val keyword: String = "",
     val app: String = "",
-    val timeMode: String = "time",
+    val timeMode: TimeMode = TimeMode.Time,
     val offset: Int = 0,
     val every: Int = 60,
     val date: String = "",
-    val monthDay: Int = 0,
-    val lat: Double = 0.0,
-    val lon: Double = 0.0,
+    val monthDay: Int? = null,
+    val point: LatLng? = null,
     val radius: Int = 150,
     val place: String = "",
 )
@@ -455,11 +469,19 @@ data class Library(
 
 fun Int.hhmm(): String = "%02d:%02d".format(this / 60, this % 60)
 
-fun Set<Int>.daysLabel(): String = when {
+val WEEK: List<DayOfWeek> = DayOfWeek.entries
+
+val DayOfWeek.calendarDay: Int get() = value % 7 + 1
+
+fun dayOfWeekFromCalendar(n: Int): DayOfWeek = DayOfWeek.of((n + 5) % 7 + 1)
+
+fun DayOfWeek.label(style: java.time.format.TextStyle): String = getDisplayName(style, java.util.Locale.ENGLISH)
+
+fun Set<DayOfWeek>.daysLabel(): String = when {
     isEmpty() || size == 7 -> "Daily"
-    this == setOf(2, 3, 4, 5, 6) -> "Weekdays"
-    this == setOf(1, 7) -> "Weekends"
-    else -> sorted().joinToString(" ") { listOf("", "Su", "Mo", "Tu", "We", "Th", "Fr", "Sa")[it] }
+    this == WEEK.take(5).toSet() -> "Weekdays"
+    this == WEEK.drop(5).toSet() -> "Weekends"
+    else -> WEEK.filter { it in this }.joinToString(" ") { it.label(java.time.format.TextStyle.SHORT).take(2) }
 }
 
 fun inWindow(minuteOfDay: Int, start: Int, end: Int): Boolean =

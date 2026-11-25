@@ -189,7 +189,8 @@ class EventHost(private val ctx: Context) {
 
 object Events {
     const val TAG = "Events"
-    private const val MIN_GAP_MS = 10_000L
+    private const val RETRIGGER_COOLDOWN_MS = 10_000L
+    private const val NOTIFICATION_COOLDOWN_MS = 30_000L
     private val lastRun = HashMap<String, Long>()
     private val seenMessages = HashMap<String, Long>()
 
@@ -200,7 +201,7 @@ object Events {
             .forEach { run(ctx, it, input) }
     }
 
-    fun run(ctx: Context, a: app.openshortcuts.model.Automation, input: String, vars: Map<String, String> = emptyMap(), key: String = a.id, gap: Long = MIN_GAP_MS) {
+    fun run(ctx: Context, a: app.openshortcuts.model.Automation, input: String, vars: Map<String, String> = emptyMap(), key: String = a.id, gap: Long = RETRIGGER_COOLDOWN_MS) {
         val now = SystemClock.elapsedRealtime()
         if (now - (lastRun[key] ?: -gap) < gap) return
         lastRun[key] = now
@@ -216,7 +217,7 @@ object Events {
         Log.i(TAG, "bluetooth ${if (on) "on" else "off"}")
         Store.library.value.automations
             .filter { it.enabled && it.kind == TriggerKind.Bluetooth && it.on == on }
-            .filter { it.text.isBlank() || name.contains(it.text, true) }
+            .filter { it.device.isBlank() || name.contains(it.device, true) }
             .forEach { run(ctx, it, name) }
     }
 
@@ -255,8 +256,8 @@ object Events {
         if (title.isBlank() && text.isBlank()) return
         val app = label(ctx, sbn.packageName)
         val vars = mapOf("Notification Title" to title, "Notification App" to app)
-        autos.filter { a -> (a.app.isBlank() || a.app == sbn.packageName) && (a.text.isBlank() || "$title $text".contains(a.text, true)) }
-            .forEach { run(ctx, it, text.ifBlank { title }, vars, key = "${it.id}|${sbn.packageName}|$title", gap = 30_000) }
+        autos.filter { a -> (a.app.isBlank() || a.app == sbn.packageName) && (a.keyword.isBlank() || "$title $text".contains(a.keyword, true)) }
+            .forEach { run(ctx, it, text.ifBlank { title }, vars, key = "${it.id}|${sbn.packageName}|$title", gap = NOTIFICATION_COOLDOWN_MS) }
     }
 
     fun removed(ctx: Context, sbn: StatusBarNotification) {
@@ -292,7 +293,7 @@ object Events {
         val vars = mapOf("Message Sender" to sender, "Message Chat" to chat.ifEmpty { sender })
         Store.library.value.automations
             .filter { it.enabled && it.kind == TriggerKind.WhatsAppMessage }
-            .filter { a -> a.text.isBlank() || sender.contains(a.text, true) || chat.contains(a.text, true) }
+            .filter { a -> a.sender.isBlank() || sender.contains(a.sender, true) || chat.contains(a.sender, true) }
             .forEach { run(ctx, it, text, vars, key = "${it.id}|${chat.ifEmpty { sender }}", gap = 60_000) }
     }
 }

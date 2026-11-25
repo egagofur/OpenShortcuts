@@ -50,7 +50,7 @@ private data class Group(val title: String, val footer: String?, val perms: List
 
 private val GROUPS = listOf(
     Group("Automations", "These keep night automations on time and alive while the screen is off.",
-        listOf(Perm.CallAccess, Perm.Notifications, Perm.Alarms, Perm.Battery, Perm.Autostart, Perm.UsageAccess, Perm.Bluetooth)),
+        listOf(Perm.NotificationListener, Perm.Notifications, Perm.Alarms, Perm.Battery, Perm.Autostart, Perm.UsageAccess, Perm.Bluetooth)),
     Group("Send WhatsApp while locked",
         "Then a WhatsApp message goes out even while the phone is locked: it wakes, sends and locks again. When the phone asks for a PIN anyway (after a restart, or after a few hours unused), the message waits and sends when you unlock.",
         listOf(Perm.AutoSend, Perm.Accessibility), smartLock = true),
@@ -61,7 +61,7 @@ private val GROUPS = listOf(
 )
 
 private fun Perm.look(): Pair<String, Tint> = when (this) {
-    Perm.CallAccess -> "phoneOff" to Tint.Green
+    Perm.NotificationListener -> "phoneOff" to Tint.Green
     Perm.Notifications -> "bell" to Tint.Red
     Perm.Alarms -> "clock" to Tint.Orange
     Perm.Battery -> "battery" to Tint.Green

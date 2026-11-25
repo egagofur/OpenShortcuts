@@ -40,7 +40,7 @@ class DescribeTest {
         assertEquals("s1", s.actions.first { it.type == ActionType.RUN_SHORTCUT }.p("shortcut"))
         val a = d.automation!!
         assertEquals(TriggerKind.WhatsAppMessage, a.kind)
-        assertEquals("Mama", a.text)
+        assertEquals("Mama", a.sender)
         assertEquals(23 * 60, a.windowStart)
         assertEquals(s.id, a.shortcutId)
         assertFalse(a.enabled)

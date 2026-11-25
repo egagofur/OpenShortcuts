@@ -83,7 +83,7 @@ private data class Pitch(
 )
 
 private fun Perm.pitch(): Pitch = when (this) {
-    Perm.CallAccess -> Pitch("End WhatsApp calls for you", "Sees WhatsApp's call and message notifications, so it can press Hang up or Reply for you.",
+    Perm.NotificationListener -> Pitch("End WhatsApp calls for you", "Sees WhatsApp's call and message notifications, so it can press Hang up or Reply for you.",
         "Doesn't read your chats or send them anywhere.", Mock.Toggle, "phoneOff", Tint.Green, page = "Notification access")
     Perm.Notifications -> Pitch("Know what your automations did", "Shows a short note after an automation runs, or when one needs you.",
         "No ads and no reminders you didn't ask for.", Mock.Dialog, "bell", Tint.Red)

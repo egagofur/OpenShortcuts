@@ -104,7 +104,7 @@ private fun App() {
         buildList {
             if (lib.automations.any { it.enabled && it.kind != TriggerKind.Time } ||
                 lib.shortcuts.any { s -> s.actions.any { it.type == app.openshortcuts.model.ActionType.END_WHATSAPP_CALL } }
-            ) add(Perm.CallAccess)
+            ) add(Perm.NotificationListener)
             lib.shortcuts.forEach { addAll(Perm.missing(ctx, it)) }
         }.distinct().filterNot { it.granted(ctx) }
     }

@@ -28,9 +28,10 @@ object Geo {
         val allowed = ctx.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
         lib.automations.filter { it.kind == TriggerKind.Location }.forEach { a ->
             pending(ctx, a.id, false)?.let { runCatching { lm.removeProximityAlert(it) }; it.cancel() }
-            if (!a.enabled || !allowed || (a.lat == 0.0 && a.lon == 0.0)) return@forEach
+            val point = a.point
+            if (!a.enabled || !allowed || point == null) return@forEach
             runCatching {
-                lm.addProximityAlert(a.lat, a.lon, a.radius.toFloat(), -1, pending(ctx, a.id, true)!!)
+                lm.addProximityAlert(point.lat, point.lon, a.radius.toFloat(), -1, pending(ctx, a.id, true)!!)
                 Log.i(TAG, "watching ${a.place.ifBlank { "a place" }} (${a.radius} m)")
             }.onFailure { Log.w(TAG, "couldn't watch place", it) }
         }

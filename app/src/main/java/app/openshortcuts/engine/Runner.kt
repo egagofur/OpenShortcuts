@@ -427,7 +427,7 @@ object Runner {
         }
     }
 
-    private fun waNumber(ctx: Context, raw: String): String {
+    private fun internationalDigits(ctx: Context, raw: String): String {
         val digits = raw.filter(Char::isDigit)
         if (digits.length < 8) fail("Enter a phone number with country code, e.g. 62812…")
         if (!digits.startsWith("0")) return digits
@@ -452,7 +452,7 @@ object Runner {
                 st.log += "Sent while you were away (Smart Lock kept the phone open), then locked it again"
                 return
             }
-            waNumber(ctx, number)
+            internationalDigits(ctx, number)
             PendingSends.add(ctx, PendingSends.Item(number, name, text, auto))
             Notifs.waiting(ctx, name.ifBlank { number }, PendingSends.count(ctx))
             st.log += "Waiting to send to ${name.ifBlank { number }} when you unlock"
@@ -461,7 +461,7 @@ object Runner {
         val pkg = CallWatcher.WHATSAPP.firstOrNull { p ->
             runCatching { ctx.packageManager.getPackageInfo(p, 0) }.isSuccess
         } ?: fail("WhatsApp isn't installed.")
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("whatsapp://send?phone=${waNumber(ctx, number)}&text=${Uri.encode(text)}"))
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("whatsapp://send?phone=${internationalDigits(ctx, number)}&text=${Uri.encode(text)}"))
             .setPackage(pkg).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         if (auto && !SendService.isEnabled(ctx)) fail("Allow automatic WhatsApp sending: turn on “OpenShortcuts WhatsApp auto-send” under Accessibility.")
         if (auto && SendService.instance == null) {

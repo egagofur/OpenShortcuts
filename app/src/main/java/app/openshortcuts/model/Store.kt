@@ -9,6 +9,8 @@ import org.json.JSONObject
 import java.io.File
 
 object Store {
+    private const val SCHEMA_BEFORE_ASK_FIRST = 1
+    private const val SCHEMA = 2
     private lateinit var file: File
     private val state = MutableStateFlow(Library())
     val library: StateFlow<Library> = state.asStateFlow()
@@ -22,7 +24,7 @@ object Store {
         file = File(context.filesDir, "library.json")
         val json = runCatching { JSONObject(file.readText()) }.getOrNull()
         state.value = json?.let { runCatching { decode(it) }.getOrNull() } ?: Seeds.library().also { save(it); fresh = json == null }
-        if (json != null && json.optInt("v", 1) < 2) save(state.value)
+        if (json != null && json.optInt("v", SCHEMA_BEFORE_ASK_FIRST) < SCHEMA) save(state.value)
     }
 
     fun shortcut(id: String) = state.value.shortcuts.firstOrNull { it.id == id }
@@ -75,7 +77,7 @@ object Store {
     }
 
     private fun encode(lib: Library) = JSONObject().apply {
-        put("v", 2)
+        put("v", SCHEMA)
         put("shortcuts", JSONArray(lib.shortcuts.map { s ->
             JSONObject().apply {
                 put("id", s.id); put("name", s.name); put("tint", s.tint.name); put("glyph", s.glyph); put("share", s.inShareSheet)
@@ -90,12 +92,12 @@ object Store {
         put("automations", JSONArray(lib.automations.map { a ->
             JSONObject().apply {
                 put("id", a.id); put("kind", a.kind.name); put("time", a.timeOfDay)
-                put("days", JSONArray(a.days.toList())); put("callMinutes", a.callMinutes)
+                put("days", JSONArray(a.days.map { it.calendarDay })); put("callMinutes", a.callMinutes)
                 put("windowStart", a.windowStart); put("windowEnd", a.windowEnd)
                 put("shortcutId", a.shortcutId); put("enabled", a.enabled); put("warn", a.warnFirst)
-                put("on", a.on); put("level", a.level); put("text", a.text); put("app", a.app)
-                put("timeMode", a.timeMode); put("offset", a.offset); put("every", a.every); put("date", a.date); put("monthDay", a.monthDay)
-                put("lat", a.lat); put("lon", a.lon); put("radius", a.radius); put("place", a.place)
+                put("on", a.on); put("level", a.level); put("sender", a.sender); put("device", a.device); put("keyword", a.keyword); put("app", a.app)
+                put("timeMode", a.timeMode.key); put("offset", a.offset); put("every", a.every); put("date", a.date); a.monthDay?.let { put("monthDay", it) }
+                a.point?.let { put("lat", it.lat); put("lon", it.lon) }; put("radius", a.radius); put("place", a.place)
             }
         }))
     }
@@ -117,14 +119,16 @@ object Store {
             val days = a.optJSONArray("days")
             Automation(
                 id = a.getString("id"), kind = kind, timeOfDay = a.optInt("time", 23 * 60),
-                days = (0 until (days?.length() ?: 0)).map { days!!.getInt(it) }.toSet(),
+                days = (0 until (days?.length() ?: 0)).map { days!!.getInt(it) }.filter { it in 1..7 }.map(::dayOfWeekFromCalendar).toSet(),
                 callMinutes = a.optInt("callMinutes", 30), windowStart = a.optInt("windowStart", 22 * 60),
                 windowEnd = a.optInt("windowEnd", 6 * 60), shortcutId = a.optString("shortcutId"),
-                enabled = a.optBoolean("enabled", true), warnFirst = a.optBoolean("warn", false) && o.optInt("v", 1) >= 2,
-                on = a.optBoolean("on", true), level = a.optInt("level", 20), text = a.optString("text"), app = a.optString("app"),
-                timeMode = a.optString("timeMode", "time"), offset = a.optInt("offset"), every = a.optInt("every", 60),
-                date = a.optString("date"), monthDay = a.optInt("monthDay"),
-                lat = a.optDouble("lat", 0.0), lon = a.optDouble("lon", 0.0), radius = a.optInt("radius", 150), place = a.optString("place"),
+                enabled = a.optBoolean("enabled", true), warnFirst = a.optBoolean("warn", false) && o.optInt("v", SCHEMA_BEFORE_ASK_FIRST) >= SCHEMA,
+                on = a.optBoolean("on", true), level = a.optInt("level", 20), sender = a.optString("sender", a.optString("text").takeIf { kind == TriggerKind.WhatsAppMessage }.orEmpty()),
+                device = a.optString("device", a.optString("text").takeIf { kind == TriggerKind.Bluetooth }.orEmpty()),
+                keyword = a.optString("keyword", a.optString("text").takeIf { kind == TriggerKind.AppNotification }.orEmpty()), app = a.optString("app"),
+                timeMode = TimeMode.of(a.optString("timeMode")), offset = a.optInt("offset"), every = a.optInt("every", 60),
+                date = a.optString("date"), monthDay = a.optInt("monthDay").takeIf { it > 0 },
+                point = LatLng(a.optDouble("lat", 0.0), a.optDouble("lon", 0.0)).takeIf { it.lat != 0.0 || it.lon != 0.0 }, radius = a.optInt("radius", 150), place = a.optString("place"),
             )
         }.orEmpty()
         return Library(shortcuts, automations)
