@@ -70,7 +70,7 @@ The layout borrows from folded “iPhone Duo” cover-screen concepts: a rail wi
 |---|---|
 | End a WhatsApp call | Works. Presses **Hang up** on WhatsApp's call notification |
 | Reply on WhatsApp | Works. Uses the **Reply** box on WhatsApp's message notification |
-| Send WhatsApp to a contact | If that person has a WhatsApp notification, it replies right from the lock screen. Otherwise the message waits and **sends by itself the moment you unlock** |
+| Send WhatsApp to a contact (automatic send) | If that person has a WhatsApp notification, it replies right from the lock screen. If **Smart Lock / Extend Unlock** is keeping the phone open (a trusted place like home), it wakes the screen, sends and locks the phone again. Otherwise the message waits and **sends by itself the moment you unlock** |
 | Settings actions (Do Not Disturb, ringer, brightness, lock…) | Work |
 
 No app can open a WhatsApp chat behind a PIN-locked screen; this is the closest Android allows, and it needs no root.

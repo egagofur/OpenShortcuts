@@ -187,6 +187,14 @@
         <receiver android:name=".engine.AlarmReceiver" android:exported="false" />
         <receiver android:name=".engine.NotifActionReceiver" android:exported="false" />
         <receiver android:name=".engine.GeoReceiver" android:exported="false" />
+        <!-- Wakes the screen and dismisses a lock screen that needs no PIN (Smart Lock), to send a WhatsApp message. -->
+        <activity
+            android:name=".engine.WakeActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
         <receiver android:name=".engine.BootReceiver" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />

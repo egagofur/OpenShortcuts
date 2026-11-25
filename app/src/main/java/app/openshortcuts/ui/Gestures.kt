@@ -229,7 +229,7 @@ fun SettingsRow(
         if (glyph != null) IconTile(glyph, tint, size = 32.dp)
         Column(Modifier.weight(1f)) {
             Text(title, style = Theme.t.body, color = titleColor, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            if (subtitle != null) Text(subtitle, style = Theme.t.small, color = c.ink2, maxLines = 3, overflow = TextOverflow.Ellipsis)
+            if (subtitle != null) Text(subtitle, style = Theme.t.small, color = c.ink2)
         }
         trailing()
     }

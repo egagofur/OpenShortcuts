@@ -43,13 +43,17 @@ import androidx.compose.ui.unit.dp
 import app.openshortcuts.engine.Perm
 import app.openshortcuts.model.Tint
 
-private data class Group(val title: String, val footer: String?, val perms: List<Perm>)
+/** [smartLock]: also show the Smart Lock row (it isn't a permission the app can check). */
+private data class Group(val title: String, val footer: String?, val perms: List<Perm>, val smartLock: Boolean = false)
 
 private val GROUPS = listOf(
     Group("Automations", "These keep night automations on time and alive while the screen is off.",
         listOf(Perm.CallAccess, Perm.Notifications, Perm.Alarms, Perm.Battery, Perm.UsageAccess, Perm.Bluetooth)),
+    Group("Send WhatsApp while locked",
+        "Then a WhatsApp message goes out even while the phone is locked: it wakes, sends and locks again. When the phone asks for a PIN anyway (after a restart, or after a few hours unused), the message waits and sends when you unlock.",
+        listOf(Perm.AutoSend, Perm.Accessibility), smartLock = true),
     Group("Phone control", null,
-        listOf(Perm.Dnd, Perm.WriteSettings, Perm.PhoneCalls, Perm.Accessibility, Perm.AutoSend)),
+        listOf(Perm.Dnd, Perm.WriteSettings, Perm.PhoneCalls)),
     Group("Personal data", "Needed only by shortcuts that use them.",
         listOf(Perm.Contacts, Perm.Call, Perm.Sms, Perm.Calendar, Perm.Location, Perm.BackgroundLocation)),
 )
@@ -137,6 +141,10 @@ fun SetupScreen(tick: Int, onBack: () -> Unit) {
                             }
                         }
                     }
+                    if (g.smartLock) {
+                        SettingsDivider()
+                        SmartLockRow()
+                    }
                 }
             }
 
@@ -161,5 +169,33 @@ fun SetupScreen(tick: Int, onBack: () -> Unit) {
             }
         }
         Rail({ GlassCircle("chevronLeft", "Back", onClick = onBack) })
+    }
+}
+
+/**
+ * Smart Lock / Extend Unlock: Android lets no app check or open it directly, so the row explains
+ * the one thing to do and opens Password & security, where the phone keeps it.
+ */
+@Composable
+private fun SmartLockRow() {
+    val c = Theme.c
+    val ctx = LocalContext.current
+    val locationOn = remember { ctx.getSystemService(android.location.LocationManager::class.java).isLocationEnabled }
+    SettingsRow(
+        "Smart Lock or Extend Unlock", "lock", Tint.Blue.color(),
+        "Tap Open and enter your PIN, then choose Smart Lock → Trusted places and add Home. The phone then stays open without a PIN while you're home." +
+            if (locationOn) "" else " Turn Location on too: trusted places need it.",
+        actionLabel = "Open lock screen settings",
+        onClick = {
+            // Lock-screen settings hold Smart Lock on most phones (Android asks for the PIN first);
+            // fall back to the security page, then to Settings itself.
+            listOf("android.settings.LOCK_SCREEN_SETTINGS", android.provider.Settings.ACTION_SECURITY_SETTINGS, android.provider.Settings.ACTION_SETTINGS)
+                .firstOrNull { a -> runCatching { ctx.startActivity(android.content.Intent(a)) }.isSuccess }
+        },
+    ) {
+        Box(
+            Modifier.heightIn(min = 34.dp).clip(RoundedCornerShape(17.dp)).background(c.accentWash).padding(horizontal = 14.dp, vertical = 7.dp),
+            contentAlignment = Alignment.Center,
+        ) { Text("Open", style = Theme.t.label, color = c.accent, maxLines = 1) }
     }
 }

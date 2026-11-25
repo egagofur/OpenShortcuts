@@ -55,6 +55,8 @@ object Runner {
         val ask: (suspend (Prompt) -> String?)?,
         val foreground: Boolean,
     ) {
+        /** Same run, but the screen is now on and open (after Smart Lock let us in). */
+        fun copyForeground() = State(ctx, actions, blocks, depth, ask, true).also { it.log.addAll(log) }
         val shown = mutableListOf<String>()
         val log = mutableListOf<String>()
         val vars = HashMap<String, String>()
@@ -450,14 +452,23 @@ object Runner {
         return code + digits.drop(1)
     }
 
-    private suspend fun sendWhatsApp(st: State, number: String, text: String, auto: Boolean, name: String = "") {
+    private suspend fun sendWhatsApp(st: State, number: String, text: String, auto: Boolean, name: String = "", afterUnlock: Boolean = false) {
         val ctx = st.ctx
         if (text.isBlank()) fail("Type the message to send.")
-        if (PendingSends.locked(ctx)) {
+        if (PendingSends.locked(ctx) && !afterUnlock) {
             // 1. Locked, but this person has a WhatsApp notification: reply through it, right from the lock screen.
             if (name.isNotBlank() && CallWatcher.ensureConnected(ctx, 3_000) &&
                 CallWatcher.replyWhatsApp(ctx, name, text) == CallWatcher.Companion.ReplyResult.Sent
             ) { st.log += "Sent to $name from the lock screen"; return }
+            // 2. Smart Lock / Extend Unlock keeps the phone open without a PIN: wake it, send, lock it again.
+            if (!afterUnlock && auto && SendService.isEnabled(ctx) && Unlocker.canOpenWithoutPin(ctx) && Unlocker.open(ctx)) {
+                kotlinx.coroutines.delay(400)
+                val sent = runCatching { sendWhatsApp(st.copyForeground(), number, text, auto = true, name = "", afterUnlock = true) }
+                if (LockService.isEnabled(ctx)) { kotlinx.coroutines.delay(800); LockService.lock() }
+                sent.getOrThrow()
+                st.log += "Sent while you were away (Smart Lock kept the phone open), then locked it again"
+                return
+            }
             // 2. Otherwise hold it: it goes out by itself the moment the phone is unlocked.
             waNumber(ctx, number)
             PendingSends.add(ctx, PendingSends.Item(number, name, text, auto))
