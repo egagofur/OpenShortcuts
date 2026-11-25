@@ -21,7 +21,7 @@ It started with one problem: falling asleep on a WhatsApp call and waking up to 
   - *WhatsApp message* (from anyone, or a contact or group you name), *Charger*, *Battery level*, *Do Not Disturb*, *Wi-Fi*.
   - Optional one-minute warning with **Snooze 30 min / Not now / Run now**, so it never hangs up on you while you're awake.
 - **63 actions**: end a WhatsApp call, reply to or send a WhatsApp message, call, send SMS, compose email, share, start a timer, set an alarm, add or read calendar events, get your location, open Maps, end a phone call, lock the screen, speak text, Do Not Disturb, ringer mode, pause/play media, volume, brightness, flashlight, vibrate, battery level, open app, open URL, text, notifications and more.
-- **Run from anywhere**: a Home Screen icon per shortcut, a Quick Settings tile, and the app icon's long-press menu (also shown in launcher search).
+- **Run from anywhere**: a Home Screen icon per shortcut, a Quick Settings tile, the app icon's long-press menu (also shown in launcher search), and **Run Shortcut** in Android's share sheet or the menu that appears when you select text, with that text as the shortcut's input.
 - **Share shortcuts as files**: Share sends a `.openshortcut` file. Whoever opens it sees every action, and a warning for things like ending calls, before tapping Add Shortcut.
 - Search for actions in English or Indonesian (“tutup telepon”, “tidur”).
 - Light and dark mode, follows your system text size.

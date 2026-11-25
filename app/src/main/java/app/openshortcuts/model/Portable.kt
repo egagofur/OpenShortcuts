@@ -35,7 +35,7 @@ object Portable {
         put("format", FORMAT)
         put("version", 1)
         put("shortcut", JSONObject().apply {
-            put("name", s.name); put("tint", s.tint.name); put("glyph", s.glyph)
+            put("name", s.name); put("tint", s.tint.name); put("glyph", s.glyph); put("share", s.inShareSheet)
             put("actions", JSONArray(s.actions.map { a ->
                 val params = a.params.toMutableMap()
                 if (a.type == ActionType.RUN_SHORTCUT) {
@@ -71,6 +71,7 @@ object Portable {
                 name = uniqueName(name, lib),
                 tint = runCatching { Tint.valueOf(o.optString("tint")) }.getOrDefault(Tint.Blue),
                 glyph = o.optString("glyph", "layers").take(20),
+                inShareSheet = o.optBoolean("share"),
                 actions = actions.take(500),
             ),
             unknown,

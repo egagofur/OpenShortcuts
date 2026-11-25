@@ -76,11 +76,11 @@ class RunController(private val ctx: Context) {
 
     fun answer(value: String?) { prompt?.second?.complete(value) }
 
-    fun run(s: Shortcut) {
+    fun run(s: Shortcut, input: String = "", vars: Map<String, String> = emptyMap()) {
         if (running != null) return
         running = s.id
         job = (ctx.applicationContext as ShortcutsApp).scope.launch {
-            val r = try { Runner.run(ctx, s, foreground = true, ask = ask) } finally { running = null }
+            val r = try { Runner.run(ctx, s, foreground = true, ask = ask, input = input, vars = vars) } finally { running = null }
             if (r.error != null || r.shown.isNotEmpty()) result = r
             else {
                 done = s.id
@@ -248,6 +248,26 @@ fun DetailsDialog(
             QuietButton(if (tileOn) "In Quick Settings" else "Quick Settings", Modifier.weight(1f), color = if (tileOn) c.positive else c.accent) {
                 app.openshortcuts.engine.Launchers.offerTile(ctx, s); tileOn = true
             }
+        }
+        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(8.dp))
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                .pressable(scale = 0.98f, label = "Show in Share Sheet") { onChange(s.copy(inShareSheet = !s.inShareSheet, name = name.ifBlank { s.name })) }
+                .clip(RoundedCornerShape(14.dp)).background(c.bg).padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Glyph("share", c.ink2, size = 20.dp)
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Show in Share Sheet", style = Theme.t.body, color = c.ink)
+                Text("Run it on text you share or select", style = Theme.t.small, color = c.ink2)
+            }
+            androidx.compose.material3.Switch(
+                checked = s.inShareSheet, onCheckedChange = null,
+                colors = androidx.compose.material3.SwitchDefaults.colors(checkedTrackColor = c.positive, checkedThumbColor = androidx.compose.ui.graphics.Color.White,
+                    uncheckedTrackColor = c.fill, uncheckedThumbColor = c.ink3, uncheckedBorderColor = c.fill),
+            )
         }
         Spacer(Modifier.height(16.dp))
         Text("Colour", style = Theme.t.small, color = c.ink2)

@@ -90,6 +90,26 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
+        <!-- Share text to OpenShortcuts, or select text anywhere and choose "Run Shortcut". -->
+        <activity
+            android:name=".ui.ShareActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:label="Run Shortcut"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Shortcuts.Overlay">
+            <intent-filter android:label="Run Shortcut">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <intent-filter android:label="Run Shortcut">
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
         <!-- Opened by Home Screen icons and the app icon's long-press menu. Intents carry a
              per-install key, so other apps can't run shortcuts through it. -->
         <activity

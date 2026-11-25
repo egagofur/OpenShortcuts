@@ -54,7 +54,7 @@ The **Android route** column says how a missing feature would be built. "Listene
 | Control Center | ✅ | Quick Settings tile runs one chosen shortcut (Details → Quick Settings); works from the lock screen after unlock |
 | Search screen | ✅ | First 4 shortcuts appear on the app icon's long-press menu, and in search on launchers that support it |
 | Siri | ❌ | Google Assistant App Actions; limited for third-party apps |
-| From another app (share sheet, Shortcut Input) | ❌ | `ACTION_SEND` share target |
+| From another app (share sheet, Shortcut Input) | ✅ | “Run Shortcut” in Android's share sheet and in the menu for selected text; the text becomes {Shortcut Input}, the subject {Shared Subject}. Turn on “Show in Share Sheet” per shortcut |
 | Run from a URL | ❌ | Deep link |
 | Action button | ⛔ | No such button on most phones |
 | Back Tap | ⛔ | Pixel's Quick Tap can only open an app, not run a shortcut |
@@ -138,7 +138,7 @@ Apple has hundreds of actions. This table compares by area and names what OpenSh
 | Section | ✅ Done | 🟡 Partly done | ❌ Possible on Android | ⛔ Not possible |
 |---|---|---|---|---|
 | 1. Building | 16 | 5 | 4 | 0 |
-| 2. Ways to run | 5 | 0 | 4 | 4 |
+| 2. Ways to run | 6 | 0 | 3 | 4 |
 | 3. Triggers (Apple's 20) | 4 | 3 | 10 | 3 |
 | 4. Action areas | 5 of 17 fully | 7 | 5 | 0 |
 | 5. Sharing and sync | 3 | 2 | 3 | 1 |

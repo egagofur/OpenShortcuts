@@ -394,7 +394,7 @@ enum class ActionType(
 }
 
 /** Names you can drop into any text as {Name}. */
-val BUILT_IN_VARIABLES = listOf("Shortcut Input", "Message Sender", "Message Chat", "Previous Result", "Current Date", "Current Time", "Clipboard", "Repeat Index", "Repeat Item", "Menu Result")
+val BUILT_IN_VARIABLES = listOf("Shortcut Input", "Shared Subject", "Message Sender", "Message Chat", "Previous Result", "Current Date", "Current Time", "Clipboard", "Repeat Index", "Repeat Item", "Menu Result")
 
 fun variableNames(actions: List<Action>): List<String> =
     (BUILT_IN_VARIABLES + actions.filter { it.type == ActionType.SET_VARIABLE }.map { it.p("name").trim() })
@@ -414,6 +414,8 @@ data class Shortcut(
     val tint: Tint = Tint.Blue,
     val glyph: String = "layers",
     val actions: List<Action> = emptyList(),
+    /** Listed when you share text to OpenShortcuts or pick "Run Shortcut" on selected text. */
+    val inShareSheet: Boolean = false,
 )
 
 enum class TriggerKind(val title: String, val event: Boolean = true) {

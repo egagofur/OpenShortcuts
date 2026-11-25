@@ -65,7 +65,7 @@ object Store {
         put("v", 1)
         put("shortcuts", JSONArray(lib.shortcuts.map { s ->
             JSONObject().apply {
-                put("id", s.id); put("name", s.name); put("tint", s.tint.name); put("glyph", s.glyph)
+                put("id", s.id); put("name", s.name); put("tint", s.tint.name); put("glyph", s.glyph); put("share", s.inShareSheet)
                 put("actions", JSONArray(s.actions.map { a ->
                     JSONObject().apply {
                         put("id", a.id); put("type", a.type.name)
@@ -89,7 +89,7 @@ object Store {
         val shortcuts = o.getJSONArray("shortcuts").objects().map { s ->
             Shortcut(
                 id = s.getString("id"), name = s.getString("name"),
-                tint = enumOr(s.optString("tint"), Tint.Blue), glyph = s.optString("glyph", "layers"),
+                tint = enumOr(s.optString("tint"), Tint.Blue), glyph = s.optString("glyph", "layers"), inShareSheet = s.optBoolean("share"),
                 actions = s.getJSONArray("actions").objects().mapNotNull { a ->
                     val type = runCatching { ActionType.valueOf(a.getString("type")) }.getOrNull() ?: return@mapNotNull null
                     val p = a.optJSONObject("params") ?: JSONObject()
