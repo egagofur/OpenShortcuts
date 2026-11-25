@@ -207,7 +207,7 @@ fun rememberClock(): String {
     return DateFormat.format(fmt, now).toString()
 }
 
-data class BatteryState(val level: Int, val charging: Boolean)
+data class BatteryState(val level: Int, val charging: Boolean, val plug: Int = 0, val tempTenths: Int = 0)
 
 @Composable
 fun rememberBattery(): BatteryState {
@@ -222,6 +222,8 @@ fun rememberBattery(): BatteryState {
             state = BatteryState(
                 if (level >= 0) level * 100 / scale else 0,
                 status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL,
+                i.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0),
+                i.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0),
             )
         }
         val r = object : BroadcastReceiver() { override fun onReceive(c: Context, i: Intent) = read(i) }
@@ -236,7 +238,7 @@ fun rememberBattery(): BatteryState {
  * behind it, and plugging in pops the bolt in with a single ripple and one haptic.
  */
 @Composable
-fun BatteryRing(state: BatteryState) {
+fun BatteryRing(state: BatteryState, replay: Int = 0) {
     val c = Theme.c
     val view = LocalView.current
     val reduced = Theme.reduced
@@ -248,6 +250,11 @@ fun BatteryRing(state: BatteryState) {
         }, tween(300, easing = Motion.easeOut), label = "arcColor",
     )
     val level by animateFloatAsState(state.level / 100f, if (reduced) tween(0) else Motion.settle(), label = "level")
+    // Tapped: the arc refills from empty and the number counts up with it.
+    val sweep = remember { Animatable(1f) }
+    LaunchedEffect(replay) {
+        if (replay > 0 && !reduced) { sweep.snapTo(0f); sweep.animateTo(1f, tween(650, easing = Motion.easeOut)) }
+    }
     val bolt by animateFloatAsState(
         if (state.charging) 1f else 0f,
         if (reduced) tween(0) else if (state.charging) spring(dampingRatio = 0.6f, stiffness = 500f) else tween(150, easing = Motion.easeOut),
@@ -285,7 +292,7 @@ fun BatteryRing(state: BatteryState) {
             }
             if (glow > 0f) drawCircle(c.positive.copy(alpha = glow), size.minDimension / 2 - w)
             drawArc(c.fill, 0f, 360f, false, Offset(inset, inset), sz, style = Stroke(w))
-            drawArc(arc, -90f, 360f * level, false, Offset(inset, inset), sz, style = Stroke(w, cap = StrokeCap.Round))
+            drawArc(arc, -90f, 360f * level * sweep.value, false, Offset(inset, inset), sz, style = Stroke(w, cap = StrokeCap.Round))
         }
         if (bolt > 0.01f) {
             Glyph("boltFill", c.positive, size = 10.dp, modifier = Modifier.align(Alignment.TopCenter).padding(top = 7.dp)
@@ -295,7 +302,7 @@ fun BatteryRing(state: BatteryState) {
                 })
         }
         Text(
-            "${state.level}",
+            "${(state.level * sweep.value).toInt()}",
             style = Theme.t.small.copy(fontSize = 11.sp, fontFeatureSettings = "tnum"),
             color = c.ink,
             textAlign = TextAlign.Center,
@@ -333,13 +340,10 @@ fun Rail(vararg controls: @Composable () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // Sideways, every dp of height matters: drop the home glyph, keep time and battery.
-            if (!short) {
-                Glyph("home", c.ink, size = 17.dp)
-                Spacer(Modifier.height(4.dp))
-            }
-            Text(rememberClock(), style = Theme.t.clock, color = c.ink)
-            Spacer(Modifier.height(6.dp))
-            BatteryRing(rememberBattery())
+            if (!short) RailHome()
+            RailClock()
+            Spacer(Modifier.height(4.dp))
+            RailBattery()
             Spacer(if (tall || short) Modifier.weight(1f) else Modifier.height(24.dp))
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(if (short) 10.dp else 14.dp)) {
                 (if (tall || short) controls.reversed() else controls.toList()).forEach { it() }

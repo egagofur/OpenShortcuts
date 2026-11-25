@@ -107,6 +107,9 @@ private fun App() {
         }.distinct().filterNot { it.granted(ctx) }
     }
 
+    androidx.compose.runtime.CompositionLocalProvider(
+        app.openshortcuts.ui.LocalGoHome provides if (nav.stack.size > 1) ({ nav.popToRoot() }) else null,
+    ) {
     app.openshortcuts.ui.NavHost(nav) { route ->
         when (val r = route) {
             Route.Home -> HomeScreen(
@@ -141,6 +144,7 @@ private fun App() {
             Route.Setup -> SetupScreen(resumeTick, onBack = ::pop)
             Route.Gallery -> app.openshortcuts.ui.GalleryScreen(onBack = ::pop, onOpen = { push(Route.Editor(it)) })
         }
+    }
     }
 
     if (newAuto) NewAutomationDialog(onDismiss = { newAuto = false }) { kind ->

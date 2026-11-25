@@ -72,6 +72,14 @@ class NavState<R : Any>(initial: R, private val scope: CoroutineScope) {
         job = scope.launch { go(1f); complete() }
     }
 
+    /** Back to the first screen in one animated step, whatever is in between. */
+    fun popToRoot() {
+        if (stack.size < 2) return
+        settle()
+        if (stack.size > 2) stack = listOf(stack.first(), stack.last())
+        pop()
+    }
+
     /** Leave a screen whose content vanished (deleted elsewhere), once. */
     fun popIfTop(r: R) { if (stack.size > 1 && stack.last() == r && finish == null) pop() }
 
