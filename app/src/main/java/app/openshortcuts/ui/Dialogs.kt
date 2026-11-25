@@ -261,7 +261,7 @@ fun DetailsDialog(
                 androidx.compose.animation.AnimatedContent(
                     s.glyph, label = "glyph",
                     transitionSpec = {
-                        (androidx.compose.animation.fadeIn(tween(160)) + androidx.compose.animation.scaleIn(tween(200, easing = Motion.easeOut), initialScale = 0.7f)) togetherWith
+                        (androidx.compose.animation.fadeIn(tween(160)) + androidx.compose.animation.scaleIn(tween(200, easing = Motion.easeOut), initialScale = 0.85f)) togetherWith
                             androidx.compose.animation.fadeOut(tween(100))
                     },
                 ) { g -> Glyph(g, androidx.compose.ui.graphics.Color.White, size = 32.dp) }

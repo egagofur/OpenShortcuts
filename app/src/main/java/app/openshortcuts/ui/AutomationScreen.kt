@@ -1,7 +1,5 @@
 package app.openshortcuts.ui
 
-import android.app.TimePickerDialog
-import android.text.format.DateFormat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,7 +23,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -92,8 +89,10 @@ fun AutomationScreen(
     var confirmDelete by remember { mutableStateOf(false) }
     val target = lib.shortcuts.firstOrNull { it.id == a.shortcutId }
 
-    fun pickTime(current: Int, set: (Int) -> Unit) {
-        TimePickerDialog(ctx, { _, h, m -> set(h * 60 + m) }, current / 60, current % 60, DateFormat.is24HourFormat(ctx)).show()
+    var timePick by remember { mutableStateOf<Pair<Int, (Int) -> Unit>?>(null) }
+    fun pickTime(current: Int, set: (Int) -> Unit) { timePick = current to set }
+    timePick?.let { (current, set) ->
+        TimeWheelDialog("Time", current, onDismiss = { timePick = null }) { set(it); timePick = null }
     }
 
     val needs = buildList {
@@ -114,11 +113,7 @@ fun AutomationScreen(
                 IconTile(a.kind.glyph(), a.kind.tint().color(), size = 32.dp)
                 Spacer(Modifier.width(10.dp))
                 Text("Automation", style = Theme.t.title, color = c.ink, modifier = Modifier.weight(1f))
-                Switch(
-                    checked = a.enabled, onCheckedChange = { onChange(a.copy(enabled = it)) },
-                    colors = SwitchDefaults.colors(checkedTrackColor = c.positive, checkedThumbColor = Color.White,
-                        uncheckedTrackColor = c.fill, uncheckedThumbColor = c.ink3, uncheckedBorderColor = c.fill),
-                )
+                DuoSwitch(a.enabled) { onChange(a.copy(enabled = it)) }
             }
 
             val gap = Modifier.height(12.dp)
@@ -172,7 +167,7 @@ fun AutomationScreen(
             }
             Spacer(gap)
             SentenceCard("bell", Tint.Red.color(),
-                words("Ask before running") + Seg.Pill(if (a.warnFirst) "On" else "Off") { onChange(a.copy(warnFirst = !a.warnFirst)) })
+                words("Ask before running")) { DuoSwitch(a.warnFirst) { onChange(a.copy(warnFirst = it)) } }
             Spacer(Modifier.height(10.dp))
             Text(
                 if (a.kind == TriggerKind.WhatsAppCallLong)

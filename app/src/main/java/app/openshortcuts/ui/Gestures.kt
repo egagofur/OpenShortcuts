@@ -236,15 +236,4 @@ fun SettingsRow(
 }
 
 @Composable
-fun DuoSwitch(checked: Boolean, onChange: ((Boolean) -> Unit)? = null) {
-    val c = Theme.c
-    val view = LocalView.current
-    androidx.compose.material3.Switch(
-        checked = checked,
-        onCheckedChange = onChange?.let { f -> { v: Boolean -> view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK); f(v) } },
-        colors = androidx.compose.material3.SwitchDefaults.colors(
-            checkedTrackColor = c.positive, checkedThumbColor = Color.White,
-            uncheckedTrackColor = c.fill, uncheckedThumbColor = c.ink3, uncheckedBorderColor = c.fill,
-        ),
-    )
-}
+fun DuoSwitch(checked: Boolean, onChange: ((Boolean) -> Unit)? = null) = IosSwitch(checked, onChange)

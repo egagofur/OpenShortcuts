@@ -120,7 +120,7 @@ fun SetupScreen(tick: Int, onBack: () -> Unit) {
                             AnimatedContent(
                                 ok, label = "perm",
                                 transitionSpec = {
-                                    (fadeIn(tween(150)) + scaleIn(spring(dampingRatio = 0.6f, stiffness = 500f), initialScale = 0.6f)) togetherWith fadeOut(tween(100))
+                                    (fadeIn(tween(150)) + scaleIn(spring(dampingRatio = 0.6f, stiffness = 500f), initialScale = 0.85f)) togetherWith fadeOut(tween(100))
                                 },
                             ) { yes ->
                                 if (yes) Box(Modifier.size(26.dp).clip(CircleShape).background(c.positive), contentAlignment = Alignment.Center) {

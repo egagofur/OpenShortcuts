@@ -58,6 +58,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -248,7 +249,7 @@ fun BatteryRing(state: BatteryState) {
     val level by animateFloatAsState(state.level / 100f, if (reduced) tween(0) else Motion.settle(), label = "level")
     val bolt by animateFloatAsState(
         if (state.charging) 1f else 0f,
-        if (reduced) tween(0) else if (state.charging) spring(dampingRatio = 0.5f, stiffness = 500f) else tween(150, easing = Motion.easeOut),
+        if (reduced) tween(0) else if (state.charging) spring(dampingRatio = 0.6f, stiffness = 500f) else tween(150, easing = Motion.easeOut),
         label = "bolt",
     )
     // One ripple per plug-in, not on first composition.
@@ -287,7 +288,10 @@ fun BatteryRing(state: BatteryState) {
         }
         if (bolt > 0.01f) {
             Glyph("boltFill", c.positive, size = 10.dp, modifier = Modifier.align(Alignment.TopCenter).padding(top = 7.dp)
-                .graphicsLayer { scaleX = bolt; scaleY = bolt; alpha = bolt.coerceAtMost(1f) })
+                .graphicsLayer {
+                    // Grows from 0.6, never from nothing; opacity carries the rest.
+                    val k = 0.6f + 0.4f * bolt; scaleX = k; scaleY = k; alpha = bolt.coerceIn(0f, 1f)
+                })
         }
         Text(
             "${state.level}",
@@ -345,13 +349,27 @@ fun Rail(vararg controls: @Composable () -> Unit) {
 
 // --- Dialog -------------------------------------------------------------------
 
-/** Centered card that materialises from 0.96 scale. */
+/**
+ * Centered card that materialises from 0.96 scale. Dismissing by tapping outside or Back plays a
+ * shorter exit (fade + 0.98) before it goes, so it never just blinks out.
+ */
 @Composable
 fun DuoDialog(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        val reduced = Theme.reduced
-        val scale = remember { Animatable(if (reduced) 1f else 0.96f) }
-        val alpha = remember { Animatable(0f) }
+    val scope = rememberCoroutineScope()
+    val reduced = Theme.reduced
+    val scale = remember { Animatable(if (reduced) 1f else 0.96f) }
+    val alpha = remember { Animatable(0f) }
+    var closing by remember { mutableStateOf(false) }
+    fun close() {
+        if (closing) return
+        closing = true
+        scope.launch {
+            launch { if (!reduced) scale.animateTo(0.98f, tween(140, easing = Motion.easeOut)) }
+            alpha.animateTo(0f, tween(140, easing = Motion.easeOut))
+            onDismiss()
+        }
+    }
+    Dialog(onDismissRequest = ::close, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         LaunchedEffect(Unit) {
             launch { scale.animateTo(1f, tween(250, easing = Motion.easeOut)) }
             alpha.animateTo(1f, tween(200, easing = Motion.easeOut))
