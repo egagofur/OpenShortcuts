@@ -24,6 +24,7 @@ enum class Perm(val title: String, val why: String, val runtime: String? = null,
     PhoneCalls("End phone calls", "Lets End Phone Call hang up regular cellular calls.", Manifest.permission.ANSWER_PHONE_CALLS),
     Alarms("Alarms & reminders", "Runs automations at the exact minute you set."),
     Battery("Unrestricted battery", "Stops the system from putting automations to sleep overnight."),
+    Autostart("Auto launch", "Lets OpenShortcuts start again by itself after the phone clears recent apps, so night automations still run."),
     Accessibility("Lock screen", "Turn on OpenShortcuts under Accessibility to use the Lock Screen action. It reads nothing on screen."),
     Call("Make phone calls", "Lets the Call action dial straight away instead of opening the dialer.", Manifest.permission.CALL_PHONE),
     Sms("Send SMS", "Lets “Send SMS … automatically” send without opening Messages. Standard SMS charges apply.", Manifest.permission.SEND_SMS),
@@ -45,13 +46,32 @@ enum class Perm(val title: String, val why: String, val runtime: String? = null,
         }
         Alarms -> Build.VERSION.SDK_INT < 31 || ctx.getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
         Battery -> ctx.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(ctx.packageName)
-        Accessibility -> LockService.isEnabled(ctx)
-        AutoSend -> SendService.isEnabled(ctx)
+        Accessibility -> LockService.isEnabled(ctx) && !LockService.stuck(ctx)
+        AutoSend -> SendService.isEnabled(ctx) && !SendService.stuck(ctx)
         UsageAccess -> ctx.getSystemService(android.app.AppOpsManager::class.java).unsafeCheckOpNoThrow(
             android.app.AppOpsManager.OPSTR_GET_USAGE_STATS, android.os.Process.myUid(), ctx.packageName,
         ) == android.app.AppOpsManager.MODE_ALLOWED
         Bluetooth -> Build.VERSION.SDK_INT < 31 || ctx.checkSelfPermission(runtime!!) == PackageManager.PERMISSION_GRANTED
         BackgroundLocation -> ctx.checkSelfPermission(runtime!!) == PackageManager.PERMISSION_GRANTED
+        // No API reports this switch, so we trust the person once they say it's on.
+        Autostart -> !OemAutostart.needed() || ctx.getSharedPreferences("perms", 0).getBoolean("autostart", false)
+    }
+
+    /** Whether Android can tell us it's on. If not, the person confirms it themselves. */
+    val checkable: Boolean get() = this != Autostart
+
+    /** On in Settings, but Android stopped the service; it needs switching off and on again. */
+    fun stuck(ctx: Context): Boolean = when (this) {
+        Accessibility -> LockService.stuck(ctx)
+        AutoSend -> SendService.stuck(ctx)
+        else -> false
+    }
+
+    /** Whether this phone has the setting at all. */
+    fun applies(): Boolean = this != Autostart || OemAutostart.needed()
+
+    fun confirm(ctx: Context) {
+        if (this == Autostart) ctx.getSharedPreferences("perms", 0).edit().putBoolean("autostart", true).apply()
     }
 
     /** Settings screen for the special-access ones. */
@@ -71,6 +91,7 @@ enum class Perm(val title: String, val why: String, val runtime: String? = null,
             Battery -> Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, pkg)
             Accessibility, AutoSend -> Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
             UsageAccess -> Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS, pkg)
+            Autostart -> OemAutostart.intent(ctx) ?: OemAutostart.search(ctx) ?: Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, pkg)
             else -> Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, pkg)
         }
     }
@@ -83,7 +104,7 @@ enum class Perm(val title: String, val why: String, val runtime: String? = null,
         }
 
         fun forAction(t: ActionType): List<Perm> = when (t) {
-            ActionType.END_WHATSAPP_CALL, ActionType.REPLY_WHATSAPP -> listOf(CallAccess)
+            ActionType.END_WHATSAPP_CALL, ActionType.REPLY_WHATSAPP -> listOf(CallAccess, Autostart)
             ActionType.END_PHONE_CALL -> listOf(PhoneCalls)
             ActionType.DND, ActionType.RINGER -> listOf(Dnd)
             ActionType.BRIGHTNESS -> listOf(WriteSettings)
@@ -96,5 +117,58 @@ enum class Perm(val title: String, val why: String, val runtime: String? = null,
 
         fun missing(ctx: Context, s: Shortcut): List<Perm> =
             s.actions.flatMap { forAction(it) }.distinct().filterNot { it.granted(ctx) }
+
+        /** What an automation's trigger needs to fire reliably (its shortcut's needs come separately). */
+        fun forAutomation(a: app.openshortcuts.model.Automation): List<Perm> = buildList {
+            val k = a.kind
+            // Every trigger except clock time runs inside the notification-listener service.
+            if (k != app.openshortcuts.model.TriggerKind.Time) add(CallAccess)
+            if (k == app.openshortcuts.model.TriggerKind.App) add(UsageAccess)
+            if (k == app.openshortcuts.model.TriggerKind.Bluetooth) add(Bluetooth)
+            if (k == app.openshortcuts.model.TriggerKind.Location) { add(Location); add(BackgroundLocation) }
+            if (k == app.openshortcuts.model.TriggerKind.Time && (a.timeMode == "sunrise" || a.timeMode == "sunset")) add(Location)
+            add(Notifications); add(Alarms); add(Battery); add(Autostart)
+        }
+
+        /** Everything the library actually uses, granted or not, in a sensible asking order. */
+        fun neededBy(lib: app.openshortcuts.model.Library): List<Perm> {
+            val used = (lib.shortcuts.flatMap { s -> s.actions.flatMap { forAction(it) } } +
+                lib.automations.filter { it.enabled }.flatMap { forAutomation(it) }).toSet()
+            return entries.filter { it in used }
+        }
     }
+}
+
+/**
+ * Phones from Oppo, OnePlus, Realme, Xiaomi, Vivo, Huawei and Honor block apps from starting
+ * themselves after "clear all" in recents, which silently stops the notification listener.
+ * Each hides the switch somewhere else; try the known pages, newest first.
+ */
+object OemAutostart {
+    private val brand get() = (Build.MANUFACTURER + " " + Build.BRAND).lowercase()
+
+    fun needed(): Boolean = listOf("oppo", "oneplus", "realme", "xiaomi", "redmi", "poco", "vivo", "iqoo", "huawei", "honor")
+        .any { it in brand }
+
+    private val candidates = listOf(
+        Intent("com.oplus.battery.permission.startup.StartupAppListActivity"),
+        Intent().setClassName("com.oplus.battery", "com.oplus.startupapp.view.StartupAppListActivity"),
+        Intent().setClassName("com.coloros.safecenter", "com.coloros.safecenter.startupapp.StartupAppListActivity"),
+        Intent().setClassName("com.coloros.safecenter", "com.coloros.safecenter.permission.startup.StartupAppListActivity"),
+        Intent().setClassName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity"),
+        Intent().setClassName("com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.BgStartUpManagerActivity"),
+        Intent().setClassName("com.iqoo.secure", "com.iqoo.secure.ui.phoneoptimize.BgStartUpManager"),
+        Intent().setClassName("com.huawei.systemmanager", "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity"),
+        Intent().setClassName("com.hihonor.systemmanager", "com.hihonor.systemmanager.startupmgr.ui.StartupNormalAppListActivity"),
+    )
+
+    /** ColorOS locks its Auto launch page to system apps, but Settings search finds it. */
+    fun search(ctx: Context): Intent? = Intent("com.android.settings.action.SETTINGS_SEARCH")
+        .takeIf { it.resolveActivity(ctx.packageManager) != null }
+
+    /** The first page this phone has that we're allowed to open. */
+    fun intent(ctx: Context): Intent? = candidates.firstOrNull { i ->
+        val info = ctx.packageManager.resolveActivity(i, 0)?.activityInfo ?: return@firstOrNull false
+        info.exported && (info.permission == null || ctx.checkSelfPermission(info.permission) == PackageManager.PERMISSION_GRANTED)
+    }?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 }

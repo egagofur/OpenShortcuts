@@ -198,7 +198,7 @@ fun EditorScreen(shortcut: Shortcut, runs: RunController, onBack: () -> Unit, on
                     if (missing.isNotEmpty()) item(key = "perm") {
                         Row(
                             Modifier.fillMaxWidth().padding(bottom = 12.dp)
-                                .pressable(label = "Open setup", onClick = onSetup)
+                                .pressable(label = "Allow what this shortcut needs") { Primer.ask(missing, s.name) }
                                 .clip(RoundedCornerShape(18.dp)).background(c.card).padding(14.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {

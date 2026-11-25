@@ -30,6 +30,12 @@ class LockService : AccessibilityService() {
             return flat.split(':').any { ComponentName.unflattenFromString(it) == me }
         }
 
+        /**
+         * Switched on in Settings but not connected. Android leaves a service like this after the app
+         * is updated or killed ("crashed"), and won't reconnect it until the switch is turned off and on.
+         */
+        fun stuck(ctx: Context): Boolean = isEnabled(ctx) && instance == null
+
         fun lock(): Boolean = instance?.performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN) == true
     }
 }

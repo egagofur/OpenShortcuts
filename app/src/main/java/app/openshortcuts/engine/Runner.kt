@@ -317,7 +317,9 @@ object Runner {
             ActionType.LOCATION -> Phone.location(ctx)
             ActionType.OPEN_MAPS -> input(st, a, "input").also { open(st, Phone.mapsIntent(it), "Open in Maps") }
             ActionType.LOCK -> {
-                if (!LockService.lock()) fail("Allow lock screen access: turn on OpenShortcuts under Accessibility.")
+                if (!LockService.lock()) fail(
+                    if (LockService.stuck(ctx)) "Lock Screen stopped after an update. In Accessibility, turn OpenShortcuts off and on again."
+                    else "Allow lock screen access: turn on OpenShortcuts under Accessibility.")
                 prev
             }
             ActionType.SPEAK -> {
@@ -482,6 +484,11 @@ object Runner {
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse("whatsapp://send?phone=${waNumber(ctx, number)}&text=${Uri.encode(text)}"))
             .setPackage(pkg).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         if (auto && !SendService.isEnabled(ctx)) fail("Allow automatic WhatsApp sending: turn on “OpenShortcuts WhatsApp auto-send” under Accessibility.")
+        if (auto && SendService.instance == null) {
+            // Android may still be connecting it (the app just started); give it a moment.
+            repeat(20) { if (SendService.instance == null) kotlinx.coroutines.delay(100) }
+            if (SendService.instance == null) fail("Automatic sending stopped after an update. In Accessibility, turn “OpenShortcuts WhatsApp auto-send” off and on again.")
+        }
         // Android blocks background apps from opening screens unless an accessibility service is on;
         // then the best we can do is a notification that opens the chat.
         if (!st.foreground && !SendService.isEnabled(ctx) && !LockService.isEnabled(ctx)) {

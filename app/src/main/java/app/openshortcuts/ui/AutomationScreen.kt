@@ -98,16 +98,11 @@ fun AutomationScreen(
         TimeWheelDialog("Time", current, onDismiss = { timePick = null }) { set(it); timePick = null }
     }
 
-    val needs = buildList {
-        // Call and event triggers all run inside the notification-listener service.
-        if (a.kind != TriggerKind.Time) add(Perm.CallAccess)
-        if (a.kind == TriggerKind.App) add(Perm.UsageAccess)
-        if (a.kind == TriggerKind.Bluetooth) add(Perm.Bluetooth)
-        if (a.kind == TriggerKind.Location) { add(Perm.Location); add(Perm.BackgroundLocation) }
-        if (a.kind == TriggerKind.Time && (a.timeMode == "sunrise" || a.timeMode == "sunset")) add(Perm.Location)
-        add(Perm.Notifications); add(Perm.Alarms); add(Perm.Battery)
-        target?.let { addAll(Perm.missing(ctx, it)) }
-    }.distinct().filterNot { it.granted(ctx) }
+    var permTick by remember { mutableStateOf(0) }
+    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) { permTick++; onPauseOrDispose { } }
+    val needs = remember(a, target, permTick, Primer.queue) {
+        (Perm.forAutomation(a) + target?.let { Perm.missing(ctx, it) }.orEmpty()).distinct().filterNot { it.granted(ctx) }
+    }
 
     Row(Modifier.fillMaxSize().background(c.bg)) {
         Column(
@@ -228,11 +223,11 @@ fun AutomationScreen(
 
             if (needs.isNotEmpty()) {
                 Spacer(Modifier.height(20.dp))
-                Card(Modifier.fillMaxWidth().pressable(label = "Open setup", onClick = onSetup)) {
+                Card(Modifier.fillMaxWidth().pressable(label = "Allow what this automation needs") { Primer.ask(needs, "this automation") }) {
                     Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Glyph("info", c.danger, size = 22.dp)
                         Spacer(Modifier.width(12.dp))
-                        Text("Won't run reliably yet. Allow ${needs.joinToString { it.title.lowercase() }}.",
+                        Text(if (needs.size == 1) "One thing left so this runs reliably: ${needs[0].title.lowercase()}." else "${needs.size} things left so this runs reliably. Tap to set them up.",
                             style = Theme.t.small.copy(fontSize = 15.sp), color = c.ink, modifier = Modifier.weight(1f))
                         Glyph("chevronRight", c.ink3, size = 18.dp)
                     }

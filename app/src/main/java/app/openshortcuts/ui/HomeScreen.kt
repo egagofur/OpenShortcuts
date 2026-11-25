@@ -175,7 +175,7 @@ private fun ShortcutGrid(
         item(span = { GridItemSpan(maxLineSpan) }) {
             Header("All Shortcuts", if (lib.shortcuts.size == 1) "1 shortcut" else "${lib.shortcuts.size} shortcuts")
         }
-        if (missing.isNotEmpty()) item(span = { GridItemSpan(maxLineSpan) }) { SetupBanner(missing, onSetup) }
+        if (missing.isNotEmpty()) item(span = { GridItemSpan(maxLineSpan) }) { SetupBanner(missing) { Primer.ask(missing) } }
         items(lib.shortcuts, key = { it.id }) { s ->
             ShortcutTile(s, running = runs.running == s.id, done = runs.done == s.id, failed = runs.failed == s.id,
                 onRun = { runs.run(s) }, onEdit = { onEdit(s) }, onDelete = { onDelete(s) })

@@ -212,6 +212,8 @@ private fun App() {
         }
     }
     runs.prompt?.let { (p, _) -> app.openshortcuts.ui.PromptDialog(p) { runs.answer(it) } }
+    // Permissions are asked one at a time, explained first (see Primer).
+    app.openshortcuts.ui.PrimerSheet()
     // First-run tour: the welcome screen covers everything; tips float over the real controls.
     app.openshortcuts.ui.TourOverlay()
     if (app.openshortcuts.ui.Tour.step == app.openshortcuts.ui.Tour.Step.AllSet) app.openshortcuts.ui.AllSetDialog { app.openshortcuts.ui.Tour.finish() }
@@ -219,5 +221,12 @@ private fun App() {
         onContinue = { nav.reset(listOf(Route.Home)); tab = 0; app.openshortcuts.ui.Tour.start() },
         onNotNow = { app.openshortcuts.ui.Tour.skip() },
     )
-    runs.result?.let { r -> ResultDialog(r, onDismiss = { runs.result = null }, onSetup = { push(Route.Setup) }) }
+    runs.result?.let { r ->
+        ResultDialog(r, onDismiss = { runs.result = null }, onSetup = {
+            // Ask for exactly what this shortcut is missing; Setup only if we can't tell.
+            val s = lib.shortcuts.firstOrNull { it.name == r.shortcut }
+            val missing = s?.let { Perm.missing(ctx, it) }.orEmpty()
+            if (missing.isNotEmpty()) app.openshortcuts.ui.Primer.ask(missing, s!!.name) else push(Route.Setup)
+        })
+    }
 }

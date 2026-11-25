@@ -34,6 +34,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,7 +51,7 @@ private data class Group(val title: String, val footer: String?, val perms: List
 
 private val GROUPS = listOf(
     Group("Automations", "These keep night automations on time and alive while the screen is off.",
-        listOf(Perm.CallAccess, Perm.Notifications, Perm.Alarms, Perm.Battery, Perm.UsageAccess, Perm.Bluetooth)),
+        listOf(Perm.CallAccess, Perm.Notifications, Perm.Alarms, Perm.Battery, Perm.Autostart, Perm.UsageAccess, Perm.Bluetooth)),
     Group("Send WhatsApp while locked",
         "Then a WhatsApp message goes out even while the phone is locked: it wakes, sends and locks again. When the phone asks for a PIN anyway (after a restart, or after a few hours unused), the message waits and sends when you unlock.",
         listOf(Perm.AutoSend, Perm.Accessibility), smartLock = true),
@@ -63,6 +66,7 @@ private fun Perm.look(): Pair<String, Tint> = when (this) {
     Perm.Notifications -> "bell" to Tint.Red
     Perm.Alarms -> "clock" to Tint.Orange
     Perm.Battery -> "battery" to Tint.Green
+    Perm.Autostart -> "bolt" to Tint.Orange
     Perm.Dnd -> "moon" to Tint.Indigo
     Perm.WriteSettings -> "sun" to Tint.Yellow
     Perm.PhoneCalls -> "phone" to Tint.Green
@@ -84,14 +88,18 @@ fun SetupScreen(tick: Int, onBack: () -> Unit) {
     val c = Theme.c
     val ctx = LocalContext.current
     val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { }
-    val granted = remember(tick) { Perm.entries.associateWith { it.granted(ctx) } }
-    val allowed = granted.count { it.value }
-    val progress by animateFloatAsState(allowed / Perm.entries.size.toFloat(), if (Theme.reduced) tween(0) else Motion.settle(), label = "setup")
+    val granted = remember(tick, Primer.queue) { Perm.entries.associateWith { it.granted(ctx) } }
+    val lib by app.openshortcuts.model.Store.library.collectAsState()
+    val locked = setOf(Perm.AutoSend, Perm.Accessibility)
+    // Only what your shortcuts and automations actually use is shown; the rest waits, folded away.
+    val needed = remember(lib) { Perm.neededBy(lib).filterNot { it in locked || !it.applies() } }
+    val others = Perm.entries.filterNot { it in needed || it in locked || !it.applies() }
+    var showOthers by remember { mutableStateOf(false) }
 
     fun open(p: Perm) {
-        val r = p.runtime
-        if (r != null) ask.launch((listOf(r) + p.more).toTypedArray())
-        else runCatching { ctx.startActivity(p.settingsIntent(ctx)) }
+        // Not yet allowed: explain first (Primer). Already allowed: open its settings to change it.
+        if (granted[p] != true) { Primer.ask(listOf(p)); return }
+        runCatching { ctx.startActivity(p.settingsIntent(ctx)) }
             .onFailure { ctx.startActivity(Perm.Notifications.settingsIntent(ctx)) }
     }
 
@@ -105,19 +113,16 @@ fun SetupScreen(tick: Int, onBack: () -> Unit) {
             Column(Modifier.padding(top = 18.dp, bottom = 20.dp)) {
                 Text("Setup", style = Theme.t.large, color = c.ink)
                 Spacer(Modifier.height(2.dp))
-                Text("Android asks before an app can control calls and settings. Allow only what you use.",
+                Text("Only what your shortcuts use is listed. Everything else stays off until a shortcut needs it.",
                     style = Theme.t.small, color = c.ink2)
-                Spacer(Modifier.height(14.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.weight(1f).height(6.dp).clip(CircleShape).background(c.fill)) {
-                        Box(Modifier.fillMaxHeight().fillMaxWidth(progress).clip(CircleShape).background(c.positive))
-                    }
-                    Spacer(Modifier.size(10.dp))
-                    Text("$allowed of ${Perm.entries.size} allowed", style = Theme.t.small, color = c.ink2)
-                }
             }
 
-            GROUPS.forEachIndexed { gi, g ->
+            val groups = buildList {
+                add(Group("Your shortcuts use", if (needed.isEmpty()) "Nothing yet. You'll be asked when a shortcut needs something." else "Each one is asked for with a short explanation, one at a time.", needed))
+                add(GROUPS.first { it.smartLock })
+                if (showOthers) add(Group("Other permissions", "Not needed by anything you've made.", others))
+            }
+            groups.forEachIndexed { gi, g ->
                 if (gi > 0) Spacer(Modifier.height(22.dp))
                 SettingsGroup(g.title, g.footer, surface = c.card) {
                     g.perms.forEachIndexed { i, p ->
@@ -146,6 +151,12 @@ fun SetupScreen(tick: Int, onBack: () -> Unit) {
                         SmartLockRow()
                     }
                 }
+            }
+
+            if (!showOthers && others.isNotEmpty()) {
+                Spacer(Modifier.height(14.dp))
+                Text("Show ${others.size} other permissions", style = Theme.t.label, color = c.accent,
+                    modifier = Modifier.heightIn(min = 44.dp).pressable(label = "Show other permissions") { showOthers = true }.padding(horizontal = 14.dp, vertical = 12.dp))
             }
 
             Spacer(Modifier.height(22.dp))
