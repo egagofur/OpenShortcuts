@@ -112,7 +112,6 @@ fun AutomationScreen(
                 .padding(start = 18.dp, end = 4.dp, bottom = 32.dp),
         ) {
             Row(Modifier.padding(top = 22.dp, bottom = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-                // The trigger itself is a button: change what starts this automation without starting over.
                 Row(
                     Modifier.weight(1f).pressable(scale = 0.97f, label = "Change trigger") { dialog = "kind" },
                     verticalAlignment = Alignment.CenterVertically,
@@ -294,7 +293,6 @@ fun AutomationScreen(
             Field(q, { q = it }, "Search apps", autofocus = false)
             Spacer(Modifier.height(10.dp))
             androidx.compose.foundation.lazy.LazyColumn(Modifier.heightIn(max = if (isShort) 200.dp else 380.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                // Notifications can come from any app; the App trigger needs one.
                 if (a.kind == TriggerKind.AppNotification && q.isBlank()) item(key = "any") {
                     ChoiceRow("Any app", a.app.isBlank(), "grid", Tint.Gray.color()) { onChange(a.copy(app = "")); dialog = null }
                 }
@@ -366,7 +364,6 @@ private fun DaysDialog(days: Set<Int>, onDismiss: () -> Unit, onChange: (Set<Int
     DuoDialog(onDismiss) {
         DialogTitle("Repeat")
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-            // Monday first.
             listOf(2, 3, 4, 5, 6, 7, 1).forEach { d ->
                 val on = d in sel
                 Box(
@@ -385,7 +382,6 @@ private fun DaysDialog(days: Set<Int>, onDismiss: () -> Unit, onChange: (Set<Int
     }
 }
 
-/** Same automation, new trigger: keeps its shortcut and run options, resets what belonged to the old trigger. */
 fun Automation.switchTo(k: TriggerKind): Automation {
     val base = copy(kind = k, on = true, text = "", app = "", level = 20, offset = 0, monthDay = 0, date = "", timeMode = "time")
     return when (k) {
@@ -397,10 +393,6 @@ fun Automation.switchTo(k: TriggerKind): Automation {
 
 data class HistoryItem(val name: String, val sub: String, val glyph: String)
 
-/**
- * Choose from what the phone has seen (paired devices, chats, contacts) instead of typing a name.
- * The search box only filters the list; "Any …" is always the first row.
- */
 @Composable
 fun HistoryPicker(
     current: String,

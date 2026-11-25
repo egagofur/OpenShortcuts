@@ -55,13 +55,8 @@ import app.openshortcuts.engine.Perm
 import app.openshortcuts.model.Tint
 import kotlinx.coroutines.delay
 
-/**
- * Asking for a permission the friendly way: say what it gets you, show exactly what to tap next,
- * say plainly what it doesn't do, and celebrate when it's done. One permission at a time.
- */
 object Primer {
     var queue by mutableStateOf<List<Perm>>(emptyList()); private set
-    /** What the permissions are for, e.g. a shortcut's name; shown as "For Sleep Mode". */
     var forWhat by mutableStateOf(""); private set
 
     fun ask(perms: List<Perm>, forWhat: String = "") {
@@ -83,9 +78,7 @@ private data class Pitch(
     val mock: Mock,
     val glyph: String,
     val tint: Tint,
-    /** Toggle mocks: the name of the Settings page the switch is on. */
     val page: String = "",
-    /** Dialog mocks: the button Android will show. */
     val allow: String = "Allow",
 )
 
@@ -128,7 +121,6 @@ private fun Perm.pitch(): Pitch = when (this) {
         "Doesn't connect to or scan for anything.", Mock.Dialog, "bluetooth", Tint.Blue)
 }
 
-/** Shown at the root while [Primer.queue] has something in it. */
 @Composable
 fun PrimerSheet() {
     val queue = Primer.queue
@@ -141,13 +133,11 @@ fun PrimerSheet() {
     val pitch = p.pitch()
     var celebrating by remember(p) { mutableStateOf(false) }
     var check by remember { mutableIntStateOf(0) }
-    // For switches Android can't report (Auto launch), remember that Settings was opened, then ask.
     var opened by remember(p) { mutableStateOf(false) }
 
     fun next() {
         if (index < queue.lastIndex) index++ else Primer.close()
     }
-    // Granted (from the system dialog or back from Settings): celebrate, then move on.
     LaunchedEffect(p, check) {
         if (!celebrating && p.granted(ctx)) {
             celebrating = true
@@ -169,7 +159,6 @@ fun PrimerSheet() {
                 style = Theme.t.small, color = c.ink2,
             )
             Spacer(Modifier.height(10.dp))
-            // The picture: what you'll see next and where to tap. Replaced by a check once it's done.
             Box(
                 Modifier.fillMaxWidth().height(178.dp).clip(RoundedCornerShape(22.dp)).background(pitch.tint.color().copy(alpha = 0.12f)),
                 contentAlignment = Alignment.Center,
@@ -248,7 +237,6 @@ private fun Point(glyph: String, tint: Color, text: String) {
     }
 }
 
-/** A finger that travels to a spot, taps (ring), and rests — on a loop that reads as "tap here". */
 @Composable
 private fun rememberTapLoop(): Float =
     rememberInfiniteTransition(label = "tap").animateFloat(
@@ -257,12 +245,10 @@ private fun rememberTapLoop(): Float =
 
 @Composable
 private fun Finger(t: Float, reduced: Boolean, modifier: Modifier = Modifier) {
-    // 0–0.35 travel in, 0.35–0.5 press, 0.5–0.8 hold, 0.8–1 fade out.
     val travel = if (reduced) 1f else Motion.easeOut.transform((t / 0.35f).coerceIn(0f, 1f))
     val press = if (t in 0.35f..0.5f) 1f - kotlin.math.abs((t - 0.425f) / 0.075f) else 0f
     val alpha = when { reduced -> 1f; t < 0.1f -> t / 0.1f; t > 0.85f -> (1f - t) / 0.15f; else -> 1f }
     Box(modifier.graphicsLayer { translationX = (1f - travel) * 60.dp.toPx(); translationY = (1f - travel) * 50.dp.toPx(); this.alpha = alpha }) {
-        // Tap ripple.
         if (t in 0.38f..0.75f && !reduced) {
             val r = (t - 0.38f) / 0.37f
             Box(Modifier.offset((-10).dp, (-10).dp).size(40.dp).graphicsLayer { scaleX = 0.6f + r; scaleY = 0.6f + r; this.alpha = 1f - r }
@@ -332,7 +318,6 @@ private fun ToggleMock(p: Pitch) {
     }
 }
 
-/** Done: a check that lands with one small bounce. */
 @Composable
 private fun Celebrate() {
     val c = Theme.c

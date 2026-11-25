@@ -86,16 +86,13 @@ fun HomeScreen(
     val c = Theme.c
     LaunchedEffect(Unit) { Tour.done(Tour.Step.GoBack) }
     LaunchedEffect(tab) { if (tab == 1) Tour.done(Tour.Step.OpenAutomation) }
-    // Last swiped-away automation, kept for a few seconds so it can come back.
     var removed by remember { mutableStateOf<Pair<Automation, Int>?>(null) }
     LaunchedEffect(removed) { if (removed != null) { kotlinx.coroutines.delay(5000); removed = null } }
-    // Same for a shortcut deleted by holding its … button (with the automations that ran it).
     var removedShortcut by remember { mutableStateOf<Triple<Shortcut, Int, List<Automation>>?>(null) }
     LaunchedEffect(removedShortcut) { if (removedShortcut != null) { kotlinx.coroutines.delay(5000); removedShortcut = null } }
     Row(Modifier.fillMaxSize().background(c.bg)) {
         Box(Modifier.weight(1f).fillMaxSize()) {
             val short = isShort
-            // Sideways the switch sits up beside the title, so the bottom edge stays free for content.
             val bottomPad = if (short) 24.dp else 112.dp
             AnimatedContent(
                 targetState = tab,
@@ -151,7 +148,6 @@ private fun Header(title: String, sub: String) {
     }
 }
 
-/** Two columns on the cover screen and in portrait; more when the phone turns sideways. */
 private val TileCells = object : GridCells {
     override fun androidx.compose.ui.unit.Density.calculateCrossAxisCellSizes(availableSize: Int, spacing: Int): List<Int> {
         val n = maxOf(2, (availableSize + spacing) / (170.dp.roundToPx() + spacing))
@@ -209,12 +205,10 @@ private fun SetupBanner(missing: List<Perm>, onSetup: () -> Unit) {
 
 @Composable
 private fun ShortcutTile(s: Shortcut, running: Boolean, done: Boolean, failed: Boolean, onRun: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit) {
-    // 0 → 1 while the … button is held; the tile gives way a little as it fills.
     val hold = remember { androidx.compose.animation.core.Animatable(0f) }
     val base = s.tint.color()
     val view = androidx.compose.ui.platform.LocalView.current
     val reduced = Theme.reduced
-    // Finished: one small "pop". Failed: a short horizontal shake, like a wrong passcode.
     val pop = remember { androidx.compose.animation.core.Animatable(1f) }
     val shake = remember { androidx.compose.animation.core.Animatable(0f) }
     LaunchedEffect(done) {
@@ -238,7 +232,6 @@ private fun ShortcutTile(s: Shortcut, running: Boolean, done: Boolean, failed: B
             }
         }
     }
-    // Long-running shortcut: the tile breathes so it's clearly still working.
     val breathe = if (running && !reduced) {
         androidx.compose.animation.core.rememberInfiniteTransition(label = "run").animateFloat(
             1f, 0.82f,
@@ -311,7 +304,6 @@ private fun AutomationList(
     }
 }
 
-/** An app's name for headlines; falls back to the package when the app isn't installed. */
 fun appLabel(ctx: android.content.Context?, pkg: String): String =
     if (pkg.isBlank()) "any app" else ctx?.let { c ->
         runCatching { c.packageManager.getApplicationLabel(c.packageManager.getApplicationInfo(pkg, 0)).toString() }.getOrNull()
@@ -369,7 +361,6 @@ fun TriggerKind.tint(): app.openshortcuts.model.Tint = when (this) {
     TriggerKind.Location -> app.openshortcuts.model.Tint.Blue
 }
 
-/** Floating segmented control, same material as the editor's bottom sheet. */
 @Composable
 private fun TabBar(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Modifier, compact: Boolean = false) {
     val segH = if (compact) 40.dp else 48.dp
@@ -407,10 +398,6 @@ private fun TabBar(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Modifier
     }
 }
 
-/**
- * The tile's … button. Tap opens the editor. Hold and it fills red over 0.7 s — linear, because it
- * shows time passing — then deletes; let go early and it drains back fast. Undo covers mistakes.
- */
 @Composable
 private fun HoldToDelete(
     name: String,
@@ -440,7 +427,6 @@ private fun HoldToDelete(
                     pressed = true
                     var deleted = false
                     val run = scope.launch {
-                        // A short tap is a tap; filling starts only once it's clearly a hold.
                         kotlinx.coroutines.delay(180)
                         view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
                         hold.animateTo(1f, androidx.compose.animation.core.tween(((1f - hold.value) * 700).toInt(), easing = androidx.compose.animation.core.LinearEasing))
@@ -463,7 +449,6 @@ private fun HoldToDelete(
     ) {
         Box(
             Modifier.size(28.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.24f)).drawBehind {
-                // Red rises from the bottom as the hold progresses.
                 val h = size.height * hold.value
                 drawRect(c.danger, topLeft = androidx.compose.ui.geometry.Offset(0f, size.height - h), size = androidx.compose.ui.geometry.Size(size.width, h))
             },

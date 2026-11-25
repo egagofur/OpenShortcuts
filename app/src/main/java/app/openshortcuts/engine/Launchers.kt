@@ -27,10 +27,6 @@ import app.openshortcuts.ui.color
 import kotlinx.coroutines.launch
 import java.util.UUID
 
-/**
- * Ways to run a shortcut from outside the app: Home Screen icons, the app icon's
- * long-press menu (which launchers also show in search) and a Quick Settings tile.
- */
 object Launchers {
     const val ACTION_RUN = "app.openshortcuts.RUN"
     private const val PREFS = "launchers"
@@ -51,7 +47,6 @@ object Launchers {
             .putExtra("id", id).putExtra("key", secret(ctx))
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION)
 
-    /** Shortcut tile as an adaptive icon: its colour with the white glyph inside the safe zone. */
     fun icon(s: Shortcut): Icon = Icon.createWithAdaptiveBitmap(draw(s, 216, s.tint.color().toArgb(), 0.4f))
 
     /** White glyph on transparent: Quick Settings tints tile icons itself. */
@@ -84,7 +79,6 @@ object Launchers {
         .setRank(rank)
         .build()
 
-    /** Keep the long-press menu, pinned icons and the tile in step with the library. */
     fun sync(ctx: Context, lib: Library = Store.library.value) {
         val sm = ctx.getSystemService(ShortcutManager::class.java) ?: return
         runCatching {
@@ -113,7 +107,6 @@ object Launchers {
         TileService.requestListeningState(ctx, ComponentName(ctx, RunTile::class.java))
     }
 
-    /** Android 13+: ask the system to show its "Add tile" sheet. */
     fun offerTile(ctx: Context, s: Shortcut) {
         setTileShortcut(ctx, s.id)
         if (Build.VERSION.SDK_INT >= 33) {
@@ -133,7 +126,6 @@ object Launchers {
     }
 }
 
-/** Invisible trampoline: starts the shortcut, says so, and gets out of the way. */
 class RunActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -151,7 +143,6 @@ class RunActivity : Activity() {
     }
 }
 
-/** Quick Settings tile that runs one chosen shortcut. */
 class RunTile : TileService() {
     private var running = false
 

@@ -13,14 +13,6 @@ import android.graphics.drawable.Icon
 import android.os.Bundle
 import android.util.Log
 
-/**
- * adb shell am start -n com.whatsapp/dev.test.fakewa.CallActivity --es mode <mode>
- *   ongoing  – CallStyle ongoing call (system labels the button "Hang up")
- *   legacy   – plain ongoing notification, category=call, button "Tutup" (older style)
- *   incoming – CallStyle incoming call with Decline/Answer (must NOT be hung up)
- *   message  – chat message (MessagingStyle); --es from <name> --es text <message>
- *   clear    – remove the call
- */
 class CallActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -97,7 +89,6 @@ object FakeCall {
     }
 }
 
-/** Stand-in for WhatsApp's chat screen opened by whatsapp://send?phone=…&text=… */
 class ChatActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -126,7 +117,6 @@ class ChatActivity : Activity() {
 
     private var entry: android.widget.EditText? = null
 
-    // Like WhatsApp: a second link while the chat is open fills in the new message.
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         setIntent(intent)

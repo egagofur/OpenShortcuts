@@ -32,11 +32,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 
-/**
- * A UINavigationController-style stack. [p] is how far the top screen has slid off to the right:
- * 0 = fully shown, 1 = gone. Push animates 1 → 0, pop 0 → 1; the system back gesture drives it
- * directly, so the screen follows the finger and can be let go either way.
- */
 @Stable
 class NavState<R : Any>(initial: R, private val scope: CoroutineScope) {
     var stack by mutableStateOf(listOf(initial)); private set
@@ -48,10 +43,8 @@ class NavState<R : Any>(initial: R, private val scope: CoroutineScope) {
 
     private fun complete() { val f = finish; finish = null; f?.invoke() }
 
-    /** Any running transition jumps to its end before the next one starts, so the stack stays consistent. */
     private fun settle() { job?.cancel(); job = null; complete() }
 
-    // Critically damped, ~0.4s response: Apple's default for moving things that weren't thrown.
     private suspend fun go(target: Float, velocity: Float = 0f) =
         animate(p, target, velocity, if (reduced) tween(200) else spring(dampingRatio = 1f, stiffness = 300f)) { v, _ -> p = v }
 
@@ -72,7 +65,6 @@ class NavState<R : Any>(initial: R, private val scope: CoroutineScope) {
         job = scope.launch { go(1f); complete() }
     }
 
-    /** Back to the first screen in one animated step, whatever is in between. */
     fun popToRoot() {
         if (stack.size < 2) return
         settle()
@@ -80,12 +72,10 @@ class NavState<R : Any>(initial: R, private val scope: CoroutineScope) {
         pop()
     }
 
-    /** Leave a screen whose content vanished (deleted elsewhere), once. */
     fun popIfTop(r: R) { if (stack.size > 1 && stack.last() == r && finish == null) pop() }
 
     fun reset(to: List<R>) { settle(); stack = to; p = 0f }
 
-    /** Predictive back: the top screen tracks the gesture; release commits, cancel slides it home. */
     suspend fun predictive(events: Flow<BackEventCompat>) {
         if (stack.size < 2) return
         settle()
@@ -101,10 +91,6 @@ class NavState<R : Any>(initial: R, private val scope: CoroutineScope) {
     }
 }
 
-/**
- * Draws the top screen and, while it moves, the one under it: the under screen sits 30% to the
- * left and slightly dimmed, the top casts a soft shadow on it. Every screen keeps its saved state.
- */
 @Composable
 fun <R : Any> NavHost(nav: NavState<R>, content: @Composable (R) -> Unit) {
     val holder = rememberSaveableStateHolder()
@@ -133,7 +119,6 @@ fun <R : Any> NavHost(nav: NavState<R>, content: @Composable (R) -> Unit) {
                             }
                             .then(
                                 if (isTop && moving && !reduced) Modifier.drawBehind {
-                                    // Soft edge shadow where the top screen overlaps the one beneath.
                                     val edge = 18.dp.toPx()
                                     drawRect(
                                         Brush.horizontalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.16f * (1f - nav.p))), startX = -edge, endX = 0f),

@@ -10,10 +10,6 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import kotlinx.coroutines.CompletableDeferred
 
-/**
- * Optional, separate from LockService. It can only see WhatsApp (res/xml/send_service.xml) and does
- * one thing: press Send, and only while a shortcut is waiting for a message it just typed.
- */
 class SendService : AccessibilityService() {
     override fun onServiceConnected() { instance = this }
     override fun onUnbind(intent: android.content.Intent?): Boolean {
@@ -28,7 +24,6 @@ class SendService : AccessibilityService() {
         val root = rootInActiveWindow ?: return
         val pkg = root.packageName?.toString() ?: return
         if (pkg !in CallWatcher.WHATSAPP) return
-        // Only press Send once the box holds exactly the text this shortcut asked for.
         val entry = root.findAccessibilityNodeInfosByViewId("$pkg:id/entry").firstOrNull()
             ?: find(root) { it.isEditable }
         if (entry?.text?.toString()?.trim() != job.text.trim()) return

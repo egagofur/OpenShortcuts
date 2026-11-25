@@ -37,7 +37,6 @@ object Runner {
         val error: String? = null,
     )
 
-    /** Questions a running shortcut asks the person. `null` answer = they cancelled. */
     sealed interface Prompt {
         data class Menu(val title: String, val options: List<String>) : Prompt
         data class Input(val title: String, val number: Boolean) : Prompt
@@ -55,7 +54,6 @@ object Runner {
         val ask: (suspend (Prompt) -> String?)?,
         val foreground: Boolean,
     ) {
-        /** Same run, but the screen is now on and open (after Smart Lock let us in). */
         fun copyForeground() = State(ctx, actions, blocks, depth, ask, true).also { it.log.addAll(log) }
         val shown = mutableListOf<String>()
         val log = mutableListOf<String>()
@@ -63,7 +61,6 @@ object Runner {
         var prev = ""
     }
 
-    /** Match every If / Repeat / Menu with its middles and end. Unclosed blocks run to the end. */
     private fun structure(actions: List<Action>): Map<Int, Block> {
         val out = HashMap<Int, Block>()
         val open = ArrayDeque<Pair<Int, MutableList<Int>>>()
@@ -74,7 +71,6 @@ object Runner {
                 a.type.closesBlock -> {
                     val idx = open.indexOfLast { actions[it.first].type == a.type.opener }
                     if (idx >= 0) {
-                        // Anything opened inside and never closed ends here too.
                         while (open.size > idx + 1) open.removeLast().let { (o, m) -> out[o] = Block(m, i) }
                         open.removeLast().let { (o, m) -> out[o] = Block(m, i) }
                     }
@@ -85,11 +81,6 @@ object Runner {
         return out
     }
 
-    /**
-     * `foreground` = the app is on screen, so Show results go to a dialog instead of a notification.
-     * `input` is the Shortcut Input (a WhatsApp message, a battery level…).
-     * `ask` shows menus and text boxes; without it, actions that ask fail with a clear message.
-     */
     suspend fun run(
         context: Context, shortcut: Shortcut, foreground: Boolean, depth: Int = 0, input: String = "",
         ask: (suspend (Prompt) -> String?)? = null,
@@ -158,7 +149,6 @@ object Runner {
                     }
                     i = b.end + 1
                 }
-                // Stray markers (e.g. an End If without its If) do nothing.
                 ActionType.OTHERWISE, ActionType.END_IF, ActionType.END_REPEAT, ActionType.CASE, ActionType.END_MENU,
                 ActionType.END_EACH -> i++
                 else -> {
@@ -169,7 +159,6 @@ object Runner {
         }
     }
 
-    /** Replace {Name} with variables; unknown names stay as typed. */
     private fun fill(st: State, text: String): String = Regex("\\{([^{}]+)\\}").replace(text) { m ->
         val name = m.groupValues[1].trim()
         st.vars[name] ?: special(st, name) ?: m.value
@@ -380,7 +369,6 @@ object Runner {
                 ctx.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("OpenShortcuts", text))
                 text
             }
-            // --- Text ---
             ActionType.REPLACE_TEXT -> {
                 val find = fill(st, a.p("find"))
                 if (a.p("mode") == "regex") regex(find)
@@ -391,7 +379,6 @@ object Runner {
             ActionType.MATCH_TEXT -> fill(st, a.p("pattern")).let { regex(it); Data.match(input(st, a, "input"), it) }
             ActionType.CHANGE_CASE -> Data.changeCase(input(st, a, "input"), a.p("case"))
             ActionType.EXTRACT -> Data.extract(input(st, a, "input"), a.p("what"))
-            // --- Lists & dictionaries ---
             ActionType.LIST -> Data.lines(fill(st, a.p("body"))).joinToString("\n")
             ActionType.GET_ITEM -> Data.item(input(st, a, "input"), fill(st, a.p("which")))
             ActionType.COUNT -> Data.count(input(st, a, "input"), a.p("what")).toString()
@@ -409,7 +396,6 @@ object Runner {
             ActionType.DICTIONARY -> Data.dictionary(fill(st, a.p("body")))
             ActionType.GET_VALUE -> Data.getValue(input(st, a, "input"), fill(st, a.p("key")).trim())
             ActionType.SET_VALUE -> Data.setValue(input(st, a, "input"), fill(st, a.p("key")).trim(), fill(st, a.p("value")))
-            // --- Numbers & dates ---
             ActionType.CALCULATE -> Data.number(Data.calculate(fill(st, a.p("expression"))))
             ActionType.ROUND -> Data.round(input(st, a, "input"), a.p("places").toIntOrNull() ?: 0)
             ActionType.RANDOM -> Data.random(fill(st, a.p("min")), fill(st, a.p("max")))
@@ -417,7 +403,6 @@ object Runner {
             ActionType.ADJUST_DATE -> Data.adjust(input(st, a, "input"), a.p("op"), fill(st, a.p("amount")), a.p("unit"))
             ActionType.FORMAT_DATE -> Data.format(input(st, a, "input"), a.p("style"))
             ActionType.TIME_BETWEEN -> Data.between(input(st, a, "input"), fill(st, a.p("other")), a.p("unit"))
-            // --- Scripting extras ---
             ActionType.COMMENT -> prev
             ActionType.STOP_OUTPUT -> {
                 val out = input(st, a, "input")
@@ -430,8 +415,6 @@ object Runner {
         }
     }
 
-    /** Digits with country code. A local 08… number gets the SIM's country code (Indonesia: 62). */
-    /** Send what waited for the unlock. Runs from the unlock broadcast, so the screen is on and open. */
     suspend fun sendWaiting(ctx: Context) {
         val items = PendingSends.take(ctx)
         if (items.isEmpty()) return
@@ -458,11 +441,9 @@ object Runner {
         val ctx = st.ctx
         if (text.isBlank()) fail("Type the message to send.")
         if (PendingSends.locked(ctx) && !afterUnlock) {
-            // 1. Locked, but this person has a WhatsApp notification: reply through it, right from the lock screen.
             if (name.isNotBlank() && CallWatcher.ensureConnected(ctx, 3_000) &&
                 CallWatcher.replyWhatsApp(ctx, name, text) == CallWatcher.Companion.ReplyResult.Sent
             ) { st.log += "Sent to $name from the lock screen"; return }
-            // 2. Smart Lock / Extend Unlock keeps the phone open without a PIN: wake it, send, lock it again.
             if (!afterUnlock && auto && SendService.isEnabled(ctx) && Unlocker.canOpenWithoutPin(ctx) && Unlocker.open(ctx)) {
                 kotlinx.coroutines.delay(400)
                 val sent = runCatching { sendWhatsApp(st.copyForeground(), number, text, auto = true, name = "", afterUnlock = true) }
@@ -471,7 +452,6 @@ object Runner {
                 st.log += "Sent while you were away (Smart Lock kept the phone open), then locked it again"
                 return
             }
-            // 2. Otherwise hold it: it goes out by itself the moment the phone is unlocked.
             waNumber(ctx, number)
             PendingSends.add(ctx, PendingSends.Item(number, name, text, auto))
             Notifs.waiting(ctx, name.ifBlank { number }, PendingSends.count(ctx))
@@ -522,7 +502,6 @@ object Runner {
         }
     }
 
-    /** Speak and wait until the voice finishes (so a following Lock Screen doesn't cut it off). */
     private suspend fun speak(ctx: Context, text: String) {
         var tts: android.speech.tts.TextToSpeech? = null
         try {

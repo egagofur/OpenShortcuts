@@ -31,16 +31,10 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 
-/**
- * "Describe a shortcut": a sentence in, a reviewed shortcut (and optional automation) out.
- * Uses Claude with your own API key. Nothing is sent anywhere until you add a key and tap Create.
- */
 object Describe {
     const val MODEL = "claude-opus-5-5"
 
     data class Draft(val imported: Portable.Imported, val automation: Automation?, val note: String)
-
-    // --- API key: app-private and excluded from backups ---------------------------------
 
     private fun keyFile(ctx: Context) = File(ctx.noBackupFilesDir, "claude_api_key")
     fun key(ctx: Context): String? = keyFile(ctx).takeIf { it.exists() }?.readText()?.trim()?.ifEmpty { null }
@@ -52,9 +46,6 @@ object Describe {
         client?.takeIf { it.first == key }?.second
             ?: AnthropicOkHttpClient.builder().apiKey(key).build().also { client = key to it }
 
-    // --- Prompt -----------------------------------------------------------------------------
-
-    /** Built from the live catalog, so new actions are described without editing this file. */
     fun systemPrompt(): String = buildString {
         appendLine("You turn a person's description into one OpenShortcuts shortcut for Android, plus an optional automation that runs it.")
         appendLine("Use only the actions below. Write names and any text the person will read in the language they wrote in.")
@@ -134,15 +125,12 @@ object Describe {
         return BetaJsonOutputFormat.Schema.builder().apply { root.forEach { (k, v) -> putAdditionalProperty(k, JsonValue.from(v)) } }.build()
     }
 
-    // --- Call ---------------------------------------------------------------------------------
-
     suspend fun describe(ctx: Context, request: String, lib: Library): Draft = withContext(Dispatchers.IO) {
         val key = key(ctx) ?: error("Add your Claude API key first.")
         if (request.isBlank()) error("Describe what the shortcut should do.")
         val params = MessageCreateParams.builder()
             .model(MODEL)
             .maxTokens(16000L)
-            // The catalog never changes between requests, so it's cached; your shortcut names go in the message.
             .systemOfBetaTextBlockParams(listOf(
                 BetaTextBlockParam.builder().text(systemPrompt())
                     .cacheControl(BetaCacheControlEphemeral.builder().build()).build(),
@@ -184,7 +172,6 @@ object Describe {
         parse(text, lib)
     }
 
-    /** Model JSON -> the same validated path as an imported .openshortcut file. */
     fun parse(text: String, lib: Library): Draft {
         val o = runCatching { JSONObject(text) }.getOrElse { error("Claude's answer wasn't a shortcut. Try again.") }
         val actions = JSONArray()
@@ -216,7 +203,6 @@ object Describe {
                 app = a.optString("app").take(120),
                 warnFirst = a.optBoolean("warnFirst", false),
                 shortcutId = imported.shortcut.id,
-                // Starts off: you turn it on after checking it.
                 enabled = false,
             )
         }

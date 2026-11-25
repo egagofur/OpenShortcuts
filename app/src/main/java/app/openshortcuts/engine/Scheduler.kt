@@ -17,13 +17,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
-/**
- * Alarm stages per automation:
- *  time  – a time-of-day trigger fired
- *  call  – a WhatsApp call has lasted long enough; check the quiet-hours window
- *  warn  – post the "about to run" notification, then schedule `run`
- *  run   – run the shortcut now
- */
 object Scheduler {
     const val WARN_LEAD_MS = 60_000L
     const val SNOOZE_MS = 30 * 60_000L
@@ -55,7 +48,6 @@ object Scheduler {
 
     fun cancelAll(ctx: Context, id: String) = STAGES.forEach { cancel(ctx, it, id) }
 
-    /** Re-derive every alarm from the library. Cheap; called on every edit and on boot. */
     fun rescheduleAll(ctx: Context, lib: Library = Store.library.value) {
         lib.automations.forEach { a ->
             cancel(ctx, "time", a.id)
@@ -65,10 +57,6 @@ object Scheduler {
         Geo.sync(ctx, lib)
     }
 
-    /**
-     * Where sunrise/sunset is worked out: the phone's last known location (no GPS fix is started),
-     * remembered so it still works when location is briefly unavailable.
-     */
     fun place(ctx: Context): When.Place? {
         val prefs = ctx.getSharedPreferences("place", Context.MODE_PRIVATE)
         val fresh = runCatching {
@@ -86,10 +74,6 @@ object Scheduler {
         return When.Place(prefs.getFloat("lat", 0f).toDouble(), prefs.getFloat("lon", 0f).toDouble())
     }
 
-    /**
-     * Ask for one current location (network first, so it's quick and light) and remember it.
-     * Used when the phone has no recent fix; [done] gets whether one arrived.
-     */
     fun refreshPlace(ctx: Context, done: (Boolean) -> Unit) {
         if (ctx.checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED) { done(false); return }
         val lm = ctx.getSystemService(android.location.LocationManager::class.java)
@@ -104,7 +88,6 @@ object Scheduler {
         }.onFailure { done(false) }
     }
 
-    /** Next run in epoch millis, or null when there is none (a one-off date that passed). */
     fun nextTime(ctx: Context, a: Automation, from: Long = System.currentTimeMillis()): Long? {
         val zone = java.time.ZoneId.systemDefault()
         val start = java.time.LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(from), zone)
@@ -117,7 +100,6 @@ object Scheduler {
         Store.library.value.automations.forEach { a ->
             if (a.kind != TriggerKind.WhatsAppCallLong) return@forEach
             if (!a.enabled) { cancelAll(ctx, a.id); return@forEach }
-            // Don't clobber a pending warn/run for this same call.
             if (pending(ctx, "warn", a.id, false) != null || pending(ctx, "run", a.id, false) != null) return@forEach
             at(ctx, "call", a.id, maxOf(startedAt + a.callMinutes * 60_000L, now + 2_000))
         }
@@ -129,7 +111,6 @@ object Scheduler {
         }
     }
 
-    /** Next time the clock enters [start, end). */
     fun nextWindowStart(start: Int, from: Long = System.currentTimeMillis()): Long {
         val c = Calendar.getInstance().apply {
             timeInMillis = from
@@ -143,7 +124,6 @@ object Scheduler {
     fun minuteOfDay(now: Long = System.currentTimeMillis()) =
         Calendar.getInstance().apply { timeInMillis = now }.let { it.get(Calendar.HOUR_OF_DAY) * 60 + it.get(Calendar.MINUTE) }
 
-    /** Returns the run job when this stage started one, so receivers can wait for it. */
     fun handle(ctx: Context, stage: String, a: Automation): Job? {
         // A fired alarm leaves its PendingIntent alive; drop it so "is one pending?" stays truthful.
         cancel(ctx, stage, a.id)
@@ -155,7 +135,6 @@ object Scheduler {
             "time" -> {
                 val next = nextTime(ctx, a, now + 60_000)
                 if (next != null) at(ctx, "time", a.id, next)
-                // A one-off has done its job: switch it off so the list shows it won't run again.
                 else if (a.timeMode == "once") Store.upsert(a.copy(enabled = false))
                 if (a.warnFirst) handle(ctx, "warn", a) else runNow(ctx, a)
             }
@@ -175,9 +154,7 @@ object Scheduler {
         }
     }
 
-    /** Event triggers run now, or warn first; the input waits in prefs across the warning. */
     fun fireEvent(ctx: Context, a: Automation, input: String, vars: Map<String, String> = emptyMap()) {
-        // Input and trigger variables wait in prefs across the one-minute warning.
         val saved = org.json.JSONObject().put("input", input).put("vars", org.json.JSONObject(vars as Map<*, *>))
         inputs(ctx).edit().putString(a.id, saved.toString()).apply()
         if (a.warnFirst) handle(ctx, "warn", a) else runNow(ctx, a)
@@ -213,7 +190,6 @@ object Scheduler {
     }
 }
 
-/** Keeps the process alive until the shortcut finishes. */
 private fun BroadcastReceiver.await(job: Job?) {
     job ?: return
     val pending = goAsync()

@@ -86,7 +86,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
-/** Press feedback fires on touch-down; commit on release. One scale value across the app. */
 @OptIn(ExperimentalFoundationApi::class)
 fun Modifier.pressable(
     enabled: Boolean = true,
@@ -117,7 +116,6 @@ fun View.confirm() = performHapticFeedback(
 
 fun View.tick() = performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
 
-/** Round, slightly raised control used on the rail and in headers. */
 @Composable
 fun GlassCircle(
     glyph: String,
@@ -151,7 +149,6 @@ fun IconTile(glyph: String, color: Color, size: Dp = Dimens.tile, modifier: Modi
     ) { Glyph(glyph, Color.White, size = size * 0.66f) }
 }
 
-/** Blue parameter token, the heart of the Shortcuts sentence UI. */
 @Composable
 fun TokenPill(text: String, modifier: Modifier = Modifier, glyph: String? = null, glyphColor: Color? = null, empty: Boolean = false, onClick: () -> Unit) {
     val c = Theme.c
@@ -159,7 +156,6 @@ fun TokenPill(text: String, modifier: Modifier = Modifier, glyph: String? = null
         modifier
             .pressable(scale = 0.95f, label = "Edit $text", onClick = onClick)
             .clip(RoundedCornerShape(9.dp))
-            // Unfilled: the placeholder sits in a fainter pill, so what still needs choosing stands out.
             .background(if (empty) c.accentWash.copy(alpha = 0.45f) else c.accentWash)
             .padding(horizontal = 8.dp, vertical = 1.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -179,19 +175,15 @@ fun Card(
     Column(modifier.clip(shape).background(Theme.c.card), content = content)
 }
 
-/** Small grey "remove" circle that sits at the trailing edge of an action card. */
 @Composable
 fun RemoveDot(label: String, onClick: () -> Unit) {
     val c = Theme.c
-    // 44dp hit area around a 24dp visual.
     Box(Modifier.size(44.dp).pressable(scale = 0.9f, label = label, onClick = onClick), contentAlignment = Alignment.Center) {
         Box(Modifier.size(24.dp).clip(CircleShape).background(c.fill), contentAlignment = Alignment.Center) {
             Glyph("x", c.ink3, size = 15.dp)
         }
     }
 }
-
-// --- Rail ---------------------------------------------------------------------
 
 @Composable
 fun rememberClock(): String {
@@ -233,10 +225,6 @@ fun rememberBattery(): BatteryState {
     return state
 }
 
-/**
- * Level ring on the rail. The arc eases to each new level; while charging a soft glow breathes
- * behind it, and plugging in pops the bolt in with a single ripple and one haptic.
- */
 @Composable
 fun BatteryRing(state: BatteryState, replay: Int = 0) {
     val c = Theme.c
@@ -250,7 +238,6 @@ fun BatteryRing(state: BatteryState, replay: Int = 0) {
         }, tween(300, easing = Motion.easeOut), label = "arcColor",
     )
     val level by animateFloatAsState(state.level / 100f, if (reduced) tween(0) else Motion.settle(), label = "level")
-    // Tapped: the arc refills from empty and the number counts up with it.
     val sweep = remember { Animatable(1f) }
     LaunchedEffect(replay) {
         if (replay > 0 && !reduced) { sweep.snapTo(0f); sweep.animateTo(1f, tween(650, easing = Motion.easeOut)) }
@@ -260,7 +247,6 @@ fun BatteryRing(state: BatteryState, replay: Int = 0) {
         if (reduced) tween(0) else if (state.charging) spring(dampingRatio = 0.6f, stiffness = 500f) else tween(150, easing = Motion.easeOut),
         label = "bolt",
     )
-    // One ripple per plug-in, not on first composition.
     val ripple = remember { Animatable(1f) }
     var was by remember { mutableStateOf<Boolean?>(null) }
     LaunchedEffect(state.charging) {
@@ -297,7 +283,6 @@ fun BatteryRing(state: BatteryState, replay: Int = 0) {
         if (bolt > 0.01f) {
             Glyph("boltFill", c.positive, size = 10.dp, modifier = Modifier.align(Alignment.TopCenter).padding(top = 7.dp)
                 .graphicsLayer {
-                    // Grows from 0.6, never from nothing; opacity carries the rest.
                     val k = 0.6f + 0.4f * bolt; scaleX = k; scaleY = k; alpha = bolt.coerceIn(0f, 1f)
                 })
         }
@@ -311,21 +296,11 @@ fun BatteryRing(state: BatteryState, replay: Int = 0) {
     }
 }
 
-/**
- * A phone turned sideways: short and wide, which is the shape of the Duo's cover screen itself.
- * Layouts spread sideways instead of stacking.
- */
 val isShort: Boolean
     @Composable get() = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp < 480
 
-/** Screens at least this tall are phones, not the folded cover: thumbs live at the bottom. */
 private val TALL = 640.dp
 
-/**
- * The right-hand rail from the folded iPhone Duo: status at the top, round controls under it.
- * On tall phones the controls drop to the bottom of the rail, level with the bottom sheet,
- * with the primary one (first in the list) nearest the thumb.
- */
 @Composable
 fun Rail(vararg controls: @Composable () -> Unit) {
     val c = Theme.c
@@ -339,7 +314,6 @@ fun Rail(vararg controls: @Composable () -> Unit) {
                 .padding(top = if (short) 8.dp else 14.dp, bottom = if (short) 10.dp else 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // Sideways, every dp of height matters: drop the home glyph, keep time and battery.
             if (!short) RailHome()
             RailClock()
             Spacer(Modifier.height(4.dp))
@@ -352,12 +326,6 @@ fun Rail(vararg controls: @Composable () -> Unit) {
     }
 }
 
-// --- Dialog -------------------------------------------------------------------
-
-/**
- * Centered card that materialises from 0.96 scale. Dismissing by tapping outside or Back plays a
- * shorter exit (fade + 0.98) before it goes, so it never just blinks out.
- */
 @Composable
 fun DuoDialog(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     val scope = rememberCoroutineScope()
@@ -381,7 +349,6 @@ fun DuoDialog(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit
         }
         Column(
             Modifier
-                // Stay above the keyboard so buttons under a text field remain reachable.
                 .windowInsetsPadding(WindowInsets.ime)
                 .padding(horizontal = 24.dp, vertical = if (isShort) 10.dp else 24.dp)
                 .widthIn(max = if (isShort) 460.dp else 380.dp)
@@ -389,7 +356,6 @@ fun DuoDialog(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit
                 .graphicsLayer { scaleX = scale.value; scaleY = scale.value; this.alpha = alpha.value }
                 .clip(RoundedCornerShape(30.dp))
                 .background(Theme.c.card)
-                // Tall content (Details) must scroll on the short cover screen.
                 .verticalScroll(rememberScrollState())
                 .padding(20.dp),
             content = content,
@@ -407,7 +373,6 @@ fun QuietButton(text: String, modifier: Modifier = Modifier, color: Color = Them
     ButtonBox(text, modifier, fill = Theme.c.fill, ink = color, onClick = onClick)
 }
 
-/** Grows with its label: a long name wraps to two lines inside the pill instead of spilling out. */
 @Composable
 private fun ButtonBox(text: String, modifier: Modifier, fill: Color, ink: Color, onClick: () -> Unit) {
     Box(
@@ -429,12 +394,10 @@ private fun ButtonBox(text: String, modifier: Modifier, fill: Color, ink: Color,
 @Composable
 fun rememberHaptics(): View = LocalView.current
 
-/** Top inset that ignores the hidden status bar (the rail shows time instead). */
 val WindowInsets.Companion.topBar: WindowInsets
     @Composable get() = WindowInsets.statusBars.union(WindowInsets.displayCutout).union(WindowInsets.navigationBars)
 
 
-/** iOS-style slider thumb: a white disc with a soft shadow, instead of Material's bar. */
 @Composable
 fun IosSliderThumb() {
     Box(

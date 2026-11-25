@@ -13,10 +13,6 @@ import app.openshortcuts.model.Library
 import app.openshortcuts.model.Store
 import app.openshortcuts.model.TriggerKind
 
-/**
- * Location trigger: one proximity alert per automation. Android watches the place itself (using
- * network location most of the time), so the app doesn't need to run.
- */
 object Geo {
     private const val TAG = "Geo"
 

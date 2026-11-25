@@ -1,7 +1,4 @@
 #!/bin/zsh
-# Render README mockups from phone screenshots with headless Chrome.
-#   hero:  docs/mockups/render.sh hero <shot1> <shot2> <shot3>
-#   trio:  docs/mockups/render.sh trio <out-name> <accent> <title> <subtitle> <shot1> <cap1> <shot2> <cap2> <shot3> <cap3>
 set -e
 cd "$(dirname "$0")/../.."
 CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"

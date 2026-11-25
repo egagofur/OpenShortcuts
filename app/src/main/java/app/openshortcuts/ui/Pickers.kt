@@ -62,9 +62,6 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-// --- Contacts -----------------------------------------------------------------------
-
-/** Stable colour per name, like Contacts' monogram circles. */
 fun monogramTint(name: String): Color {
     val tints = listOf(Tint.Blue, Tint.Green, Tint.Indigo, Tint.Orange, Tint.Pink, Tint.Purple, Tint.Teal, Tint.Red)
     return tints[(name.hashCode() and 0x7fffffff) % tints.size].color()
@@ -98,7 +95,6 @@ fun Avatar(name: String, photo: android.net.Uri?, size: Dp = 40.dp) {
     }
 }
 
-/** Small green "WhatsApp" mark used on rows and numbers that have it. */
 @Composable
 private fun WaBadge() {
     Box(Modifier.clip(RoundedCornerShape(6.dp)).background(Tint.Green.color()).padding(horizontal = 6.dp, vertical = 2.dp)) {
@@ -106,7 +102,6 @@ private fun WaBadge() {
     }
 }
 
-/** Two-segment control with a sliding pill (the iOS UISegmentedControl look). */
 @Composable
 fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit) {
     val c = Theme.c
@@ -133,10 +128,6 @@ fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit) {
     }
 }
 
-/**
- * Pick a person's number (or email) the way Contacts does: search, monograms, WhatsApp marks,
- * and a row to use whatever you typed instead. [onPick] gets the value and the person's name.
- */
 @Composable
 fun ContactPicker(
     email: Boolean,
@@ -194,7 +185,6 @@ fun ContactPicker(
 
     Spacer(Modifier.height(10.dp))
     LazyColumn(Modifier.heightIn(max = if (isShort) 190.dp else 360.dp)) {
-        // Offer to use the typed text only when it could be the value itself, never for a name search.
         val usable = typed.startsWith("{") ||
             (if (email) '@' in typed else Contacts.digits(typed).length >= 5 && typed.all { it.isDigit() || it in "+-() " })
         if (usable) item(key = "typed") {
@@ -220,14 +210,12 @@ fun ContactPicker(
         items(shown, key = { it.id }) { p ->
             val values = if (email) p.emails else if (onlyWa) p.phones.filter(p::hasWhatsApp).ifEmpty { p.phones } else p.phones
             Column(Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null)) {
-                // A contact saved as only a number shouldn't show that number twice.
                 val nameIsNumber = Contacts.digits(p.name).length >= 6 && p.name.none(Char::isLetter)
                 PickRow(
                     title = p.name,
                     sub = if (values.size > 1) "${values.size} ${if (email) "addresses" else "numbers"}" else if (nameIsNumber) null else values[0],
                     avatar = { Avatar(p.name, p.photo) },
                     trailing = {
-                        // On the WhatsApp tab every row has it, so the mark would be noise.
                         if (!email && !onlyWa && p.whatsapp.isNotEmpty()) WaBadge()
                         if (values.size > 1) {
                             Spacer(Modifier.width(6.dp))
@@ -287,12 +275,9 @@ private fun PickRow(
     }
 }
 
-// --- Day and time ----------------------------------------------------------------------
-
 private val ISO_DAY = DateTimeFormatter.ofPattern("yyyy-MM-dd")
 private val SHORT_DAY = DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault())
 
-/** "tomorrow 09:00" → "Tomorrow, 09:00"; "2026-11-28 09:00" → "Sat 28 Nov, 09:00". Variables pass through. */
 fun dayTimeLabel(v: String): String {
     val m = Regex("^(today|tomorrow|\\d{4}-\\d{2}-\\d{2})\\s+(\\d{1,2}:\\d{2})$", RegexOption.IGNORE_CASE).find(v.trim()) ?: return v
     val (day, time) = m.destructured
@@ -304,7 +289,6 @@ fun dayTimeLabel(v: String): String {
     return "$d, ${time.padStart(5, '0')}"
 }
 
-/** Today, Tomorrow and the next five days as chips, then the time on wheels. */
 @Composable
 fun DayTimePicker(current: String, daysAhead: Int = 6, onDone: (String) -> Unit) {
     val c = Theme.c
@@ -334,9 +318,6 @@ fun DayTimePicker(current: String, daysAhead: Int = 6, onDone: (String) -> Unit)
     PrimaryButton("Done", Modifier.fillMaxWidth()) { onDone("$day ${"%02d:%02d".format(h, min)}") }
 }
 
-// --- Numbers ------------------------------------------------------------------------------
-
-/** − value + like UIStepper, with the value large between the buttons. */
 @Composable
 fun NumberStepper(value: Int, min: Int, max: Int, step: Int, suffix: String, onChange: (Int) -> Unit) {
     val c = Theme.c

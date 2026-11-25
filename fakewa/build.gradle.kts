@@ -1,6 +1,3 @@
-// Test-only stand-in for WhatsApp: same package name, posts a call notification
-// with a hang-up button so the Shortcuts call watcher can be exercised on an emulator.
-// Never install this on a phone that has the real WhatsApp.
 plugins { id("com.android.application") }
 
 android {

@@ -46,10 +46,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.abs
 
-/**
- * iOS-style switch: 51×31 track, white thumb with a soft shadow. The thumb stretches while the
- * finger is down (as on iOS) and slides with a critically damped spring.
- */
 @Composable
 fun IosSwitch(checked: Boolean, onChange: ((Boolean) -> Unit)?, label: String? = null) {
     val c = Theme.c
@@ -73,7 +69,6 @@ fun IosSwitch(checked: Boolean, onChange: ((Boolean) -> Unit)?, label: String? =
             .background(track),
         contentAlignment = Alignment.CenterStart,
     ) {
-        // When on, the stretch grows leftwards so the thumb stays pinned to the right edge.
         Box(
             Modifier
                 .offset(x = 2.dp + x - if (checked) stretch else 0.dp)
@@ -88,10 +83,6 @@ fun IosSwitch(checked: Boolean, onChange: ((Boolean) -> Unit)?, label: String? =
 private val ROW = 40.dp
 private const val VISIBLE = 5
 
-/**
- * One wheel of an iOS picker: snaps row by row, ticks once per row, rows fade and shrink away
- * from the centre band. Loops by repeating the values.
- */
 @Composable
 private fun Wheel(values: List<Int>, selected: Int, format: (Int) -> String, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
     val c = Theme.c
@@ -134,12 +125,10 @@ private fun Wheel(values: List<Int>, selected: Int, format: (Int) -> String, onS
     }
 }
 
-/** Hour and minute wheels on one selection band, 24-hour. */
 @Composable
 fun TimeWheels(h: Int, m: Int, onH: (Int) -> Unit, onM: (Int) -> Unit) {
     val c = Theme.c
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        // Selection band behind the centre row.
         Box(Modifier.fillMaxWidth().height(ROW).clip(RoundedCornerShape(10.dp)).background(c.fill))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
             Wheel((0..23).toList(), h, { "%02d".format(it) }, onH, Modifier.width(72.dp))
@@ -149,7 +138,6 @@ fun TimeWheels(h: Int, m: Int, onH: (Int) -> Unit, onM: (Int) -> Unit) {
     }
 }
 
-/** iOS wheel time picker in a Duo dialog. Minutes in steps of 1, 24-hour. */
 @Composable
 fun TimeWheelDialog(title: String, minutes: Int, onDismiss: () -> Unit, onDone: (Int) -> Unit) {
     val c = Theme.c

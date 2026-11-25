@@ -13,7 +13,6 @@ class GalleryTest {
             val (s, auto) = item.build()
             assertTrue(item.title, item.section in Gallery.sections)
             assertTrue(item.title, s.actions.isNotEmpty())
-            // Blocks balance: every opener closes with its own closer, in order.
             val open = ArrayDeque<ActionType>()
             s.actions.forEach { a ->
                 when {
@@ -21,7 +20,6 @@ class GalleryTest {
                     a.type.isMidBlock -> assertEquals(item.title, a.type.opener, open.lastOrNull())
                     a.type.closesBlock -> assertEquals(item.title, a.type.opener, open.removeLastOrNull())
                 }
-                // Only parameters the action knows.
                 val known = a.type.params.map { it.key }.toSet()
                 assertTrue("${item.title}: ${a.type} ${a.params.keys - known}", (a.params.keys - known).isEmpty())
             }

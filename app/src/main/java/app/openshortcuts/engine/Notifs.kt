@@ -26,7 +26,6 @@ object Notifs {
         nm.createNotificationChannel(
             NotificationChannel(CH_WARN, "Before an automation runs", NotificationManager.IMPORTANCE_HIGH).apply {
                 description = "Gives you a minute to cancel, e.g. before a call is ended."
-                // Must still reach you while Do Not Disturb is on.
                 setBypassDnd(true)
             },
         )
@@ -90,13 +89,11 @@ object Notifs {
         nm(ctx).notify(warnId(a.id), n)
     }
 
-    /** A notification that opens [intent] when tapped (for screens Android won't let us open from the background). */
     fun openLater(ctx: Context, title: String, text: String, intent: Intent) {
         val pi = PendingIntent.getActivity(ctx, intent.toUri(0).hashCode(), intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         nm(ctx).notify(intent.toUri(0).hashCode(), base(ctx, CH_WARN).setContentTitle(title).setContentText(text).setContentIntent(pi).build())
     }
 
-    /** A WhatsApp message held until unlock; one notification however many are waiting. */
     fun waiting(ctx: Context, to: String, count: Int) {
         nm(ctx).notify(WAITING, base(ctx, CH_RESULT)
             .setContentTitle(if (count > 1) "$count WhatsApp messages are ready" else "Message to $to is ready")

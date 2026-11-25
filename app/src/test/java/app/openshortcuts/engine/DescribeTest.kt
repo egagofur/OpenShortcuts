@@ -32,18 +32,18 @@ class DescribeTest {
         val d = Describe.parse(reply, lib)
         val s = d.imported.shortcut
         assertEquals("Balas Mama", s.name)
-        assertEquals(6, s.actions.size)                       // unknown action dropped
+        assertEquals(6, s.actions.size)
         assertEquals(1, d.imported.unknownActions)
         val reply = s.actions.first { it.type == ActionType.REPLY_WHATSAPP }
-        assertFalse("bogus" in reply.params)                  // unknown params dropped
+        assertFalse("bogus" in reply.params)
         assertEquals("Lagi tidur ya, Ma", reply.p("body"))
-        assertEquals("s1", s.actions.first { it.type == ActionType.RUN_SHORTCUT }.p("shortcut"))  // name -> id
+        assertEquals("s1", s.actions.first { it.type == ActionType.RUN_SHORTCUT }.p("shortcut"))
         val a = d.automation!!
         assertEquals(TriggerKind.WhatsAppMessage, a.kind)
         assertEquals("Mama", a.text)
         assertEquals(23 * 60, a.windowStart)
         assertEquals(s.id, a.shortcutId)
-        assertFalse(a.enabled)                                 // never switched on without review
+        assertFalse(a.enabled)
         assertTrue(d.note.contains("urgent"))
     }
 

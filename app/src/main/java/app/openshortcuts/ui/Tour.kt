@@ -69,10 +69,6 @@ import app.openshortcuts.model.Tint
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/**
- * First-run tour. A welcome screen, then Apple TipKit-style tips that point at the real controls
- * and move on when you do the thing they describe — you learn by building, not by reading slides.
- */
 object Tour {
     enum class Step(val anchor: String?, val title: String, val message: String, val glyph: String, val tint: Tint, val gotIt: Boolean = false) {
         Welcome(null, "", "", "layers", Tint.Blue),
@@ -91,7 +87,6 @@ object Tour {
     var step by mutableStateOf(Step.Finished); private set
     private var prefs: android.content.SharedPreferences? = null
 
-    /** On a fresh install the tour starts; people who already use the app aren't interrupted. */
     fun init(ctx: Context, freshInstall: Boolean) {
         val p = ctx.getSharedPreferences("tour", Context.MODE_PRIVATE)
         prefs = p
@@ -101,7 +96,6 @@ object Tour {
 
     private fun set(s: Step) { step = s; prefs?.edit()?.putString("step", s.name)?.apply() }
 
-    /** Move on only if the tour is at [from], so stray events don't skip ahead. */
     fun done(from: Step) { if (step == from) set(Step.entries[from.ordinal + 1]) }
 
     fun start() = set(Step.NewShortcut)
@@ -109,22 +103,18 @@ object Tour {
     fun skip() = set(Step.Finished)
     fun finish() = set(Step.Finished)
 
-    /** Where each tip's control is on screen, in window pixels. */
     val anchors = mutableStateMapOf<String, Rect>()
 }
 
-/** Marks a control a tip can point at. */
 fun Modifier.tipAnchor(id: String): Modifier = composed {
     DisposableEffect(id) { onDispose { Tour.anchors.remove(id) } }
     onGloballyPositioned { Tour.anchors[id] = it.boundsInWindow() }
 }
 
-/** Draws the current tip over the app. Touches pass through everywhere except the tip itself. */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun TourOverlay() {
     val reduced = Theme.reduced
-    // The tip on screen lags the tour by one exit: the old one shrinks away before the next arrives.
     var shown by remember { mutableStateOf<Tour.Step?>(null) }
     val k = remember { Animatable(0f) }
     LaunchedEffect(Tour.step) {
@@ -132,7 +122,6 @@ fun TourOverlay() {
         if (shown != null && shown != next) k.animateTo(0f, tween(140, easing = Motion.easeOut))
         shown = null
         if (next == null) return@LaunchedEffect
-        // A beat for the screen to settle, so the tip never chases a sliding control.
         delay(320)
         shown = next
         k.snapTo(0f)
@@ -140,11 +129,9 @@ fun TourOverlay() {
     }
     val step = shown ?: return
     val anchor = Tour.anchors[step.anchor!!] ?: return
-    // Typing (e.g. searching for the action): the keyboard and results own the screen; step aside.
     if (WindowInsets.isImeVisible) return
     val c = Theme.c
     val density = LocalDensity.current
-    // Halo: a ping that expands and fades with a strong ease-out, then rests before the next one.
     val ping = if (reduced) 0f else rememberInfiniteTransition(label = "halo").animateFloat(
         0f, 1f, infiniteRepeatable(tween(1600, easing = { t -> if (t < 0.75f) Motion.easeOut.transform(t / 0.75f) else 1f }), RepeatMode.Restart), label = "halo",
     ).value
@@ -164,7 +151,6 @@ fun TourOverlay() {
         Box(
             Modifier.fillMaxSize().drawBehind {
                 val r = minOf(anchor.width, anchor.height) / 2
-                // A steady ring that says "this one", plus the ping travelling outward from it.
                 val base = 5.dp.toPx()
                 drawRoundRect(
                     c.accent.copy(alpha = 0.35f * k.value),
@@ -188,7 +174,6 @@ fun TourOverlay() {
                 .width(with(density) { cardW.toDp() })
                 .onSizeChanged { cardH = it.height }
                 .graphicsLayer {
-                    // Grows out of its arrow, like a TipKit popover; travels a few dp toward its control.
                     val v = k.value
                     val s = if (reduced) 1f else 0.94f + 0.06f * v
                     scaleX = s; scaleY = s
@@ -212,7 +197,6 @@ fun TourOverlay() {
                 .padding(start = 14.dp, end = 6.dp, top = 12.dp, bottom = 12.dp),
         ) {
             Row(verticalAlignment = Alignment.Top) {
-                // The icon lands a moment after the card, so the eye goes card → icon → words.
                 val icon = remember(step) { Animatable(if (reduced) 1f else 0f) }
                 LaunchedEffect(step) { if (!reduced) { delay(70); icon.animateTo(1f, spring(dampingRatio = 0.6f, stiffness = 520f)) } }
                 Box(Modifier.graphicsLayer { val v = 0.7f + 0.3f * icon.value; scaleX = v; scaleY = v; alpha = icon.value.coerceIn(0f, 1f) }) {
@@ -237,11 +221,6 @@ fun TourOverlay() {
     }
 }
 
-/**
- * Apple's first-launch screen. One entrance for the whole page, in order of importance: the icon
- * settles in, the title follows, each feature rises with its icon landing a beat later, then the
- * buttons. Continue fades the page up and away so the app shows through.
- */
 @Composable
 fun WelcomeScreen(onContinue: () -> Unit, onNotNow: () -> Unit) {
     val c = Theme.c
@@ -252,7 +231,6 @@ fun WelcomeScreen(onContinue: () -> Unit, onNotNow: () -> Unit) {
         Triple("clock" to Tint.Orange, "Automation", "Shortcuts can run on their own: at bedtime, when you plug in, or when a call runs late."),
         Triple("lock" to Tint.Green, "Stays on your phone", "Your shortcuts run right here on this phone. No account, no tracking."),
     )
-    // 0 icon, 1 title, 2..4 rows, 5 buttons. Uneven gaps, so it reads as one motion, not a slideshow.
     val parts = remember { List(6) { Animatable(if (reduced) 1f else 0f) } }
     val icons = remember { List(rows.size) { Animatable(if (reduced) 1f else 0f) } }
     val leave = remember { Animatable(0f) }
@@ -270,7 +248,6 @@ fun WelcomeScreen(onContinue: () -> Unit, onNotNow: () -> Unit) {
         if (leave.isRunning || leave.value > 0f) return
         scope.launch { leave.animateTo(1f, tween(if (reduced) 150 else 240, easing = Motion.easeOut)); then() }
     }
-    /** Rise into place, sharpening as it arrives (blur only where the platform draws it cheaply). */
     fun Modifier.rise(a: Animatable<Float, *>, dist: Float = 16f) = graphicsLayer {
         val v = a.value.coerceIn(0f, 1.2f)
         alpha = v.coerceIn(0f, 1f)
@@ -286,7 +263,6 @@ fun WelcomeScreen(onContinue: () -> Unit, onNotNow: () -> Unit) {
     Box(
         Modifier.fillMaxSize()
             .graphicsLayer {
-                // Leaving: the page lifts slightly and clears, revealing the app underneath.
                 alpha = 1f - leave.value
                 if (!reduced) { val s = 1f + 0.03f * leave.value; scaleX = s; scaleY = s }
             }
@@ -298,7 +274,6 @@ fun WelcomeScreen(onContinue: () -> Unit, onNotNow: () -> Unit) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(
                     Modifier.graphicsLayer {
-                        // The app icon settles from slightly small, with the one bounce on this page.
                         val v = parts[0].value
                         alpha = v.coerceIn(0f, 1f)
                         if (!reduced) { val s = 0.82f + 0.18f * v; scaleX = s; scaleY = s; rotationZ = (1f - v) * -8f }
@@ -341,8 +316,6 @@ fun WelcomeScreen(onContinue: () -> Unit, onNotNow: () -> Unit) {
             }
         }
         if (isShort) {
-            // Sideways: the welcome on the left, what it does and the buttons on the right. Buttons sit
-            // side by side, as on Apple's landscape sheets, so all three features fit without scrolling.
             Row(Modifier.fillMaxSize().padding(horizontal = 32.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(0.9f).fillMaxHeight(), contentAlignment = Alignment.Center) { header() }
                 Spacer(Modifier.width(32.dp))
@@ -374,7 +347,6 @@ fun WelcomeScreen(onContinue: () -> Unit, onNotNow: () -> Unit) {
     }
 }
 
-/** The end of the tour: the circle lands, then the check draws itself, then the words. */
 @Composable
 fun AllSetDialog(onDone: () -> Unit) {
     val c = Theme.c
@@ -387,7 +359,6 @@ fun AllSetDialog(onDone: () -> Unit) {
     LaunchedEffect(Unit) {
         if (reduced) { view.confirm(); return@LaunchedEffect }
         scope.launch { delay(60); circle.animateTo(1f, spring(dampingRatio = 0.6f, stiffness = 360f)) }
-        // The stroke traces quickly and eases into its end, where the haptic lands: done.
         scope.launch { delay(230); draw.animateTo(1f, tween(300, easing = Motion.easeOut)); view.confirm() }
         scope.launch { delay(330); words.animateTo(1f, spring(dampingRatio = 1f, stiffness = 260f)) }
     }
@@ -398,7 +369,6 @@ fun AllSetDialog(onDone: () -> Unit) {
                     val v = circle.value
                     val s = 0.7f + 0.3f * v; scaleX = s; scaleY = s; alpha = v.coerceIn(0f, 1f)
                 }.clip(CircleShape).background(c.positive).drawBehind {
-                    // Check mark as one path, revealed along its length.
                     val p = Path().apply {
                         moveTo(size.width * 0.29f, size.height * 0.52f)
                         lineTo(size.width * 0.44f, size.height * 0.66f)

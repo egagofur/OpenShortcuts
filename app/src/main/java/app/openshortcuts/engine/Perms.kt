@@ -14,7 +14,6 @@ import android.provider.Settings
 import app.openshortcuts.model.ActionType
 import app.openshortcuts.model.Shortcut
 
-/** Everything the app may need, with plain reasons. `runtime` = ask with the system dialog. */
 enum class Perm(val title: String, val why: String, val runtime: String? = null, val more: List<String> = emptyList()) {
     CallAccess("Notification access", "Lets OpenShortcuts see WhatsApp's call and press its Hang up button."),
     Notifications("Notifications", "Shows what an automation did, and the optional “Ask before running” notice.",
@@ -57,24 +56,20 @@ enum class Perm(val title: String, val why: String, val runtime: String? = null,
         Autostart -> !OemAutostart.needed() || ctx.getSharedPreferences("perms", 0).getBoolean("autostart", false)
     }
 
-    /** Whether Android can tell us it's on. If not, the person confirms it themselves. */
     val checkable: Boolean get() = this != Autostart
 
-    /** On in Settings, but Android stopped the service; it needs switching off and on again. */
     fun stuck(ctx: Context): Boolean = when (this) {
         Accessibility -> LockService.stuck(ctx)
         AutoSend -> SendService.stuck(ctx)
         else -> false
     }
 
-    /** Whether this phone has the setting at all. */
     fun applies(): Boolean = this != Autostart || OemAutostart.needed()
 
     fun confirm(ctx: Context) {
         if (this == Autostart) ctx.getSharedPreferences("perms", 0).edit().putBoolean("autostart", true).apply()
     }
 
-    /** Settings screen for the special-access ones. */
     fun settingsIntent(ctx: Context): Intent {
         val pkg = Uri.parse("package:${ctx.packageName}")
         return when (this) {
@@ -118,10 +113,8 @@ enum class Perm(val title: String, val why: String, val runtime: String? = null,
         fun missing(ctx: Context, s: Shortcut): List<Perm> =
             s.actions.flatMap { forAction(it) }.distinct().filterNot { it.granted(ctx) }
 
-        /** What an automation's trigger needs to fire reliably (its shortcut's needs come separately). */
         fun forAutomation(a: app.openshortcuts.model.Automation): List<Perm> = buildList {
             val k = a.kind
-            // Every trigger except clock time runs inside the notification-listener service.
             if (k != app.openshortcuts.model.TriggerKind.Time) add(CallAccess)
             if (k == app.openshortcuts.model.TriggerKind.App) add(UsageAccess)
             if (k == app.openshortcuts.model.TriggerKind.Bluetooth) add(Bluetooth)
@@ -130,7 +123,6 @@ enum class Perm(val title: String, val why: String, val runtime: String? = null,
             add(Notifications); add(Alarms); add(Battery); add(Autostart)
         }
 
-        /** Everything the library actually uses, granted or not, in a sensible asking order. */
         fun neededBy(lib: app.openshortcuts.model.Library): List<Perm> {
             val used = (lib.shortcuts.flatMap { s -> s.actions.flatMap { forAction(it) } } +
                 lib.automations.filter { it.enabled }.flatMap { forAutomation(it) }).toSet()
@@ -166,7 +158,6 @@ object OemAutostart {
     fun search(ctx: Context): Intent? = Intent("com.android.settings.action.SETTINGS_SEARCH")
         .takeIf { it.resolveActivity(ctx.packageManager) != null }
 
-    /** The first page this phone has that we're allowed to open. */
     fun intent(ctx: Context): Intent? = candidates.firstOrNull { i ->
         val info = ctx.packageManager.resolveActivity(i, 0)?.activityInfo ?: return@firstOrNull false
         info.exported && (info.permission == null || ctx.checkSelfPermission(info.permission) == PackageManager.PERMISSION_GRANTED)

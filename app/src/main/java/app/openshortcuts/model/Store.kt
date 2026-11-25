@@ -8,16 +8,13 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 
-/** Single source of truth. Writes are small, so every change is saved straight to disk. */
 object Store {
     private lateinit var file: File
     private val state = MutableStateFlow(Library())
     val library: StateFlow<Library> = state.asStateFlow()
 
-    /** Called after every change so alarms follow the data. */
     var onChange: ((Library) -> Unit)? = null
 
-    /** True when this launch created the library from the samples (a fresh install). */
     var fresh = false; private set
 
     fun init(context: Context) {
@@ -25,7 +22,6 @@ object Store {
         file = File(context.filesDir, "library.json")
         val json = runCatching { JSONObject(file.readText()) }.getOrNull()
         state.value = json?.let { runCatching { decode(it) }.getOrNull() } ?: Seeds.library().also { save(it); fresh = json == null }
-        // v1 libraries asked before every run; v2 runs on its own. Write the migration down once.
         if (json != null && json.optInt("v", 1) < 2) save(state.value)
     }
 
@@ -57,7 +53,6 @@ object Store {
         )
     }
 
-    /** Undo for deleting a shortcut: it and the automations that ran it come back where they were. */
     fun restoreShortcut(s: Shortcut, index: Int, automations: List<Automation>) = update { lib ->
         val rest = lib.shortcuts.filterNot { it.id == s.id }
         lib.copy(
@@ -66,7 +61,6 @@ object Store {
         )
     }
 
-    /** Undo for a delete: puts it back where it was. */
     fun restore(a: Automation, index: Int) = update { lib ->
         val rest = lib.automations.filterNot { it.id == a.id }
         lib.copy(automations = rest.toMutableList().apply { add(index.coerceIn(0, size), a) })
@@ -79,8 +73,6 @@ object Store {
         tmp.writeText(encode(lib).toString())
         tmp.renameTo(file)
     }
-
-    // --- JSON ---------------------------------------------------------------
 
     private fun encode(lib: Library) = JSONObject().apply {
         put("v", 2)

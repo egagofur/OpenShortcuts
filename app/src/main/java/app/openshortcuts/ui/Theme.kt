@@ -19,7 +19,6 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import app.openshortcuts.model.Tint
 
-/** Colour tokens. Every colour in the UI comes from here. */
 @Immutable
 data class Palette(
     val bg: Color,
@@ -101,13 +100,10 @@ data class Type(
         fontFeatureSettings = "tnum", letterSpacing = (-0.01).em),
 )
 
-/** Shared motion values (Apple: damping ratio + response, mapped to Compose springs). */
 object Motion {
     val easeOut = CubicBezierEasing(0.23f, 1f, 0.32f, 1f)
     val drawer = CubicBezierEasing(0.32f, 0.72f, 0f, 1f)
-    /** response 0.4s, critically damped: default for anything that moves. */
     fun <T> settle() = spring<T>(dampingRatio = 1f, stiffness = 247f)
-    /** response 0.3s, damping 0.8: only after a flick carried momentum. */
     fun <T> fling() = spring<T>(dampingRatio = 0.8f, stiffness = 438f)
     fun <T> press() = spring<T>(dampingRatio = 1f, stiffness = Spring.StiffnessHigh)
 }

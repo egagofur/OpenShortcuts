@@ -42,10 +42,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.openshortcuts.model.Store
 import kotlinx.coroutines.delay
 
-/**
- * "Run with OpenShortcuts" in Android's share sheet, and "Run Shortcut" in the menu that appears
- * when you select text. The shared or selected text becomes the shortcut's {Shortcut Input}.
- */
 class ShareActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -75,7 +71,6 @@ private fun SharePicker(text: String, subject: String, onClose: () -> Unit) {
     val listed = lib.shortcuts.filter { it.inShareSheet }
     val shown = listed.ifEmpty { lib.shortcuts }
 
-    // Finished quietly (nothing to show): say so and get out of the way.
     LaunchedEffect(runs.done) {
         if (runs.done != null) {
             Toast.makeText(ctx, "Ran ${lib.shortcuts.firstOrNull { it.id == runs.done }?.name.orEmpty()}", Toast.LENGTH_SHORT).show()

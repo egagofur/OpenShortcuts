@@ -59,7 +59,6 @@ fun dateLabel(iso: String): String = runCatching {
 
 fun repeatLabel(a: Automation) = if (a.monthDay > 0) "monthly on the ${ordinal(a.monthDay)}" else a.days.daysLabel().lowercase()
 
-/** One line for the automation list. */
 fun timeHeadline(a: Automation): String = when (a.timeMode) {
     "sunrise", "sunset" -> {
         val o = offsetLabel(a.offset)
@@ -70,10 +69,6 @@ fun timeHeadline(a: Automation): String = when (a.timeMode) {
     else -> "At ${a.timeOfDay.hhmm()}, ${repeatLabel(a)}"
 }
 
-/**
- * The Time trigger: a mode switch, then one sentence for that mode, then when it runs next.
- * [pickTime] opens the wheel picker owned by the automation screen.
- */
 @Composable
 fun TimeTriggerCard(a: Automation, onChange: (Automation) -> Unit, pickTime: (Int, (Int) -> Unit) -> Unit) {
     val c = Theme.c
@@ -108,7 +103,6 @@ fun TimeTriggerCard(a: Automation, onChange: (Automation) -> Unit, pickTime: (In
     }
     SentenceCard(if (a.timeMode == "sunrise" || a.timeMode == "sunset") "sun" else "clock", Tint.Blue.color(), segs)
 
-    // When it actually runs next: the quickest way to trust an interval or a sunset offset.
     val sun = a.timeMode == "sunrise" || a.timeMode == "sunset"
     var located by remember { mutableIntStateOf(0) }
     val next = remember(a, located) { Scheduler.nextTime(ctx, a) }
@@ -130,13 +124,11 @@ fun TimeTriggerCard(a: Automation, onChange: (Automation) -> Unit, pickTime: (In
         },
         style = Theme.t.small, color = if (next == null) c.danger else c.ink2,
         modifier = Modifier.padding(horizontal = 6.dp).then(
-            // Location off: the hint opens the switch, so it's one tap to fix.
             if (sunNoPlace && allowed && !locOn) Modifier.pressable(label = "Open Location settings") {
                 runCatching { ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS)) }
             } else Modifier,
         ),
     )
-    // Back from Location settings: try again.
     if (sunNoPlace) androidx.lifecycle.compose.LifecycleResumeEffect(a.timeMode) {
         Scheduler.refreshPlace(ctx) { ok -> if (ok) { located++; Scheduler.rescheduleAll(ctx) } }
         onPauseOrDispose { }
@@ -166,7 +158,6 @@ fun TimeTriggerCard(a: Automation, onChange: (Automation) -> Unit, pickTime: (In
         "window" -> WindowDialog(a, pickTime, onDismiss = { dialog = null }, onChange = onChange)
         "date" -> DuoDialog({ dialog = null }) {
             DialogTitle("Date")
-            // The picker speaks "today"/"tomorrow"; a one-off stores the real date.
             DayTimePicker("${a.date} ${a.timeOfDay.hhmm()}", daysAhead = 30) { v ->
                 val (day, time) = v.split(" ")
                 val d = when (day) { "today" -> LocalDate.now(); "tomorrow" -> LocalDate.now().plusDays(1); else -> LocalDate.parse(day) }
@@ -188,7 +179,6 @@ private fun nextLabel(ms: Long): String {
     return "$day at ${"%02d:%02d".format(t.hour, t.minute)}"
 }
 
-/** Daily / Weekly / Monthly, like Apple's Repeat row. */
 @Composable
 private fun RepeatDialog(a: Automation, weeklyOnly: Boolean = false, onDismiss: () -> Unit, onDone: (Automation) -> Unit) {
     val c = Theme.c

@@ -12,14 +12,7 @@ import java.util.Locale
 import kotlin.math.pow
 import kotlin.random.Random
 
-/**
- * Pure helpers behind the data, text, number and date actions. Everything is text in, text out:
- * a list is one item per line, a dictionary is JSON, a date is ISO-8601 (2026-11-25T06:40:00).
- * No Android types here, so it's covered by plain JVM unit tests.
- */
 object Data {
-
-    // --- Text --------------------------------------------------------------------------
 
     fun replace(input: String, find: String, with: String, regex: Boolean): String =
         if (find.isEmpty()) input
@@ -45,21 +38,18 @@ object Data {
         "UPPERCASE" -> input.uppercase()
         "lowercase" -> input.lowercase()
         "Title Case" -> input.split(" ").joinToString(" ") { w -> w.lowercase().replaceFirstChar { it.titlecase() } }
-        else -> input.lowercase().replaceFirstChar { it.titlecase() } // Sentence case
+        else -> input.lowercase().replaceFirstChar { it.titlecase() }
     }
 
     fun extract(input: String, what: String): String = when (what) {
         "Numbers" -> Regex("-?\\d+(?:[.,]\\d+)?")
         "URLs" -> Regex("https?://[^\\s]+|www\\.[^\\s]+")
         "Phone Numbers" -> Regex("\\+?\\d[\\d\\s-]{7,}\\d")
-        else -> Regex("[\\w.+-]+@[\\w-]+\\.[\\w.]+") // Email Addresses
+        else -> Regex("[\\w.+-]+@[\\w-]+\\.[\\w.]+")
     }.findAll(input).joinToString("\n") { it.value.trim() }
-
-    // --- Lists ---------------------------------------------------------------------------
 
     fun lines(input: String): List<String> = input.lines().filter { it.isNotBlank() }
 
-    /** "1" = first, "-1" or "last" = last, "random". */
     fun item(input: String, which: String, random: Random = Random): String {
         val items = lines(input)
         if (items.isEmpty()) return ""
@@ -83,9 +73,6 @@ object Data {
 
     fun append(list: String, value: String): String = if (list.isEmpty()) value else "$list\n$value"
 
-    // --- Dictionaries --------------------------------------------------------------------
-
-    /** "key: value" lines (or JSON) become a JSON object. */
     fun dictionary(body: String): String {
         val t = body.trim()
         if (t.startsWith("{")) return JSONObject(t).toString()
@@ -97,7 +84,6 @@ object Data {
         return o.toString()
     }
 
-    /** Dot path: "user.name", "items.0.title". Blank key = all keys, one per line. */
     fun getValue(json: String, key: String): String {
         var node: Any? = parse(json)
         if (key.isBlank()) return (node as? JSONObject)?.keys()?.asSequence()?.joinToString("\n").orEmpty()
@@ -129,9 +115,6 @@ object Data {
         }
     }
 
-    // --- Numbers ---------------------------------------------------------------------------
-
-    /** + - * / % ^, parentheses, unary minus. Commas count as decimal points. */
     fun calculate(expression: String): Double = Calc(expression.replace(',', '.').replace('×', '*').replace('÷', '/')).run()
 
     fun number(d: Double): String =
@@ -206,14 +189,10 @@ object Data {
         }
     }
 
-    // --- Dates -------------------------------------------------------------------------------
-
     private val ISO = DateTimeFormatter.ISO_LOCAL_DATE_TIME
 
-    /** now, today, tomorrow, yesterday, 2026-11-25, 2026-11-25 23:00, 23:00, or ISO. */
     fun parseDate(text: String, now: LocalDateTime = LocalDateTime.now()): LocalDateTime {
         val t = text.trim()
-        // "tomorrow 09:00", "today 23:30"
         Regex("^(today|tomorrow|yesterday)\\s+(\\d{1,2}:\\d{2})$", RegexOption.IGNORE_CASE).find(t)?.let { m ->
             return parseDate(m.groupValues[1], now).toLocalDate().atTime(LocalTime.parse(m.groupValues[2].padStart(5, '0')))
         }
@@ -245,7 +224,7 @@ object Data {
             "Day name" -> DateTimeFormatter.ofPattern("EEEE", locale).format(d)
             "yyyy-MM-dd" -> DateTimeFormatter.ofPattern("yyyy-MM-dd", locale).format(d)
             "ISO 8601" -> ISO.format(d)
-            else -> DateTimeFormatter.ofPattern("d MMMM yyyy, HH:mm", locale).format(d) // Long
+            else -> DateTimeFormatter.ofPattern("d MMMM yyyy, HH:mm", locale).format(d)
         }
     }
 
@@ -264,17 +243,12 @@ object Data {
 
 }
 
-/**
- * When an automation's time trigger next fires. Pure (no Android), so it can be unit-tested.
- * Sunrise/sunset use the NOAA sunrise equation; without a location they fall back to 06:00 / 18:00.
- */
 object When {
     data class Place(val lat: Double, val lon: Double)
 
-    /** Sunrise and sunset on [day] in [zone], or null in polar day/night. */
     fun sun(day: java.time.LocalDate, place: Place, zone: java.time.ZoneId): Pair<java.time.LocalTime, java.time.LocalTime>? {
         val rad = Math.PI / 180
-        val jDate = day.toEpochDay() + 2440587.5 + 0.5 // noon UTC
+        val jDate = day.toEpochDay() + 2440587.5 + 0.5
         val n = kotlin.math.ceil(jDate - 2451545.0 + 0.0008)
         val jStar = n - place.lon / 360.0
         val m = ((357.5291 + 0.98560028 * jStar) % 360 + 360) % 360
@@ -291,14 +265,13 @@ object When {
     }
 
     private fun dayOk(a: app.openshortcuts.model.Automation, d: java.time.LocalDate): Boolean {
-        val cal = d.dayOfWeek.value % 7 + 1 // java.time Monday=1 … Sunday=7 → Calendar Sunday=1
+        val cal = d.dayOfWeek.value % 7 + 1
         return when {
             a.timeMode == "time" && a.monthDay > 0 -> d.dayOfMonth == minOf(a.monthDay, d.lengthOfMonth())
             else -> a.days.isEmpty() || cal in a.days
         }
     }
 
-    /** The first run strictly after [from], or null if there is none (a one-off date that passed). */
     fun next(
         a: app.openshortcuts.model.Automation,
         from: java.time.LocalDateTime,

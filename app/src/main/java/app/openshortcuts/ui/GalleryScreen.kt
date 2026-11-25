@@ -40,7 +40,6 @@ import app.openshortcuts.model.Portable
 import app.openshortcuts.model.Shortcut
 import app.openshortcuts.model.Store
 
-/** Ready-made shortcuts. Tap one to see every action before adding it. */
 @Composable
 fun GalleryScreen(onBack: () -> Unit, onOpen: (String) -> Unit) {
     val c = Theme.c

@@ -9,17 +9,12 @@ import android.provider.ContactsContract.CommonDataKinds.Phone
 import android.provider.ContactsContract.Contacts as C
 import android.provider.ContactsContract.Data
 
-/**
- * Reads the phone's contacts for the pickers in the editor. Nothing leaves the phone and nothing
- * is stored except the number or address you pick (and its name, for the token).
- */
 object Contacts {
     data class Person(
         val id: Long,
         val name: String,
         val phones: List<String>,
         val emails: List<String>,
-        /** Digits of every number that has WhatsApp (from WhatsApp's own contact rows). */
         val whatsapp: Set<String>,
         val photo: Uri?,
     ) {
@@ -69,7 +64,6 @@ object Contacts {
         return names.map { (id, np) ->
             Person(id, np.first, phones[id].orEmpty().toList(), emails[id].orEmpty().toList(), wa[id].orEmpty(), np.second)
         }.filter { it.phones.isNotEmpty() || it.emails.isNotEmpty() }
-            // Named people first, A–Z; contacts saved as just a number go last, like Contacts does.
             .sortedWith(compareBy<Person>({ it.name.firstOrNull()?.isLetter() != true }, { it.name.lowercase() }))
     }
 }

@@ -19,7 +19,6 @@ import java.time.ZoneId
 import java.util.Locale
 import java.util.TimeZone
 
-/** Phone, messaging, clock, calendar and location actions. Errors are thrown with plain messages. */
 object Phone {
     private fun has(ctx: Context, perm: String) = ctx.checkSelfPermission(perm) == PackageManager.PERMISSION_GRANTED
 
@@ -72,7 +71,6 @@ object Phone {
 
     private fun epoch(text: String): Long = Data.parseDate(text).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
-    /** Inserts quietly when Calendar access is granted; returns null. Otherwise returns an intent to confirm in the calendar app. */
     fun addEvent(ctx: Context, title: String, start: String, minutes: Int): Intent? {
         if (title.isBlank()) error("Give the event a title.")
         val begin = epoch(start)
@@ -118,7 +116,6 @@ object Phone {
         }.orEmpty()
     }
 
-    /** Fresh fix when possible (15 s), otherwise the last known one. "lat, lng" with 5 decimals. */
     @SuppressLint("MissingPermission")
     suspend fun location(ctx: Context): String {
         if (!has(ctx, Manifest.permission.ACCESS_FINE_LOCATION) && !has(ctx, Manifest.permission.ACCESS_COARSE_LOCATION))
@@ -128,7 +125,6 @@ object Phone {
         val providers = lm.getProviders(true)
         val provider = listOf("fused", LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER).firstOrNull { it in providers }
             ?: error("No location source is available.")
-        // A fix from the last two minutes is good enough and answers instantly.
         val recent = providers.mapNotNull { lm.getLastKnownLocation(it) }.maxByOrNull { it.time }
             ?.takeIf { System.currentTimeMillis() - it.time < 120_000 }
         val fresh: Location? = recent ?: if (Build.VERSION.SDK_INT >= 30) withTimeoutOrNull(15_000) {

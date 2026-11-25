@@ -6,10 +6,6 @@ import android.os.PowerManager
 import org.json.JSONArray
 import org.json.JSONObject
 
-/**
- * WhatsApp messages a shortcut wanted to send while the phone was locked. Nothing can open a chat
- * behind a locked screen, so they wait here and go out the moment the phone is unlocked.
- */
 object PendingSends {
     data class Item(val number: String, val name: String, val text: String, val auto: Boolean)
 
@@ -24,7 +20,6 @@ object PendingSends {
         prefs(ctx).edit().putString("items", arr.toString()).apply()
     }
 
-    /** Everything waiting, removed from the queue. */
     fun take(ctx: Context): List<Item> {
         val arr = runCatching { JSONArray(prefs(ctx).getString("items", "[]")) }.getOrDefault(JSONArray())
         prefs(ctx).edit().remove("items").apply()

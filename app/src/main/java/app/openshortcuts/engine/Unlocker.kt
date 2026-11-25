@@ -9,22 +9,15 @@ import android.util.Log
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.withTimeoutOrNull
 
-/**
- * Opens the phone without a PIN when the phone itself allows it: Smart Lock / Extend Unlock
- * (a trusted place or device) or a swipe-only lock screen. Never bypasses a PIN, pattern or
- * fingerprint the phone is asking for — Android doesn't allow that, and we wouldn't want it.
- */
 object Unlocker {
     private const val TAG = "Unlocker"
     @Volatile private var waiting: CompletableDeferred<Boolean>? = null
 
-    /** True when the screen is locked but the phone would open without a PIN right now. */
     fun canOpenWithoutPin(ctx: Context): Boolean {
         val km = ctx.getSystemService(KeyguardManager::class.java)
         return !km.isDeviceLocked
     }
 
-    /** Wake the screen and dismiss the lock screen. True once the phone is open. */
     suspend fun open(ctx: Context): Boolean {
         if (!canOpenWithoutPin(ctx)) return false
         val done = CompletableDeferred<Boolean>()
@@ -41,7 +34,6 @@ object Unlocker {
     internal fun result(ok: Boolean) { waiting?.complete(ok); waiting = null }
 }
 
-/** Invisible: turns the screen on over the lock screen and asks the system to dismiss it. */
 class WakeActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

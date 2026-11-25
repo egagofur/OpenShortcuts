@@ -11,7 +11,7 @@ import java.time.LocalTime
 import java.time.ZoneId
 
 class WhenTest {
-    private val now = LocalDateTime.of(2026, 11, 25, 10, 10) // a Wednesday
+    private val now = LocalDateTime.of(2026, 11, 25, 10, 10)
     private fun auto(f: Automation.() -> Automation) = Automation(kind = TriggerKind.Time).f()
     private val jakarta = When.Place(-6.2, 106.8)
     private val wib = ZoneId.of("Asia/Jakarta")
@@ -20,7 +20,6 @@ class WhenTest {
         assertEquals(LocalDateTime.of(2026, 11, 26, 9, 0), When.next(auto { copy(timeOfDay = 9 * 60) }, now, null))
 
     @Test fun chosenDaysSkipToTheNextOne() {
-        // Mondays only (Calendar 2) → Mon 30 Nov.
         assertEquals(LocalDateTime.of(2026, 11, 30, 9, 0), When.next(auto { copy(timeOfDay = 9 * 60, days = setOf(2)) }, now, null))
     }
 
@@ -33,7 +32,6 @@ class WhenTest {
     @Test fun intervalStepsFromTheWindowStart() {
         val a = auto { copy(timeMode = "every", every = 60, windowStart = 8 * 60, windowEnd = 22 * 60) }
         assertEquals(LocalDateTime.of(2026, 11, 25, 11, 0), When.next(a, now, null))
-        // The window includes its end: 22:00 runs, the next one is 08:00 tomorrow.
         assertEquals(LocalDateTime.of(2026, 11, 25, 22, 0), When.next(a, LocalDateTime.of(2026, 11, 25, 21, 30), null))
         assertEquals(LocalDateTime.of(2026, 11, 26, 8, 0), When.next(a, LocalDateTime.of(2026, 11, 25, 22, 0), null))
     }

@@ -25,7 +25,6 @@ import kotlinx.coroutines.launch
  */
 class EventHost(private val ctx: Context) {
     companion object {
-        /** The running host, so a new App automation can start the watcher without waiting for the screen. */
         @Volatile var current: EventHost? = null
     }
 
@@ -76,7 +75,6 @@ class EventHost(private val ctx: Context) {
         Events.fire(ctx, TriggerKind.WiFi, on = up)
     }
 
-    /** Airplane mode, Battery Saver, Bluetooth links and the screen (which gates the app watcher). */
     private val system = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) {
             when (i.action) {
@@ -91,7 +89,6 @@ class EventHost(private val ctx: Context) {
                     Events.bluetooth(ctx, on = i.action == android.bluetooth.BluetoothDevice.ACTION_ACL_CONNECTED, name)
                 }
                 Intent.ACTION_SCREEN_ON -> watchApps()
-                // Unlocked: send any WhatsApp message that waited for it.
                 Intent.ACTION_USER_PRESENT -> if (PendingSends.count(ctx) > 0)
                     (ctx.applicationContext as app.openshortcuts.ShortcutsApp).scope.launch { kotlinx.coroutines.delay(700); Runner.sendWaiting(ctx) }
                 Intent.ACTION_SCREEN_OFF -> main.removeCallbacks(poll)
@@ -141,14 +138,12 @@ class EventHost(private val ctx: Context) {
             if (top != null && top != foreground) {
                 val was = foreground
                 foreground = top
-                // The first reading after start only learns what's on screen.
                 if (was != null) Events.appChanged(ctx, closed = was, opened = top)
             }
             main.postDelayed(this, 1_500)
         }
     }
 
-    /** (Re)start the app watcher; cheap to call whenever automations change or the screen turns on. */
     fun watchApps() {
         main.removeCallbacks(poll)
         val power = ctx.getSystemService(android.os.PowerManager::class.java)
@@ -198,7 +193,6 @@ object Events {
     private val lastRun = HashMap<String, Long>()
     private val seenMessages = HashMap<String, Long>()
 
-    /** Run every enabled automation of [kind] whose on/off side matches. */
     fun fire(ctx: Context, kind: TriggerKind, on: Boolean, input: String = "") {
         Log.i(TAG, "$kind ${if (on) "on" else "off"}")
         Store.library.value.automations
@@ -207,7 +201,6 @@ object Events {
     }
 
     fun run(ctx: Context, a: app.openshortcuts.model.Automation, input: String, vars: Map<String, String> = emptyMap(), key: String = a.id, gap: Long = MIN_GAP_MS) {
-        // A shortcut that flips the same switch (e.g. DND) must not set itself off forever.
         val now = SystemClock.elapsedRealtime()
         if (now - (lastRun[key] ?: -gap) < gap) return
         lastRun[key] = now
@@ -244,7 +237,6 @@ object Events {
     private val seenNotifications = HashMap<String, Long>()
     private val ringing = HashSet<String>()
 
-    /** Any app's notification (not ongoing ones, not our own). Its text becomes the input. */
     fun notification(ctx: Context, sbn: StatusBarNotification) {
         val n = sbn.notification
         // An alarm ringing: the clock posts an alarm-category, full-screen notification.
@@ -264,16 +256,13 @@ object Events {
         val app = label(ctx, sbn.packageName)
         val vars = mapOf("Notification Title" to title, "Notification App" to app)
         autos.filter { a -> (a.app.isBlank() || a.app == sbn.packageName) && (a.text.isBlank() || "$title $text".contains(a.text, true)) }
-            // One run per conversation per 30 s, so a chatty app can't loop a shortcut.
             .forEach { run(ctx, it, text.ifBlank { title }, vars, key = "${it.id}|${sbn.packageName}|$title", gap = 30_000) }
     }
 
-    /** The alarm notification went away: the alarm was stopped (or snoozed). */
     fun removed(ctx: Context, sbn: StatusBarNotification) {
         if (ringing.remove(sbn.key)) { Log.i(TAG, "alarm off"); fire(ctx, TriggerKind.Alarm, on = false) }
     }
 
-    /** Chats seen in WhatsApp notifications, newest first: the "from" picker offers these, groups included. */
     fun recentChats(ctx: Context): List<String> =
         ctx.getSharedPreferences("history", Context.MODE_PRIVATE).getString("wa_chats", "").orEmpty().split('\n').filter { it.isNotBlank() }
 
@@ -283,7 +272,6 @@ object Events {
         ctx.getSharedPreferences("history", Context.MODE_PRIVATE).edit().putString("wa_chats", list.joinToString("\n")).apply()
     }
 
-    /** A new WhatsApp chat message. Its text becomes the shortcut's input. */
     fun message(ctx: Context, sbn: StatusBarNotification) {
         val n = sbn.notification
         if (n.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
@@ -305,7 +293,6 @@ object Events {
         Store.library.value.automations
             .filter { it.enabled && it.kind == TriggerKind.WhatsAppMessage }
             .filter { a -> a.text.isBlank() || sender.contains(a.text, true) || chat.contains(a.text, true) }
-            // At most one run per chat per minute, so a busy group can't flood auto-replies.
             .forEach { run(ctx, it, text, vars, key = "${it.id}|${chat.ifEmpty { sender }}", gap = 60_000) }
     }
 }

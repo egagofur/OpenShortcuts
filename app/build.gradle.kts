@@ -37,9 +37,7 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
-    // Describe a shortcut: Claude through the official SDK (only used once you add an API key).
     implementation("com.anthropic:anthropic-java:3.3.0")
-    // Location trigger: OpenStreetMap map to pick a place and radius (no API key, no Google services).
     implementation("org.osmdroid:osmdroid-android:6.1.20")
 
     testImplementation("junit:junit:4.13.2")

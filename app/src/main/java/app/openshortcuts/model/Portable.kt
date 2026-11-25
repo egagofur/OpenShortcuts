@@ -9,20 +9,14 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 
-/**
- * `.openshortcut` files: one shortcut as JSON, safe to send to someone else.
- * IDs are not exported; "Run Shortcut" points at the other shortcut by name.
- */
 object Portable {
     const val EXTENSION = "openshortcut"
     private const val FORMAT = "openshortcuts"
     private const val MAX_BYTES = 512 * 1024
 
-    /** A file someone opened with the app, waiting for "Add Shortcut". */
     val incoming = MutableStateFlow<Imported?>(null)
     val importError = MutableStateFlow<String?>(null)
 
-    /** Read a file handed to the app (Open with…, share sheet, file picker). */
     fun receive(ctx: Context, uri: Uri) {
         runCatching { read(ctx, uri) }
             .onSuccess { incoming.value = it; importError.value = null }
@@ -46,7 +40,6 @@ object Portable {
         })
     }.toString(2)
 
-    /** Throws with a readable message when the file isn't a shortcut. */
     fun decode(text: String, lib: Library): Imported {
         val root = runCatching { JSONObject(text) }.getOrElse { error("This file isn't an OpenShortcuts shortcut.") }
         if (root.optString("format") != FORMAT) error("This file isn't an OpenShortcuts shortcut.")
@@ -57,7 +50,6 @@ object Portable {
             val type = runCatching { ActionType.valueOf(a.getString("type")) }.getOrNull()
                 ?: run { unknown++; return@mapNotNull null }
             val p = a.optJSONObject("params") ?: JSONObject()
-            // Only keep parameters this action knows, so a file can't smuggle in extra data.
             val known = type.params.map { it.key }.toSet()
             var params = p.keys().asSequence().filter { it in known || it.removeSuffix(".name") in known }.associateWith { p.getString(it).take(4_000) }
             if (type == ActionType.RUN_SHORTCUT) {
@@ -96,7 +88,6 @@ object Portable {
         return decode(bytes.toString(Charsets.UTF_8), Store.library.value)
     }
 
-    /** Share sheet with the shortcut as a file, plus a readable recipe as text. */
     fun shareIntent(ctx: Context, s: Shortcut, recipe: String): Intent {
         val dir = File(ctx.cacheDir, "shared").apply { mkdirs(); listFiles()?.forEach { it.delete() } }
         val safe = s.name.replace(Regex("[^\\p{L}\\p{N} _-]"), "").trim().ifEmpty { "Shortcut" }

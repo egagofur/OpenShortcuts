@@ -62,10 +62,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
-/** Set by the app while you're below the first screen: the rail's house takes you back there. */
 val LocalGoHome = staticCompositionLocalOf<(() -> Unit)?> { null }
 
-/** The house glyph. Below Home it goes back with the push animation in reverse; on Home it just nods. */
 @Composable
 fun RailHome() {
     val c = Theme.c
@@ -78,7 +76,6 @@ fun RailHome() {
         Modifier.size(40.dp, 30.dp).pressable(scale = 0.88f, label = if (goHome != null) "Go to Home" else "Home") {
             if (goHome != null) { view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK); goHome() }
             else if (!reduced) scope.launch {
-                // Already home: a small shake says "you're here".
                 view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                 nod.snapTo(0f)
                 nod.animateTo(0f, androidx.compose.animation.core.keyframes { durationMillis = 320; -9f at 60; 7f at 140; -3f at 220 })
@@ -90,7 +87,6 @@ fun RailHome() {
     }
 }
 
-/** Time; tap flips to the date for a few seconds, hold opens the clock's alarms. */
 @Composable
 fun RailClock() {
     val c = Theme.c
@@ -114,7 +110,6 @@ fun RailClock() {
         AnimatedContent(
             showDate, label = "clock",
             transitionSpec = {
-                // Rolls like a flip counter: the new value comes from below, the old one leaves upward.
                 val d = if (targetState) 1 else -1
                 if (reduced) fadeIn(tween(150)) togetherWith fadeOut(tween(100))
                 else (slideInVertically(spring(dampingRatio = 0.85f, stiffness = 500f)) { it * d } + fadeIn(tween(150))) togetherWith
@@ -130,10 +125,6 @@ fun RailClock() {
     }
 }
 
-/**
- * The battery ring as a control: tap replays the fill and counts the number up, and a small panel
- * grows out of the ring with what the phone knows about the battery.
- */
 @Composable
 fun RailBattery() {
     val ctx = LocalContext.current
@@ -156,7 +147,6 @@ fun RailBattery() {
     }
 }
 
-/** Puts the panel to the left of the ring, centred on it, kept inside the window. */
 private class LeftOf(private val gap: Int) : PopupPositionProvider {
     override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize, layoutDirection: LayoutDirection, popupContentSize: IntSize): IntOffset {
         val x = (anchorBounds.left - gap - popupContentSize.width).coerceAtLeast(gap)
@@ -191,7 +181,6 @@ private fun BatteryPanel(state: BatteryState, onDismiss: () -> Unit, onOpen: (St
     Popup(popupPositionProvider = LeftOf(gap), onDismissRequest = { close() }, properties = PopupProperties(focusable = true)) {
         Column(
             Modifier
-                // Grows out of the ring it came from: origin on the panel's right edge, middle.
                 .graphicsLayer {
                     val s = 0.9f + 0.1f * k.value
                     scaleX = s; scaleY = s; alpha = k.value.coerceIn(0f, 1f)
@@ -212,7 +201,6 @@ private fun BatteryPanel(state: BatteryState, onDismiss: () -> Unit, onOpen: (St
             }
             Text(status, style = Theme.t.small, color = if (state.charging) c.positive else if (state.level <= 20) c.danger else c.ink2)
             Spacer(Modifier.height(10.dp))
-            // A plain bar version of the ring, so the number has something to sit on.
             Box(Modifier.fillMaxWidth().height(6.dp).clip(CircleShape).background(c.fill)) {
                 Box(
                     Modifier.fillMaxHeight().fillMaxWidth((state.level / 100f) * k.value.coerceIn(0f, 1f)).clip(CircleShape)

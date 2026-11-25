@@ -45,7 +45,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        // The rail shows time and battery, like the folded Duo, so the status bar steps aside.
         WindowCompat.getInsetsController(window, window.decorView).apply {
             hide(WindowInsetsCompat.Type.statusBars())
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -59,7 +58,6 @@ class MainActivity : ComponentActivity() {
         receive(intent)
     }
 
-    /** A shortcut file opened with, or shared to, the app. */
     private fun receive(intent: android.content.Intent?) {
         val uri = when (intent?.action) {
             android.content.Intent.ACTION_VIEW -> intent.data
@@ -93,7 +91,6 @@ private fun App() {
 
     LifecycleResumeEffect(Unit) {
         resumeTick++
-        // Opening the app is a good moment to reconnect the listener if the phone dropped it.
         if (app.openshortcuts.engine.CallWatcher.isEnabled(ctx) && app.openshortcuts.engine.CallWatcher.instance == null)
             app.openshortcuts.engine.CallWatcher.rebind(ctx)
         onPauseOrDispose { }
@@ -101,7 +98,6 @@ private fun App() {
 
     fun push(r: Route) = nav.push(r)
     fun pop() = nav.pop()
-    // The system back gesture drives the pop frame by frame, like iOS's edge swipe.
     androidx.activity.compose.PredictiveBackHandler(enabled = nav.stack.size > 1) { events -> nav.predictive(events) }
 
     val missingSetup = remember(lib, resumeTick) {
@@ -157,8 +153,6 @@ private fun App() {
 
     if (newAuto) NewAutomationDialog(onDismiss = { newAuto = false }) { kind ->
         newAuto = false
-        // Runs on its own (no warning) unless you turn on "Ask before running".
-        // No shortcut picked yet, so a new trigger never runs something you didn't choose.
         val a = Automation(kind = kind, shortcutId = "", callMinutes = 45,
             windowStart = 23 * 60, windowEnd = 5 * 60, warnFirst = false)
         Store.upsert(a); push(Route.Auto(a.id))
@@ -212,9 +206,7 @@ private fun App() {
         }
     }
     runs.prompt?.let { (p, _) -> app.openshortcuts.ui.PromptDialog(p) { runs.answer(it) } }
-    // Permissions are asked one at a time, explained first (see Primer).
     app.openshortcuts.ui.PrimerSheet()
-    // First-run tour: the welcome screen covers everything; tips float over the real controls.
     app.openshortcuts.ui.TourOverlay()
     if (app.openshortcuts.ui.Tour.step == app.openshortcuts.ui.Tour.Step.AllSet) app.openshortcuts.ui.AllSetDialog { app.openshortcuts.ui.Tour.finish() }
     if (app.openshortcuts.ui.Tour.step == app.openshortcuts.ui.Tour.Step.Welcome) app.openshortcuts.ui.WelcomeScreen(
@@ -223,7 +215,6 @@ private fun App() {
     )
     runs.result?.let { r ->
         ResultDialog(r, onDismiss = { runs.result = null }, onSetup = {
-            // Ask for exactly what this shortcut is missing; Setup only if we can't tell.
             val s = lib.shortcuts.firstOrNull { it.name == r.shortcut }
             val missing = s?.let { Perm.missing(ctx, it) }.orEmpty()
             if (missing.isNotEmpty()) app.openshortcuts.ui.Primer.ask(missing, s!!.name) else push(Route.Setup)

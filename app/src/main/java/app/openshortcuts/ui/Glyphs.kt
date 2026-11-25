@@ -13,7 +13,6 @@ import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-/** One small, consistent outline icon set on a 24 grid. Filled variants end in "Fill". */
 object Glyphs {
     private val strokes = mapOf(
         "person" to listOf("M12 4.5a3.75 3.75 0 1 0 0 7.5a3.75 3.75 0 1 0 0-7.5z", "M4.75 20c.9-3.4 3.7-5.5 7.25-5.5s6.35 2.1 7.25 5.5"),
@@ -87,7 +86,6 @@ object Glyphs {
 
     private val cache = HashMap<String, ImageVector>()
 
-    /** Raw path data for drawing outside Compose (launcher icons). Second value: filled. */
     fun pathData(name: String): Pair<List<String>, Boolean> =
         fills[name]?.let { listOf(it) to true } ?: ((strokes[name] ?: strokes.getValue("layers")) to false)
 

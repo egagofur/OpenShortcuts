@@ -2,8 +2,6 @@ package app.openshortcuts.model
 
 import java.util.UUID
 
-/** How a parameter is edited when its token pill is tapped. */
-/** PHONE / EMAIL pick from contacts (or take typed text); DATETIME is a day plus a time. */
 enum class ParamKind { TEXT, NUMBER, CHOICE, TIME, APP, SHORTCUT, INPUT, PHONE, EMAIL, DATETIME }
 
 data class ParamSpec(
@@ -22,13 +20,8 @@ enum class Category(val title: String) {
     Scripting("Scripting"), Text("Text & Results"), Lists("Lists & Dictionaries"), Math("Numbers & Dates"), Apps("Apps & Web"),
 }
 
-/** Tint names map to palette colours in the UI layer. */
 enum class Tint { Blue, Green, Indigo, Orange, Red, Gray, Teal, Yellow, Pink, Purple }
 
-/**
- * Every action is a sentence. `{key}` marks a token pill bound to a param.
- * A param named `body` renders as a text block under the header (like the Text action).
- */
 enum class ActionType(
     val title: String,
     val template: String,
@@ -221,7 +214,6 @@ enum class ActionType(
         listOf(ParamSpec("name", ParamKind.TEXT, "My Variable", placeholder = "Name")),
         output = "Variable",
     ),
-    // --- Text ---
     REPLACE_TEXT(
         "Replace Text", "Replace {find} with {with} in {input} using {mode}", Category.Text, Tint.Yellow, "text",
         listOf(ParamSpec("find", ParamKind.TEXT, "", placeholder = "Find"), ParamSpec("with", ParamKind.TEXT, "", placeholder = "Replacement"), ParamSpec("input", ParamKind.INPUT, "@prev", placeholder = "Input"),
@@ -253,7 +245,6 @@ enum class ActionType(
         listOf(ParamSpec("what", ParamKind.CHOICE, "Numbers", listOf("Numbers", "URLs", "Phone Numbers", "Email Addresses")), ParamSpec("input", ParamKind.INPUT, "@prev", placeholder = "Input")),
         output = "Found Items", summary = "Pulls numbers, links, phone numbers or emails out of text.",
     ),
-    // --- Lists & dictionaries ---
     LIST(
         "List", "List", Category.Lists, Tint.Orange, "menu",
         listOf(ParamSpec("body", ParamKind.TEXT, "", placeholder = "One item per line")),
@@ -299,7 +290,6 @@ enum class ActionType(
         listOf(ParamSpec("key", ParamKind.TEXT, "name", placeholder = "Key"), ParamSpec("value", ParamKind.TEXT, "", placeholder = "Value"), ParamSpec("input", ParamKind.INPUT, "@prev", placeholder = "Input")),
         output = "Dictionary",
     ),
-    // --- Numbers & dates ---
     CALCULATE(
         "Calculate", "Calculate {expression}", Category.Math, Tint.Gray, "calc",
         listOf(ParamSpec("expression", ParamKind.TEXT, "{Previous Result} * 2", placeholder = "e.g. {Repeat Index} * 10")),
@@ -337,7 +327,6 @@ enum class ActionType(
             ParamSpec("unit", ParamKind.CHOICE, "minutes", listOf("seconds", "minutes", "hours", "days", "weeks", "months", "years"))),
         output = "Time Between",
     ),
-    // --- Scripting extras ---
     COMMENT(
         "Comment", "Comment", Category.Scripting, Tint.Gray, "text",
         listOf(ParamSpec("body", ParamKind.TEXT, "", placeholder = "Notes for yourself")), summary = "Does nothing; leaves a note in the shortcut.",
@@ -382,11 +371,9 @@ enum class ActionType(
         listOf(ParamSpec("body", ParamKind.TEXT, "Hello", placeholder = "Message")),
     );
 
-    /** Control-flow blocks: opener, optional middles, closer. */
     val opensBlock get() = this == IF || this == REPEAT || this == MENU || this == REPEAT_EACH
     val isMidBlock get() = this == OTHERWISE || this == CASE
     val closesBlock get() = this == END_IF || this == END_REPEAT || this == END_MENU || this == END_EACH
-    /** Markers the editor inserts and removes together with their opener. */
     val isMarker get() = isMidBlock || closesBlock
     val closer: ActionType? get() = when (this) { IF -> END_IF; REPEAT -> END_REPEAT; MENU -> END_MENU; REPEAT_EACH -> END_EACH; else -> null }
     val opener: ActionType? get() = when (this) {
@@ -394,7 +381,6 @@ enum class ActionType(
     }
 }
 
-/** Names you can drop into any text as {Name}. */
 val BUILT_IN_VARIABLES = listOf("Shortcut Input", "Shared Subject", "Message Sender", "Message Chat", "Notification Title", "Notification App", "Previous Result", "Current Date", "Current Time", "Clipboard", "Repeat Index", "Repeat Item", "Menu Result")
 
 fun variableNames(actions: List<Action>): List<String> =
@@ -415,7 +401,6 @@ data class Shortcut(
     val tint: Tint = Tint.Blue,
     val glyph: String = "layers",
     val actions: List<Action> = emptyList(),
-    /** Listed when you share text to OpenShortcuts or pick "Run Shortcut" on selected text. */
     val inShareSheet: Boolean = false,
 )
 
@@ -427,24 +412,16 @@ enum class TriggerKind(val title: String, val event: Boolean = true) {
     Dnd("Do Not Disturb"),
     WiFi("Wi-Fi"),
     WhatsAppMessage("WhatsApp Message"),
-    /** A chosen app comes to the front (on) or leaves it (off). Needs usage access. */
     App("App"),
-    /** A notification from any app (or one chosen app), optionally containing some text. */
     AppNotification("Notification"),
-    /** The clock app's alarm goes off (on) or is stopped (off). */
     Alarm("Alarm"),
     Bluetooth("Bluetooth"),
     Headphones("Headphones"),
     AirplaneMode("Airplane Mode"),
     BatterySaver("Battery Saver"),
-    /** Arrive at (on) or leave (off) a place picked on the map, within [Automation.radius] metres. */
     Location("Location"),
 }
 
-/**
- * `days` uses java.util.Calendar day numbers (1 = Sunday). Empty = every day.
- * Times are minutes since midnight.
- */
 data class Automation(
     val id: String = UUID.randomUUID().toString(),
     val kind: TriggerKind,
@@ -455,27 +432,16 @@ data class Automation(
     val windowEnd: Int = 6 * 60,
     val shortcutId: String = "",
     val enabled: Boolean = true,
-    /** Off by default: automations run on their own. On = post a one-minute "about to run" notification first. */
     val warnFirst: Boolean = false,
-    /** Charger connected, battery rises above, DND turns on, Wi-Fi connects. `false` = the opposite. */
     val on: Boolean = true,
-    /** Battery threshold in percent. */
     val level: Int = 20,
-    /** WhatsApp message: sender name must contain this (blank = anyone). Bluetooth: device name. Notification: words to look for. */
     val text: String = "",
-    /** App and Notification triggers: the app's package (blank = any app, for notifications). */
     val app: String = "",
-    /** Time trigger: "time" (a clock time), "sunrise", "sunset", "every" (an interval) or "once" (one date). */
     val timeMode: String = "time",
-    /** Sunrise/sunset: minutes before (negative) or after (positive). */
     val offset: Int = 0,
-    /** "every": minutes between runs, inside windowStart–windowEnd (equal = all day). */
     val every: Int = 60,
-    /** "once": the date, yyyy-MM-dd, at timeOfDay. */
     val date: String = "",
-    /** "time": repeat monthly on this day of the month (1–31); 0 = use [days] instead. */
     val monthDay: Int = 0,
-    /** Location: the centre of the place, its radius in metres and a readable name. lat/lon 0 = not picked yet. */
     val lat: Double = 0.0,
     val lon: Double = 0.0,
     val radius: Int = 150,
@@ -496,7 +462,6 @@ fun Set<Int>.daysLabel(): String = when {
     else -> sorted().joinToString(" ") { listOf("", "Su", "Mo", "Tu", "We", "Th", "Fr", "Sa")[it] }
 }
 
-/** Inclusive start, exclusive end; wraps past midnight when end < start. */
 fun inWindow(minuteOfDay: Int, start: Int, end: Int): Boolean =
     if (start == end) true
     else if (start < end) minuteOfDay in start until end

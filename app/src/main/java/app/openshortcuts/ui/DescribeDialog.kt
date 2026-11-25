@@ -46,7 +46,6 @@ private val EXAMPLES = listOf(
     "When the charger is unplugged and battery is under 30%, turn brightness down",
 )
 
-/** Write a sentence, get a shortcut to review. Asks for a Claude API key the first time. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DescribeDialog(onDismiss: () -> Unit, onDraft: (Describe.Draft) -> Unit) {

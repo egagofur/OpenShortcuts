@@ -63,15 +63,12 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/** Runs shortcuts from the UI and remembers what to show afterwards. */
 @Stable
 class RunController(private val ctx: Context) {
     var running by mutableStateOf<String?>(null); private set
     var done by mutableStateOf<String?>(null); private set
-    /** Briefly set when a run ends in an error, so its tile can shake. */
     var failed by mutableStateOf<String?>(null); private set
     var result by mutableStateOf<Runner.Result?>(null)
-    /** A question the running shortcut is waiting on (Choose from Menu, Ask for Input). */
     var prompt by mutableStateOf<Pair<Runner.Prompt, CompletableDeferred<String?>>?>(null); private set
     private var job: Job? = null
 
@@ -143,7 +140,6 @@ fun Field(value: String, onChange: (String) -> Unit, placeholder: String, number
             textStyle = Theme.t.body.copy(fontSize = 17.sp, color = c.ink),
             cursorBrush = SolidColor(c.accent),
             keyboardOptions = when {
-                // Secrets: masked, and the keyboard neither suggests nor learns them.
                 secret -> KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false)
                 number -> KeyboardOptions(keyboardType = KeyboardType.Number)
                 else -> KeyboardOptions.Default
@@ -170,7 +166,6 @@ fun ParamDialog(a: Action, spec: ParamSpec, owner: Shortcut, index: Int, onDismi
     val c = Theme.c
     val ctx = LocalContext.current
     val vars = app.openshortcuts.model.variableNames(owner.actions)
-    // Contact params also keep the person's name, so the token can say "Mama" instead of digits.
     fun done(v: String, name: String? = null) = onDone(buildMap {
         put(spec.key, v)
         if (spec.kind == ParamKind.PHONE || spec.kind == ParamKind.EMAIL) put(spec.key + ".name", name.orEmpty())
@@ -185,7 +180,6 @@ fun ParamDialog(a: Action, spec: ParamSpec, owner: Shortcut, index: Int, onDismi
                 var v by remember { mutableStateOf(a.p(spec.key)) }
                 val n = (v.toIntOrNull() ?: spec.min).coerceIn(spec.min, spec.max)
                 if (spec.suffix.trim() == "%") {
-                    // Levels read best as a slider, like Control Centre.
                     Text("$n${spec.suffix}", style = Theme.t.large.copy(fontFeatureSettings = "tnum"), color = c.ink)
                     Slider(
                         value = n.toFloat(), onValueChange = { v = it.toInt().toString() },
@@ -194,7 +188,6 @@ fun ParamDialog(a: Action, spec: ParamSpec, owner: Shortcut, index: Int, onDismi
                         thumb = { IosSliderThumb() },
                     )
                 } else {
-                    // Counts and durations step like UIStepper; long ranges also take typing.
                     NumberStepper(n, spec.min, spec.max, if (spec.max > 100) 5 else 1, spec.suffix) { v = it.toString() }
                     if (spec.max > 100) {
                         Spacer(Modifier.height(10.dp))
@@ -221,7 +214,6 @@ fun ParamDialog(a: Action, spec: ParamSpec, owner: Shortcut, index: Int, onDismi
             ParamKind.TEXT -> {
                 var v by remember { mutableStateOf(a.p(spec.key)) }
                 Field(v, { v = it }, spec.placeholder)
-                // Names aren't templates; everything else can mix in variables.
                 if (spec.key != "name") {
                     Spacer(Modifier.height(10.dp))
                     VariableChips(vars) { v += it }
@@ -282,7 +274,6 @@ fun DetailsDialog(
     var tileOn by remember { mutableStateOf(app.openshortcuts.engine.Launchers.tileShortcutId(ctx) == s.id) }
 
     DuoDialog(onDismiss) {
-        // Identity: live preview of the icon beside the name it will carry.
         Row(verticalAlignment = Alignment.CenterVertically) {
             val tint by androidx.compose.animation.animateColorAsState(s.tint.color(), tween(220, easing = Motion.easeOut), label = "tint")
             Box(Modifier.size(56.dp).clip(RoundedCornerShape(15.dp)).background(tint), contentAlignment = Alignment.Center) {
@@ -369,7 +360,6 @@ fun DetailsDialog(
         }
 
         Spacer(Modifier.height(18.dp))
-        // Delete asks once, in place. Short labels: the name is already at the top of this sheet.
         androidx.compose.animation.AnimatedContent(
             confirmDelete, label = "delete",
             transitionSpec = { androidx.compose.animation.fadeIn(tween(160)) togetherWith androidx.compose.animation.fadeOut(tween(100)) using androidx.compose.animation.SizeTransform(clip = false) },
@@ -436,7 +426,6 @@ fun NewAutomationDialog(
     current: app.openshortcuts.model.TriggerKind? = null,
     onPick: (app.openshortcuts.model.TriggerKind) -> Unit,
 ) {
-    // Grouped like Apple's "New Automation" list: what starts it, by where it comes from.
     val groups = run {
         listOf(
             "Time & Place" to listOf(TK.Time to "Time of Day", TK.Alarm to "Alarm", TK.Location to "Arrive or Leave"),
@@ -461,7 +450,6 @@ fun NewAutomationDialog(
     }
 }
 
-/** Shown while a shortcut waits for an answer. Dismissing stops the shortcut. */
 @Composable
 fun PromptDialog(p: Runner.Prompt, onAnswer: (String?) -> Unit) {
     DuoDialog(onDismiss = { onAnswer(null) }) {
@@ -488,12 +476,10 @@ fun PromptDialog(p: Runner.Prompt, onAnswer: (String?) -> Unit) {
     }
 }
 
-/** Tap to insert {Name} into the text being edited. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun VariableChips(names: List<String>, onInsert: (String) -> Unit) {
     val c = Theme.c
-    // One quiet "Variables" chip; the list opens on demand so the field stays the focus.
     var open by remember { mutableStateOf(false) }
     val chevron by androidx.compose.animation.core.animateFloatAsState(if (open) 180f else 0f, Motion.settle(), label = "chev")
     Column {
@@ -543,7 +529,6 @@ fun NewShortcutDialog(onDismiss: () -> Unit, onNew: () -> Unit, onImport: () -> 
     }
 }
 
-/** Actions worth naming before someone adds a shortcut they were sent. */
 private val SENSITIVE = mapOf(
     app.openshortcuts.model.ActionType.END_WHATSAPP_CALL to "end WhatsApp calls",
     app.openshortcuts.model.ActionType.END_PHONE_CALL to "end phone calls",
@@ -566,7 +551,6 @@ private val SENSITIVE = mapOf(
     app.openshortcuts.model.ActionType.SHARE to "share text",
 )
 
-/** Like Apple's "Add Shortcut" sheet: show what it does before it's added. */
 @Composable
 fun ImportDialog(
     imp: app.openshortcuts.model.Portable.Imported, onCancel: () -> Unit, onAdd: () -> Unit,

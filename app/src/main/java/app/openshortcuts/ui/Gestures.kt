@@ -58,11 +58,6 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
-/**
- * Swipe left to delete. While the finger is down the row *is* the finger (no animation);
- * past the right edge it rubber-bands. On release a spring seeded with the fling velocity
- * either throws it off-screen (distance OR velocity) or snaps it back. Catchable mid-flight.
- */
 @Composable
 fun SwipeToDelete(
     label: String,
@@ -82,9 +77,7 @@ fun SwipeToDelete(
     var armed by remember { mutableStateOf(false) }
     var release by remember { mutableStateOf<Job?>(null) }
     val threshold = width * 0.38f
-    // Shown offset: 1:1 to the left, 0.2 resistance to the right (there is nothing there).
     fun offset() = if (raw > 0f) raw * 0.2f else raw
-    // Only this boolean recomposes; per-frame movement stays inside graphicsLayer.
     val revealed by remember { androidx.compose.runtime.derivedStateOf { raw < 0f } }
 
     val trash by animateFloatAsState(
@@ -132,7 +125,6 @@ fun SwipeToDelete(
                                 raw = 0f; armed = false
                             } else {
                                 armed = false
-                                // Bounce only because a drag put force in; snap-back stays quick.
                                 animate(raw, 0f, initialVelocity = v,
                                     animationSpec = if (reduced) tween(120) else spring(dampingRatio = 0.75f, stiffness = 520f)) { x, _ -> raw = x }
                             }
@@ -144,7 +136,6 @@ fun SwipeToDelete(
     }
 }
 
-/** Dark pill with one action, rising from the bottom edge. Same component for Undo and Open. */
 @Composable
 fun BoxScope.UndoBar(text: String?, action: String, onAction: () -> Unit) {
     val c = Theme.c
@@ -174,9 +165,6 @@ fun BoxScope.UndoBar(text: String?, action: String, onAction: () -> Unit) {
     }
 }
 
-// --- Grouped settings ---------------------------------------------------------------
-
-/** iOS-style inset group: an optional caption, then rows on one rounded surface. */
 @Composable
 fun SettingsGroup(
     title: String? = null,
@@ -202,10 +190,6 @@ fun SettingsDivider(inset: androidx.compose.ui.unit.Dp = 58.dp) {
     Box(Modifier.padding(start = inset).fillMaxWidth().height(1.dp).background(Theme.c.hairline))
 }
 
-/**
- * One row: icon tile, title (wraps to two lines, never pushes the trailing control away),
- * optional subtitle, trailing slot that never shrinks.
- */
 @Composable
 fun SettingsRow(
     title: String,
@@ -213,7 +197,6 @@ fun SettingsRow(
     tint: Color = Theme.c.accent,
     subtitle: String? = null,
     titleColor: Color = Theme.c.ink,
-    /** What tapping the row does, for screen readers. Defaults to the title. */
     actionLabel: String = title,
     onClick: (() -> Unit)? = null,
     trailing: @Composable RowScope.() -> Unit = {},

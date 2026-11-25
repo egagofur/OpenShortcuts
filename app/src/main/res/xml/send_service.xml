@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Sees only WhatsApp. Used to press Send on a message a shortcut just typed, nothing else. -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/send_service_description"
     android:packageNames="com.whatsapp,com.whatsapp.w4b"

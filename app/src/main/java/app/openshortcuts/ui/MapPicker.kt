@@ -68,10 +68,6 @@ private val RADII = listOf(100, 150, 200, 300, 500, 750, 1000, 1500, 2000)
 
 private fun radiusLabel(m: Int) = if (m < 1000) "$m m" else if (m % 1000 == 0) "${m / 1000} km" else "%.1f km".format(m / 1000f)
 
-/**
- * Pick a place like Apple Maps does: the map slides under a fixed pin (which lifts while you drag),
- * a circle shows the radius, and the place's name follows the pin.
- */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun MapPicker(start: Picked?, onDismiss: () -> Unit, onDone: (Picked) -> Unit) {
@@ -102,7 +98,6 @@ fun MapPicker(start: Picked?, onDismiss: () -> Unit, onDone: (Picked) -> Unit) {
 
     fun center() = map?.mapCenter?.let { GeoPoint(it.latitude, it.longitude) } ?: origin
 
-    // Name what's under the pin once the map stops moving.
     LaunchedEffect(tick) {
         if (tick == 0) return@LaunchedEffect
         delay(450)
@@ -141,21 +136,18 @@ fun MapPicker(start: Picked?, onDismiss: () -> Unit, onDone: (Picked) -> Unit) {
             )
             DisposableEffect(Unit) { onDispose { map?.onDetach() } }
 
-            // Radius circle, sized from the map's own scale so it stays true while zooming.
             Canvas(Modifier.fillMaxSize()) {
                 tick
                 val px = map?.projection?.metersToPixels(radius.toFloat()) ?: 0f
                 drawCircle(c.accent.copy(alpha = 0.16f), px, center)
                 drawCircle(c.accent.copy(alpha = 0.7f), px, center, style = Stroke(2.dp.toPx()))
             }
-            // The pin: fixed in the middle, lifting while the map moves under it.
             Box(Modifier.align(Alignment.Center).graphicsLayer { translationY = -16.dp.toPx() - 8.dp.toPx() * lift }) {
                 Box(Modifier.size(34.dp).shadow(6.dp, androidx.compose.foundation.shape.CircleShape).clip(androidx.compose.foundation.shape.CircleShape).background(Tint.Red.color()),
                     contentAlignment = Alignment.Center) { Glyph("pin", Color.White, size = 20.dp) }
             }
             Box(Modifier.align(Alignment.Center).size(6.dp).graphicsLayer { alpha = 0.35f + 0.3f * lift }.clip(androidx.compose.foundation.shape.CircleShape).background(Color.Black))
 
-            // Top: search.
             Column(Modifier.windowInsetsPadding(WindowInsets.safeDrawing).padding(12.dp).widthIn(max = 520.dp).align(Alignment.TopCenter)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.weight(1f)) {
@@ -185,7 +177,6 @@ fun MapPicker(start: Picked?, onDismiss: () -> Unit, onDone: (Picked) -> Unit) {
                 }
             }
 
-            // Bottom card: name, radius, actions.
             Column(
                 Modifier.align(Alignment.BottomCenter).windowInsetsPadding(WindowInsets.safeDrawing).padding(12.dp).widthIn(max = 520.dp).fillMaxWidth()
                     .shadow(if (c.dark) 0.dp else 20.dp, RoundedCornerShape(26.dp), ambientColor = c.shadow, spotColor = c.shadow)

@@ -46,7 +46,6 @@ import androidx.compose.ui.unit.dp
 import app.openshortcuts.engine.Perm
 import app.openshortcuts.model.Tint
 
-/** [smartLock]: also show the Smart Lock row (it isn't a permission the app can check). */
 private data class Group(val title: String, val footer: String?, val perms: List<Perm>, val smartLock: Boolean = false)
 
 private val GROUPS = listOf(
@@ -82,7 +81,6 @@ private fun Perm.look(): Pair<String, Tint> = when (this) {
     Perm.Bluetooth -> "bluetooth" to Tint.Blue
 }
 
-/** `tick` changes on every resume so states re-read after returning from Settings. */
 @Composable
 fun SetupScreen(tick: Int, onBack: () -> Unit) {
     val c = Theme.c
@@ -91,13 +89,11 @@ fun SetupScreen(tick: Int, onBack: () -> Unit) {
     val granted = remember(tick, Primer.queue) { Perm.entries.associateWith { it.granted(ctx) } }
     val lib by app.openshortcuts.model.Store.library.collectAsState()
     val locked = setOf(Perm.AutoSend, Perm.Accessibility)
-    // Only what your shortcuts and automations actually use is shown; the rest waits, folded away.
     val needed = remember(lib) { Perm.neededBy(lib).filterNot { it in locked || !it.applies() } }
     val others = Perm.entries.filterNot { it in needed || it in locked || !it.applies() }
     var showOthers by remember { mutableStateOf(false) }
 
     fun open(p: Perm) {
-        // Not yet allowed: explain first (Primer). Already allowed: open its settings to change it.
         if (granted[p] != true) { Primer.ask(listOf(p)); return }
         runCatching { ctx.startActivity(p.settingsIntent(ctx)) }
             .onFailure { ctx.startActivity(Perm.Notifications.settingsIntent(ctx)) }
@@ -183,10 +179,6 @@ fun SetupScreen(tick: Int, onBack: () -> Unit) {
     }
 }
 
-/**
- * Smart Lock / Extend Unlock: Android lets no app check or open it directly, so the row explains
- * the one thing to do and opens Password & security, where the phone keeps it.
- */
 @Composable
 private fun SmartLockRow() {
     val c = Theme.c

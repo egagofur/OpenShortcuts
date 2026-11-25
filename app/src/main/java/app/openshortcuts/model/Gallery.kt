@@ -1,9 +1,5 @@
 package app.openshortcuts.model
 
-/**
- * Ready-made shortcuts, built fresh (new IDs) every time one is added. Automations that come with
- * an item are added switched off, like everything else that arrives from outside your own editing.
- */
 object Gallery {
     data class Item(
         val section: String,
@@ -27,7 +23,6 @@ object Gallery {
     val sections = listOf("Sleep & Calls", "Messages", "Focus & Battery", "Everyday Tools")
 
     val items: List<Item> = listOf(
-        // --- Sleep & Calls ---
         Item("Sleep & Calls", "Sleep Mode", "Pause what's playing, end a WhatsApp call, turn on Do Not Disturb, dim the screen, say good night and lock.",
             Tint.Indigo, "moon") {
             only(shortcut("Sleep Mode", Tint.Indigo, "moon",
@@ -77,7 +72,6 @@ object Gallery {
                 a(ActionType.END_IF),
             ))
         },
-        // --- Messages ---
         Item("Messages", "Urgent Alert", "When a WhatsApp message says “urgent” or “penting”, vibrate and show who sent it, even at night.",
             Tint.Red, "bell") {
             val s = shortcut("Urgent Alert", Tint.Red, "bell",
@@ -106,7 +100,6 @@ object Gallery {
                 a(ActionType.SHARE, "input" to "@prev"),
             ))
         },
-        // --- Focus & Battery ---
         Item("Focus & Battery", "Pomodoro", "Do Not Disturb on and a 25-minute focus timer.",
             Tint.Red, "timer") {
             only(shortcut("Pomodoro", Tint.Red, "timer",
@@ -135,7 +128,6 @@ object Gallery {
             )
             s to Automation(kind = TriggerKind.Charger, on = false, shortcutId = s.id, enabled = false, warnFirst = false)
         },
-        // --- Everyday Tools ---
         Item("Everyday Tools", "Copy Links", "From the share sheet: copy every link in the text you shared.",
             Tint.Blue, "link") {
             only(shortcut("Copy Links", Tint.Blue, "link",

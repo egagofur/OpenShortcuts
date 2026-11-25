@@ -9,11 +9,6 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
 
-/**
- * Watches WhatsApp's ongoing-call notification. That notification carries WhatsApp's own
- * "Hang up" button, so ending the call = pressing that button for the user. No root,
- * no accessibility service, and it works with the screen off.
- */
 class CallWatcher : NotificationListenerService() {
     private var events: EventHost? = null
 
@@ -106,7 +101,6 @@ class CallWatcher : NotificationListenerService() {
             return ongoingFlag && labels.any(HANG::containsMatchIn) && labels.none(ANSWER::containsMatchIn)
         }
 
-        /** Ringing, ongoing or missed-call notifications: never treated as chat messages. */
         fun isCallNotification(sbn: StatusBarNotification): Boolean {
             val n = sbn.notification
             return n.category == Notification.CATEGORY_CALL || n.category == Notification.CATEGORY_MISSED_CALL ||
@@ -126,10 +120,6 @@ class CallWatcher : NotificationListenerService() {
 
         enum class ReplyResult { Sent, NoMessage, NotConnected, NoReplyButton }
 
-        /**
-         * Reply through the Reply button on WhatsApp's message notification (works while locked).
-         * `chat` matches the chat or sender name; blank = the newest message.
-         */
         fun replyWhatsApp(ctx: Context, chat: String, text: String): ReplyResult {
             val svc = instance ?: return ReplyResult.NotConnected
             val all = runCatching { svc.activeNotifications }.getOrNull().orEmpty().filter {
@@ -159,10 +149,6 @@ class CallWatcher : NotificationListenerService() {
             return ReplyResult.Sent
         }
 
-        /**
-         * Make sure the listener is connected, asking Android to bind it again and waiting up to
-         * [waitMs]. True when it's ready. Access switched off can't be fixed here.
-         */
         suspend fun ensureConnected(context: Context, waitMs: Long = 6_000): Boolean {
             if (instance != null) return true
             if (!isEnabled(context)) return false
@@ -172,7 +158,6 @@ class CallWatcher : NotificationListenerService() {
             return instance != null
         }
 
-        /** Ask the system to bind us again after the process was killed. */
         fun rebind(context: Context) {
             val me = ComponentName(context, CallWatcher::class.java)
             // Some phones (Oppo/ColorOS) ignore requestRebind. Switching the component off and on

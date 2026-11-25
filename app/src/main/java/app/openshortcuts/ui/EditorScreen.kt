@@ -75,7 +75,6 @@ import kotlin.math.abs
 
 private val SHEET_COLLAPSED = 128.dp
 
-/** Editing state with undo/redo. Every change is saved straight away, like Shortcuts. */
 private class Draft(initial: Shortcut) {
     var value by mutableStateOf(initial)
     val undo = mutableStateListOf<Shortcut>()
@@ -90,7 +89,6 @@ private class Draft(initial: Shortcut) {
     fun actions(f: (MutableList<Action>) -> Unit) = set(value.copy(actions = value.actions.toMutableList().also(f)))
 }
 
-/** Indices of an opener and its markers (If/Otherwise/End If, Repeat/End Repeat, Menu/Options/End Menu). */
 private fun blockOf(actions: List<Action>, index: Int): List<Int> {
     val t = actions[index].type
     val openerType = if (t.opensBlock) t else t.opener ?: return listOf(index)
@@ -144,11 +142,8 @@ fun EditorScreen(shortcut: Shortcut, runs: RunController, onBack: () -> Unit, on
     val missing = remember(s) { Perm.missing(ctx, s) }
 
     BoxWithConstraints(Modifier.fillMaxSize().background(c.bg)) {
-        // With the keyboard up, the sheet fills what's left above it.
         val imeH = WindowInsets.ime.asPaddingValues().calculateBottomPadding()
         val expandedH = if (imeH > 0.dp) (maxHeight - imeH) * 0.86f else maxHeight * 0.74f
-        // Sideways (short and wide): actions on the left, the catalogue docked beside them, like a
-        // tablet. No sheet covering half of a 360dp-tall screen.
         val docked = maxHeight < 480.dp && maxWidth > 600.dp
         val sheet: @Composable (Modifier, Boolean) -> Unit = { m, dock ->
             ActionSheet(
@@ -158,7 +153,6 @@ fun EditorScreen(shortcut: Shortcut, runs: RunController, onBack: () -> Unit, on
                 running = runs.running == s.id,
                 onUndo = draft::undo, onRedo = draft::redo,
                 onInfo = { details = true },
-                // A .openshortcut file anyone with the app can add, plus a readable recipe.
                 onShare = { ctx.startActivity(app.openshortcuts.model.Portable.shareIntent(ctx, s, s.describe(ctx))) },
                 onRun = { if (runs.running == s.id) runs.stop() else runs.run(s) },
                 onAdd = { type ->
@@ -222,7 +216,6 @@ fun EditorScreen(shortcut: Shortcut, runs: RunController, onBack: () -> Unit, on
                                 onRemove = {
                                     view.tick()
                                     draft.actions { l ->
-                                        // Removing an option or Otherwise keeps the block; removing its start or end removes all markers.
                                         val idx = if (a.type.isMidBlock) listOf(i) else
                                             if (a.type.opensBlock || a.type.closesBlock) blockOf(l, i) else listOf(i)
                                         idx.sortedDescending().forEach { l.removeAt(it) }
@@ -298,7 +291,6 @@ private fun EditorHeader(s: Shortcut, onDetails: () -> Unit) {
     }
 }
 
-/** Thin line between cards that hand their result to the next one. */
 @Composable
 private fun Connector(level: Int) {
     Box(Modifier.fillMaxWidth().height(14.dp).padding(start = 18.dp * level), contentAlignment = Alignment.Center) {
@@ -312,12 +304,10 @@ fun tokenFor(ctx: android.content.Context, a: Action, spec: ParamSpec, all: List
     val v = a.p(spec.key)
     return when (spec.kind) {
         ParamKind.NUMBER -> TokenView(v + spec.suffix)
-        // A picked contact shows as the person, like Apple's contact tokens; typed numbers show as typed.
         ParamKind.PHONE, ParamKind.EMAIL -> a.params[spec.key + ".name"]?.takeIf { it.isNotBlank() && v.isNotBlank() }
             ?.let { TokenView(it, "person", monogramTint(it)) }
             ?: TokenView(v.ifBlank { spec.placeholder }, empty = v.isBlank())
         ParamKind.DATETIME -> TokenView(dayTimeLabel(v).ifBlank { spec.placeholder }, empty = v.isBlank())
-        // The send mode's full wording lives in its picker; in the sentence it stays short.
         ParamKind.CHOICE -> TokenView(if (v == "and let me tap Send") "for review" else v)
         ParamKind.SHORTCUT -> Store.shortcut(v)?.let { TokenView(it.name, it.glyph, it.tint.color()) } ?: TokenView(spec.placeholder, empty = true)
         ParamKind.APP -> if (v.isBlank()) TokenView(spec.placeholder, empty = true)
@@ -408,8 +398,6 @@ private fun ActionCard(
     }
 }
 
-// --- Bottom sheet ---------------------------------------------------------------
-
 private fun rubber(overshoot: Float, dim: Float = 1f, k: Float = 0.55f) = (overshoot * dim * k) / (dim + k * abs(overshoot))
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
@@ -445,9 +433,7 @@ private fun ActionSheet(
         scope.launch { progress.snapTo(shown) }
     }
     val h = SHEET_COLLAPSED + (expandedH - SHEET_COLLAPSED) * progress.value
-    // Typing inside a card: the keyboard owns the bottom, the sheet steps away so the field stays visible.
     if (!docked && WindowInsets.isImeVisible && progress.targetValue == 0f) return
-    // Docked beside the actions it is always open: no handle, no drag, the catalogue always there.
     val open = if (docked) 1f else progress.value
 
     Column(
@@ -460,7 +446,6 @@ private fun ActionSheet(
                 drag, Orientation.Vertical, enabled = !docked,
                 onDragStarted = { raw = progress.value },
                 onDragStopped = { v ->
-                    // Project where the flick is heading (Apple's deceleration), snap to the nearer end.
                     val vp = -v / rangePx
                     val projected = progress.value + (vp * 0.998f / (1f - 0.998f)) / 1000f
                     settle(if (projected > 0.5f) 1f else 0f, vp)
@@ -471,7 +456,6 @@ private fun ActionSheet(
         else Box(Modifier.fillMaxWidth().height(22.dp), contentAlignment = Alignment.Center) {
             Box(Modifier.width(38.dp).height(5.dp).clip(RoundedCornerShape(3.dp)).background(c.ink3.copy(alpha = 0.5f)))
         }
-        // Search field
         Row(
             Modifier
                 .padding(horizontal = 14.dp)
@@ -500,14 +484,12 @@ private fun ActionSheet(
                 Glyph("x", c.ink2, size = 16.dp)
             }
         }
-        // Catalogue: grows with the sheet.
         Box(Modifier.weight(1f).fillMaxWidth()) {
             if (open > 0.02f) Catalog(query, alpha = open.coerceIn(0f, 1f)) { type ->
                 onAdd(type)
                 if (docked) { query = ""; focus.clearFocus() } else settle(0f)
             }
         }
-        // While typing, the keyboard owns the bottom; the toolbar steps aside for results.
         if (!WindowInsets.isImeVisible) Row(
             Modifier.fillMaxWidth().height(54.dp).padding(horizontal = 10.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
@@ -570,7 +552,6 @@ private fun Catalog(query: String, alpha: Float, onPick: (ActionType) -> Unit) {
     }
 }
 
-/** Indonesian words too, so "tutup telepon" or "tidur" finds the right action. */
 private fun keywords(t: ActionType): List<String> = when (t) {
     ActionType.END_WHATSAPP_CALL -> listOf("whatsapp", "wa", "hang", "akhiri", "tutup", "telepon", "panggilan", "call")
     ActionType.END_PHONE_CALL -> listOf("hang", "akhiri", "tutup", "telepon", "panggilan", "call")
@@ -614,7 +595,6 @@ private fun keywords(t: ActionType): List<String> = when (t) {
     else -> emptyList()
 }
 
-/** Plain-text recipe for sharing. */
 fun Shortcut.describe(ctx: android.content.Context): String = buildString {
     appendLine(name)
     val lv = levels(actions)

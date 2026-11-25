@@ -11,16 +11,12 @@
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.VIBRATE" />
-    <!-- Only used by "Describe a shortcut", and only after you add your own Claude API key. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CALL_PHONE" />
     <uses-permission android:name="android.permission.SEND_SMS" />
-    <!-- Contact pickers in the editor only; nothing is uploaded. -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
-    <!-- Triggers: which app is on screen (App), which Bluetooth device connected (Bluetooth). -->
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-    <!-- Location trigger: arrive/leave alerts while the app is closed. -->
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.READ_CALENDAR" />
@@ -28,7 +24,6 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
-    <!-- Wi-Fi trigger: watching connectivity changes (no internet access). -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
@@ -74,7 +69,6 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- Open .openshortcut files from Files, WhatsApp, Telegram, email… -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -102,7 +96,6 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
-        <!-- Share text to OpenShortcuts, or select text anywhere and choose "Run Shortcut". -->
         <activity
             android:name=".ui.ShareActivity"
             android:exported="true"
@@ -122,8 +115,6 @@
             </intent-filter>
         </activity>
 
-        <!-- Opened by Home Screen icons and the app icon's long-press menu. Intents carry a
-             per-install key, so other apps can't run shortcuts through it. -->
         <activity
             android:name=".engine.RunActivity"
             android:exported="true"
@@ -187,7 +178,6 @@
         <receiver android:name=".engine.AlarmReceiver" android:exported="false" />
         <receiver android:name=".engine.NotifActionReceiver" android:exported="false" />
         <receiver android:name=".engine.GeoReceiver" android:exported="false" />
-        <!-- Wakes the screen and dismisses a lock screen that needs no PIN (Smart Lock), to send a WhatsApp message. -->
         <activity
             android:name=".engine.WakeActivity"
             android:exported="false"
