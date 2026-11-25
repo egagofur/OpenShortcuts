@@ -125,6 +125,7 @@ private fun App() {
             )
             is Route.Editor -> {
                 val s = remember(r.id) { Store.shortcut(r.id) }
+                LaunchedEffect(r) { app.openshortcuts.ui.Tour.done(app.openshortcuts.ui.Tour.Step.NewShortcut) }
                 if (s == null) LaunchedEffect(r) { nav.popIfTop(r) } else EditorScreen(
                     s, runs, onBack = ::pop,
                     onDelete = { Store.deleteShortcut(s.id); pop() },
@@ -133,6 +134,7 @@ private fun App() {
             }
             is Route.Auto -> {
                 val a = lib.automations.firstOrNull { it.id == r.id }
+                LaunchedEffect(r) { app.openshortcuts.ui.Tour.done(app.openshortcuts.ui.Tour.Step.NewAutomation) }
                 if (a == null) LaunchedEffect(r) { nav.popIfTop(r) } else AutomationScreen(
                     a, lib,
                     onChange = { Store.upsert(it) }, onBack = ::pop,
@@ -204,5 +206,12 @@ private fun App() {
         }
     }
     runs.prompt?.let { (p, _) -> app.openshortcuts.ui.PromptDialog(p) { runs.answer(it) } }
+    // First-run tour: the welcome screen covers everything; tips float over the real controls.
+    app.openshortcuts.ui.TourOverlay()
+    if (app.openshortcuts.ui.Tour.step == app.openshortcuts.ui.Tour.Step.AllSet) app.openshortcuts.ui.AllSetDialog { app.openshortcuts.ui.Tour.finish() }
+    if (app.openshortcuts.ui.Tour.step == app.openshortcuts.ui.Tour.Step.Welcome) app.openshortcuts.ui.WelcomeScreen(
+        onContinue = { nav.reset(listOf(Route.Home)); tab = 0; app.openshortcuts.ui.Tour.start() },
+        onNotNow = { app.openshortcuts.ui.Tour.skip() },
+    )
     runs.result?.let { r -> ResultDialog(r, onDismiss = { runs.result = null }, onSetup = { push(Route.Setup) }) }
 }

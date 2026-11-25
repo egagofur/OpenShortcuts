@@ -17,11 +17,14 @@ object Store {
     /** Called after every change so alarms follow the data. */
     var onChange: ((Library) -> Unit)? = null
 
+    /** True when this launch created the library from the samples (a fresh install). */
+    var fresh = false; private set
+
     fun init(context: Context) {
         if (::file.isInitialized) return
         file = File(context.filesDir, "library.json")
         val json = runCatching { JSONObject(file.readText()) }.getOrNull()
-        state.value = json?.let { runCatching { decode(it) }.getOrNull() } ?: Seeds.library().also { save(it) }
+        state.value = json?.let { runCatching { decode(it) }.getOrNull() } ?: Seeds.library().also { save(it); fresh = json == null }
         // v1 libraries asked before every run; v2 runs on its own. Write the migration down once.
         if (json != null && json.optInt("v", 1) < 2) save(state.value)
     }
@@ -51,6 +54,15 @@ object Store {
         lib.copy(
             shortcuts = lib.shortcuts.filterNot { it.id == id },
             automations = lib.automations.filterNot { it.shortcutId == id },
+        )
+    }
+
+    /** Undo for deleting a shortcut: it and the automations that ran it come back where they were. */
+    fun restoreShortcut(s: Shortcut, index: Int, automations: List<Automation>) = update { lib ->
+        val rest = lib.shortcuts.filterNot { it.id == s.id }
+        lib.copy(
+            shortcuts = rest.toMutableList().apply { add(index.coerceIn(0, size), s) },
+            automations = lib.automations + automations.filter { a -> lib.automations.none { it.id == a.id } },
         )
     }
 

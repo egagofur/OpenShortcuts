@@ -26,6 +26,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -164,6 +165,8 @@ fun AutomationScreen(
             Box(Modifier.fillMaxWidth().height(14.dp), contentAlignment = Alignment.Center) {
                 Box(Modifier.width(2.dp).height(14.dp).background(c.ink3.copy(alpha = 0.45f)))
             }
+            LaunchedEffect(a.shortcutId) { if (a.shortcutId.isNotBlank()) Tour.done(Tour.Step.PickShortcut) }
+            Box(Modifier.tipAnchor("runCard")) {
             SentenceCard(
                 "layers", Tint.Purple.color(),
                 words("Run") + Seg.Pill(target?.name ?: "Shortcut", target?.glyph, target?.tint?.color()) { dialog = "shortcut" },
@@ -175,6 +178,7 @@ fun AutomationScreen(
                     }
                 }) else null,
             )
+            }
             val inputNote = when (a.kind) {
                 TriggerKind.WhatsAppMessage -> "The message text goes to the shortcut as its input, for Show Result or If Previous Result."
                 TriggerKind.BatteryLevel -> "The battery percentage goes to the shortcut as its input."

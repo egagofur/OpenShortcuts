@@ -42,6 +42,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import kotlinx.coroutines.launch
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
@@ -74,9 +84,14 @@ fun HomeScreen(
     onSetup: () -> Unit,
 ) {
     val c = Theme.c
+    LaunchedEffect(Unit) { Tour.done(Tour.Step.GoBack) }
+    LaunchedEffect(tab) { if (tab == 1) Tour.done(Tour.Step.OpenAutomation) }
     // Last swiped-away automation, kept for a few seconds so it can come back.
     var removed by remember { mutableStateOf<Pair<Automation, Int>?>(null) }
     LaunchedEffect(removed) { if (removed != null) { kotlinx.coroutines.delay(5000); removed = null } }
+    // Same for a shortcut deleted by holding its … button (with the automations that ran it).
+    var removedShortcut by remember { mutableStateOf<Triple<Shortcut, Int, List<Automation>>?>(null) }
+    LaunchedEffect(removedShortcut) { if (removedShortcut != null) { kotlinx.coroutines.delay(5000); removedShortcut = null } }
     Row(Modifier.fillMaxSize().background(c.bg)) {
         Box(Modifier.weight(1f).fillMaxSize()) {
             val short = isShort
@@ -87,7 +102,10 @@ fun HomeScreen(
                 transitionSpec = { fadeIn(tween(160)) togetherWith fadeOut(tween(100)) },
                 label = "tab",
             ) { t ->
-                if (t == 0) ShortcutGrid(lib, runs, missingSetup, bottomPad, onEdit, onSetup)
+                if (t == 0) ShortcutGrid(lib, runs, missingSetup, bottomPad, onEdit, onSetup) { s ->
+                    removedShortcut = Triple(s, lib.shortcuts.indexOfFirst { it.id == s.id }, lib.automations.filter { it.shortcutId == s.id })
+                    app.openshortcuts.model.Store.deleteShortcut(s.id)
+                }
                 else AutomationList(lib, bottomPad, onAutomation, onToggle) { a ->
                     removed = a to lib.automations.indexOfFirst { it.id == a.id }
                     app.openshortcuts.model.Store.deleteAutomation(a.id)
@@ -109,10 +127,14 @@ fun HomeScreen(
                     removed?.let { (a, i) -> app.openshortcuts.model.Store.restore(a, i) }
                     removed = null
                 }
+                UndoBar(removedShortcut?.let { "“${it.first.name}” deleted" }, "Undo") {
+                    removedShortcut?.let { (s, i, autos) -> app.openshortcuts.model.Store.restoreShortcut(s, i, autos) }
+                    removedShortcut = null
+                }
             }
         }
         Rail(
-            { GlassCircle("plus", if (tab == 0) "New shortcut" else "New automation", onClick = onNew) },
+            { GlassCircle("plus", if (tab == 0) "New shortcut" else "New automation", modifier = Modifier.tipAnchor("railPlus"), onClick = onNew) },
             { GlassCircle("sliders", "Setup", onClick = onSetup) },
         )
     }
@@ -141,7 +163,7 @@ private val TileCells = object : GridCells {
 @Composable
 private fun ShortcutGrid(
     lib: Library, runs: RunController, missing: List<Perm>, bottomPad: androidx.compose.ui.unit.Dp,
-    onEdit: (Shortcut) -> Unit, onSetup: () -> Unit,
+    onEdit: (Shortcut) -> Unit, onSetup: () -> Unit, onDelete: (Shortcut) -> Unit,
 ) {
     LazyVerticalGrid(
         columns = TileCells,
@@ -156,7 +178,7 @@ private fun ShortcutGrid(
         if (missing.isNotEmpty()) item(span = { GridItemSpan(maxLineSpan) }) { SetupBanner(missing, onSetup) }
         items(lib.shortcuts, key = { it.id }) { s ->
             ShortcutTile(s, running = runs.running == s.id, done = runs.done == s.id, failed = runs.failed == s.id,
-                onRun = { runs.run(s) }, onEdit = { onEdit(s) })
+                onRun = { runs.run(s) }, onEdit = { onEdit(s) }, onDelete = { onDelete(s) })
         }
         if (lib.shortcuts.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
             Text("Tap + to make your first shortcut.", style = Theme.t.body, color = Theme.c.ink2)
@@ -186,7 +208,9 @@ private fun SetupBanner(missing: List<Perm>, onSetup: () -> Unit) {
 }
 
 @Composable
-private fun ShortcutTile(s: Shortcut, running: Boolean, done: Boolean, failed: Boolean, onRun: () -> Unit, onEdit: () -> Unit) {
+private fun ShortcutTile(s: Shortcut, running: Boolean, done: Boolean, failed: Boolean, onRun: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit) {
+    // 0 → 1 while the … button is held; the tile gives way a little as it fills.
+    val hold = remember { androidx.compose.animation.core.Animatable(0f) }
     val base = s.tint.color()
     val view = androidx.compose.ui.platform.LocalView.current
     val reduced = Theme.reduced
@@ -226,7 +250,7 @@ private fun ShortcutTile(s: Shortcut, running: Boolean, done: Boolean, failed: B
         Modifier
             .fillMaxWidth()
             .height(108.dp)
-            .graphicsLayer { scaleX = pop.value; scaleY = pop.value; translationX = shake.value * density; alpha = breathe }
+            .graphicsLayer { val k = pop.value - 0.05f * hold.value; scaleX = k; scaleY = k; translationX = shake.value * density; alpha = breathe }
             .pressable(label = "Run ${s.name}", onLongClick = onEdit, onClick = onRun)
             .clip(RoundedCornerShape(22.dp))
             .background(base),
@@ -237,18 +261,7 @@ private fun ShortcutTile(s: Shortcut, running: Boolean, done: Boolean, failed: B
             modifier = Modifier.padding(14.dp),
             label = "tileGlyph",
         ) { g -> Glyph(g, Color.White, size = 26.dp) }
-        Box(
-            Modifier
-                .align(Alignment.TopEnd)
-                .padding(8.dp)
-                .size(40.dp)
-                .pressable(scale = 0.9f, label = "Edit ${s.name}", onClick = onEdit),
-            contentAlignment = Alignment.Center,
-        ) {
-            Box(Modifier.size(28.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.24f)), contentAlignment = Alignment.Center) {
-                Glyph("more", Color.White, size = 18.dp)
-            }
-        }
+        HoldToDelete(s.name, hold, onTap = onEdit, onDelete = onDelete, modifier = Modifier.align(Alignment.TopEnd).padding(8.dp))
         Text(
             s.name,
             style = Theme.t.label.copy(fontSize = 16.sp, lineHeight = 20.sp),
@@ -379,6 +392,7 @@ private fun TabBar(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Modifier
                     Modifier
                         .height(segH)
                         .width(if (compact) 108.dp else 124.dp)
+                        .then(if (i == 1) Modifier.tipAnchor("tabAutomation") else Modifier)
                         .onSizeChanged { if (i == 0) segW = it.width }
                         .pressable(scale = 0.96f, label = l, role = androidx.compose.ui.semantics.Role.Tab) { onTab(i) },
                     contentAlignment = Alignment.Center,
@@ -386,6 +400,73 @@ private fun TabBar(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Modifier
                     Text(l, style = Theme.t.label, color = if (tab == i) c.ink else c.ink2)
                 }
             }
+        }
+    }
+}
+
+/**
+ * The tile's … button. Tap opens the editor. Hold and it fills red over 0.7 s — linear, because it
+ * shows time passing — then deletes; let go early and it drains back fast. Undo covers mistakes.
+ */
+@Composable
+private fun HoldToDelete(
+    name: String,
+    hold: androidx.compose.animation.core.Animatable<Float, androidx.compose.animation.core.AnimationVector1D>,
+    onTap: () -> Unit,
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val c = Theme.c
+    val view = androidx.compose.ui.platform.LocalView.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val reduced = Theme.reduced
+    var pressed by remember { mutableStateOf(false) }
+    val press by androidx.compose.animation.core.animateFloatAsState(if (pressed && !reduced) 0.9f else 1f, Motion.settle(), label = "dotPress")
+    Box(
+        modifier
+            .size(40.dp)
+            .graphicsLayer { scaleX = press; scaleY = press }
+            .semantics(mergeDescendants = true) {
+                contentDescription = "More for $name"
+                onClick("Edit $name") { onTap(); true }
+                customActions = listOf(androidx.compose.ui.semantics.CustomAccessibilityAction("Delete $name") { onDelete(); true })
+            }
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    awaitFirstDown().consume()
+                    pressed = true
+                    var deleted = false
+                    val run = scope.launch {
+                        // A short tap is a tap; filling starts only once it's clearly a hold.
+                        kotlinx.coroutines.delay(180)
+                        view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                        hold.animateTo(1f, androidx.compose.animation.core.tween(((1f - hold.value) * 700).toInt(), easing = androidx.compose.animation.core.LinearEasing))
+                        deleted = true
+                        view.performHapticFeedback(if (android.os.Build.VERSION.SDK_INT >= 30) android.view.HapticFeedbackConstants.CONFIRM else android.view.HapticFeedbackConstants.LONG_PRESS)
+                        onDelete()
+                        hold.snapTo(0f)
+                    }
+                    val up = waitForUpOrCancellation()
+                    pressed = false
+                    if (!deleted) {
+                        val wasTap = hold.value == 0f && run.isActive
+                        run.cancel()
+                        if (wasTap && up != null) { up.consume(); onTap() }
+                        scope.launch { hold.animateTo(0f, androidx.compose.animation.core.tween(180, easing = Motion.easeOut)) }
+                    }
+                }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            Modifier.size(28.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.24f)).drawBehind {
+                // Red rises from the bottom as the hold progresses.
+                val h = size.height * hold.value
+                drawRect(c.danger, topLeft = androidx.compose.ui.geometry.Offset(0f, size.height - h), size = androidx.compose.ui.geometry.Size(size.width, h))
+            },
+            contentAlignment = Alignment.Center,
+        ) {
+            Glyph(if (hold.value > 0.01f) "trash" else "more", Color.White, size = if (hold.value > 0.01f) 15.dp else 18.dp)
         }
     }
 }

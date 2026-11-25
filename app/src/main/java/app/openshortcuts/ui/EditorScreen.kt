@@ -213,8 +213,9 @@ fun EditorScreen(shortcut: Shortcut, runs: RunController, onBack: () -> Unit, on
                     val lv = levels(s.actions)
                     itemsIndexed(s.actions, key = { _, a -> a.id }) { i, a ->
                         Column(Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null)) {
-                            if (i > 0) Connector(lv[i])
+                            if (i > 0) Connector(lv[i]) else LaunchedEffect(Unit) { Tour.done(Tour.Step.AddAction) }
                             ActionCard(
+                                anchor = i == 0,
                                 action = a, index = i, all = s.actions, level = lv[i],
                                 onParam = { spec -> editing = i to spec },
                                 onBody = { text -> draft.actions { it[i] = a.copy(params = a.params + ("body" to text)) } },
@@ -258,10 +259,11 @@ fun EditorScreen(shortcut: Shortcut, runs: RunController, onBack: () -> Unit, on
                 .windowInsetsPadding(WindowInsets.topBar.only(WindowInsetsSides.Top + WindowInsetsSides.Bottom))
                 .windowInsetsPadding(WindowInsets.ime.only(WindowInsetsSides.Bottom))
                 .padding(start = 10.dp, top = 10.dp, bottom = 10.dp), true)
-            Rail({ GlassCircle("chevronLeft", "Back", onClick = onBack) })
+            Rail({ GlassCircle("chevronLeft", "Back", modifier = Modifier.tipAnchor("railBack"), onClick = onBack) })
         }
     }
 
+    LaunchedEffect(editing) { if (editing != null) Tour.done(Tour.Step.EditToken) }
     editing?.let { (i, spec) ->
         val a = s.actions.getOrNull(i)
         if (a == null) { editing = null; return@let }
@@ -332,6 +334,7 @@ fun tokenFor(ctx: android.content.Context, a: Action, spec: ParamSpec, all: List
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ActionCard(
+    anchor: Boolean = false,
     action: Action, index: Int, all: List<Action>, level: Int,
     onParam: (ParamSpec) -> Unit, onBody: (String) -> Unit, onRemove: () -> Unit,
     onMove: (Int) -> Unit, onDuplicate: () -> Unit,
@@ -342,7 +345,7 @@ private fun ActionCard(
     var menu by remember { mutableStateOf(false) }
     val body = t.params.firstOrNull { it.key == "body" }
 
-    Box(Modifier.padding(start = 18.dp * level)) {
+    Box(Modifier.padding(start = 18.dp * level).then(if (anchor) Modifier.tipAnchor("firstAction") else Modifier)) {
         SwipeToDelete(t.title, onDelete = onRemove) {
         Card(Modifier.fillMaxWidth().pressable(scale = 0.985f, label = "More for ${t.title}", onLongClick = { menu = true }, onClick = {})) {
             Row(Modifier.padding(start = 16.dp, end = 4.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -472,6 +475,7 @@ private fun ActionSheet(
         Row(
             Modifier
                 .padding(horizontal = 14.dp)
+                .tipAnchor("search")
                 .fillMaxWidth()
                 .height(46.dp)
                 .clip(RoundedCornerShape(23.dp))
@@ -513,15 +517,15 @@ private fun ActionSheet(
             ToolButton("redo", "Redo", canRedo, onRedo)
             ToolButton("info", "Details", true, onInfo)
             ToolButton("share", "Share", true, onShare)
-            ToolButton(if (running) "stopFill" else "playFill", if (running) "Stop" else "Run", true, onRun, strong = true)
+            ToolButton(if (running) "stopFill" else "playFill", if (running) "Stop" else "Run", true, { Tour.done(Tour.Step.Run); onRun() }, strong = true, modifier = Modifier.tipAnchor("run"))
         }
     }
 }
 
 @Composable
-private fun ToolButton(glyph: String, label: String, enabled: Boolean, onClick: () -> Unit, strong: Boolean = false) {
+private fun ToolButton(glyph: String, label: String, enabled: Boolean, onClick: () -> Unit, strong: Boolean = false, modifier: Modifier = Modifier) {
     val c = Theme.c
-    Box(Modifier.size(48.dp).pressable(enabled = enabled, scale = 0.9f, label = label, onClick = onClick), contentAlignment = Alignment.Center) {
+    Box(modifier.size(48.dp).pressable(enabled = enabled, scale = 0.9f, label = label, onClick = onClick), contentAlignment = Alignment.Center) {
         Glyph(glyph, if (enabled) c.ink else c.ink3, size = if (strong) 28.dp else 25.dp, label = label)
     }
 }

@@ -19,6 +19,7 @@ class ShortcutsApp : Application() {
     override fun onCreate() {
         super.onCreate()
         Store.init(this)
+        app.openshortcuts.ui.Tour.init(this, freshInstall = Store.fresh)
         Notifs.channels(this)
         Store.onChange = { Scheduler.rescheduleAll(this, it); Launchers.sync(this, it); app.openshortcuts.engine.EventHost.current?.watchApps() }
         Scheduler.rescheduleAll(this)

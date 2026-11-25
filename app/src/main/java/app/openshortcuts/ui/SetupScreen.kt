@@ -140,6 +140,11 @@ fun SetupScreen(tick: Int, onBack: () -> Unit) {
             }
 
             Spacer(Modifier.height(22.dp))
+            SettingsGroup("Getting started", surface = c.card) {
+                SettingsRow("Show Tour Again", "layers", Tint.Blue.color(), "Walk through making a shortcut and an automation.",
+                    onClick = { Tour.restart(); onBack() }) { Glyph("chevronRight", c.ink3, size = 16.dp) }
+            }
+            Spacer(Modifier.height(22.dp))
             SettingsGroup("If automations don't run", surface = c.card) {
                 SettingsRow("Autostart", "flash", Tint.Orange.color(),
                     "On Xiaomi, Oppo, Vivo and Samsung, also allow Autostart (or “background activity”) for OpenShortcuts in the phone's own settings.")
