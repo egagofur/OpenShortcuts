@@ -4,10 +4,10 @@
 	import type { Tint } from '#lib/site.ts';
 
 	// Every size below is the app's dp/sp value (ui/Theme.kt, Kit.kt, HomeScreen.kt, AutomationScreen.kt).
-	// The app lays itself out for an iPhone Duo sized inner screen (820×576 dp) and its outer screen (396×576 dp),
-	// the same proportions as the 3D model's screens (15.8×11.1 and 7.74×11.25).
+	// Inner screen 682×479 dp and outer screen 396×576 dp: the 3D model's proportions (15.8×11.1 and 7.74×11.25).
+	// Under 480 dp tall the app switches to its landscape layout, the same one it shows on a phone held sideways.
 	type Lay = { w: number; h: number; top: number; start: number; bottom: number; short: boolean; k: number };
-	const INNER = { w: 820, h: 576 };
+	const INNER = { w: 682, h: 479 };
 	const COVER = { w: 396, h: 576 };
 	const BEZEL = 7;
 	const RIM = 3;
@@ -63,8 +63,9 @@
 	let stageW = $state(960);
 	let rect = $state({ x: 0, y: 0, w: 1, h: 1, r: 0 });
 	let home = $state(true);
-	let inner = $derived<Lay>({ ...INNER, top: 0, start: 0, bottom: 0, short: false, k: rect.w / INNER.w });
-	const coverLay: Lay = { ...COVER, top: 0, start: 0, bottom: 0, short: false, k: 1 };
+	let inner = $derived<Lay>({ ...INNER, top: 0, start: 0, bottom: 0, short: INNER.h < 480, k: rect.w / INNER.w });
+	// The outer screen has a camera hole at its top corner; content starts below it, like a status bar.
+	const coverLay: Lay = { ...COVER, top: 30, start: 0, bottom: 0, short: false, k: 1 };
 	let canvas = $state<HTMLCanvasElement | undefined>();
 	let liveEl = $state<HTMLElement | undefined>();
 	let coverEl = $state<HTMLElement | undefined>();
@@ -96,7 +97,13 @@
 						style: { scale: '1', transform: 'none', left: '0', top: '0' }
 					})
 				: Promise.resolve(null);
-		const [a, b] = await Promise.all([shot(liveEl, INNER.w, INNER.h), shot(coverEl, COVER.w, COVER.h)]);
+		// Freeze entrance animations: the photo would otherwise replay them from their first frame.
+		liveEl?.classList.add('still');
+		coverEl?.classList.add('still');
+		const [a, b] = await Promise.all([shot(liveEl, INNER.w, INNER.h), shot(coverEl, COVER.w, COVER.h)]).finally(() => {
+			liveEl?.classList.remove('still');
+			coverEl?.classList.remove('still');
+		});
 		if (a) duo.setTexture('inner', a);
 		if (b) duo.setTexture('outer', b);
 	}
@@ -346,7 +353,8 @@
 			([e]) => {
 				if (e.isIntersecting) {
 					if (!pinned) setTimeout(() => foldTo(1, 3.1), duo ? 0 : 900);
-					tapBattery();
+					// On the 3D stage the screens are photographed; a ring mid-refill would show as 0.
+					if (!wide) tapBattery();
 					io.disconnect();
 				}
 			},
@@ -650,6 +658,10 @@
 	.live :global(.viewport),
 	.cover-src :global(.viewport) {
 		border-radius: 0;
+	}
+	:global(.still *) {
+		animation: none !important;
+		transition: none !important;
 	}
 	.cover-src {
 		position: absolute;

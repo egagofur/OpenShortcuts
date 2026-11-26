@@ -16,7 +16,8 @@ const INNER = { w: 15.8, h: 11.1 };
 const OUTER = { x0: 0.234, w: 7.74, h: 11.25 };
 const SCREEN_R = 0.62;
 const EYE = new THREE.Vector3(0, 0, 40);
-const CLOSED_OUTER_Z = 2 * HINGE_Z - BACK_Z;
+const OUTER_Z = BACK_Z - 0.012;
+const CLOSED_OUTER_Z = 2 * HINGE_Z - OUTER_Z;
 
 const foldGlsl = /* glsl */ `
 uniform float foldAngle;
@@ -75,7 +76,7 @@ vec3 screenColor() {
   #else
     // Anchor the image to the projected hinge-side edge of the outer screen.
     float c = cos(foldAngle), s = sin(foldAngle);
-    vec2 hingeEdge = vec2(-${OUTER.x0.toFixed(4)}, ${BACK_Z.toFixed(4)} - ${HINGE_Z.toFixed(4)});
+    vec2 hingeEdge = vec2(-${OUTER.x0.toFixed(4)}, ${OUTER_Z.toFixed(4)} - ${HINGE_Z.toFixed(4)});
     vec2 foldedEdge = vec2(c * hingeEdge.x + s * hingeEdge.y, -s * hingeEdge.x + c * hingeEdge.y + ${HINGE_Z.toFixed(4)});
     float edgeDepth = (${SCREEN_Z.toFixed(4)} - uiEye.z) / (foldedEdge.y - uiEye.z);
     float anchorX = uiEye.x + (foldedEdge.x - uiEye.x) * edgeDepth;
@@ -185,7 +186,8 @@ export function createDuo(canvas: HTMLCanvasElement): Duo {
   rim.position.set(15, 5, -15);
   scene.add(rim);
 
-  const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 250);
+  // A tight depth range keeps the screens from z-fighting with the glass right behind them.
+  const camera = new THREE.PerspectiveCamera(32, 1, 10, 90);
   camera.position.copy(EYE);
   const controls = new OrbitControls(camera, canvas);
   controls.enableDamping = true;
@@ -228,7 +230,14 @@ export function createDuo(canvas: HTMLCanvasElement): Duo {
   function screenMaterial(kind: ScreenKind, flexible: boolean) {
     const texture = new THREE.CanvasTexture(placeholder);
     texture.colorSpace = THREE.SRGBColorSpace;
-    const material = new THREE.MeshBasicMaterial({ map: texture, toneMapped: false, transparent: true });
+    const material = new THREE.MeshBasicMaterial({
+      map: texture,
+      toneMapped: false,
+      transparent: true,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -4
+    });
     const pixel = { value: new THREE.Vector2(1 / 4, 1 / 4) };
     const frame =
       kind === 'inner'
@@ -274,7 +283,7 @@ export function createDuo(canvas: HTMLCanvasElement): Duo {
   // Outer screen: on the back of the moving half, facing away until the phone closes.
   const outerGeo = new THREE.PlaneGeometry(OUTER.w, OUTER.h, 1, 1);
   outerGeo.rotateY(Math.PI);
-  outerGeo.translate(-(OUTER.x0 + OUTER.w / 2), 0, BACK_Z - 0.0015);
+  outerGeo.translate(-(OUTER.x0 + OUTER.w / 2), 0, OUTER_Z);
   const uv = outerGeo.attributes.uv;
   const pos = outerGeo.attributes.position;
   for (let i = 0; i < pos.count; i++) uv.setXY(i, (-OUTER.x0 - pos.getX(i)) / OUTER.w, (pos.getY(i) + OUTER.h / 2) / OUTER.h);
