@@ -46,6 +46,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.rememberScrollState
@@ -127,10 +128,43 @@ fun GlassCircle(
     onClick: () -> Unit,
 ) {
     val c = Theme.c
+    val view = LocalView.current
+    val reduced = Theme.reduced
+    var showTip by remember { mutableStateOf(false) }
+    LaunchedEffect(showTip) {
+        if (showTip) {
+            delay(1800)
+            showTip = false
+        }
+    }
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val pos = remember(density) {
+        val gap = with(density) { 10.dp.roundToPx() }
+        object : androidx.compose.ui.window.PopupPositionProvider {
+            override fun calculatePosition(
+                anchorBounds: androidx.compose.ui.unit.IntRect,
+                windowSize: androidx.compose.ui.unit.IntSize,
+                layoutDirection: androidx.compose.ui.unit.LayoutDirection,
+                popupContentSize: androidx.compose.ui.unit.IntSize,
+            ): androidx.compose.ui.unit.IntOffset {
+                val x = (anchorBounds.left - popupContentSize.width - gap).coerceAtLeast(gap)
+                val y = anchorBounds.top + (anchorBounds.height - popupContentSize.height) / 2
+                return androidx.compose.ui.unit.IntOffset(x, y)
+            }
+        }
+    }
     Box(
         modifier
             .size(size)
-            .pressable(scale = 0.94f, label = label, onClick = onClick)
+            .pressable(
+                scale = 0.94f,
+                label = label,
+                onLongClick = {
+                    view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                    showTip = true
+                },
+                onClick = { showTip = false; onClick() },
+            )
             .shadow(if (c.dark) 0.dp else 8.dp, CircleShape, ambientColor = c.shadow, spotColor = c.shadow)
             .clip(CircleShape)
             .background(fill)
@@ -138,6 +172,36 @@ fun GlassCircle(
         contentAlignment = Alignment.Center,
     ) {
         Glyph(glyph, tint, size = size * 0.46f, label = label)
+        if (showTip && label.isNotBlank()) {
+            androidx.compose.ui.window.Popup(
+                popupPositionProvider = pos,
+                onDismissRequest = { showTip = false },
+            ) {
+                val scale = remember { Animatable(if (reduced) 1f else 0.94f) }
+                val alpha = remember { Animatable(if (reduced) 1f else 0f) }
+                LaunchedEffect(Unit) {
+                    if (!reduced) {
+                        launch { scale.animateTo(1f, tween(160, easing = Motion.easeOut)) }
+                        alpha.animateTo(1f, tween(140, easing = Motion.easeOut))
+                    }
+                }
+                Box(
+                    Modifier
+                        .graphicsLayer {
+                            scaleX = scale.value
+                            scaleY = scale.value
+                            this.alpha = alpha.value
+                            transformOrigin = androidx.compose.ui.graphics.TransformOrigin(1f, 0.5f)
+                        }
+                        .shadow(if (c.dark) 0.dp else 8.dp, RoundedCornerShape(10.dp), ambientColor = c.shadow, spotColor = c.shadow)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(c.ink)
+                        .padding(horizontal = 12.dp, vertical = 7.dp),
+                ) {
+                    Text(label, style = Theme.t.small, color = c.card, maxLines = 1, softWrap = false)
+                }
+            }
+        }
     }
 }
 
@@ -329,6 +393,47 @@ fun Rail(vararg controls: @Composable () -> Unit) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(if (short) 10.dp else 14.dp)) {
                 (if (tall || short) controls.reversed() else controls.toList()).forEach { it() }
             }
+        }
+    }
+}
+
+/** Portrait phones give the rail's width back to content: its buttons move to a floating bar at the bottom. */
+val useBottomBar: Boolean
+    @Composable get() {
+        val cfg = androidx.compose.ui.platform.LocalConfiguration.current
+        return cfg.screenWidthDp < 600 && cfg.screenHeightDp > cfg.screenWidthDp
+    }
+
+private val BAR_HEIGHT = 64.dp
+private val BAR_GAP = 12.dp
+
+/** Room to leave under scrolling content so its last row clears the bottom bar. */
+@Composable
+fun bottomBarSpace(): Dp =
+    BAR_HEIGHT + BAR_GAP * 2 + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+
+@Composable
+fun BottomBar(controls: List<@Composable () -> Unit>, modifier: Modifier = Modifier) {
+    val c = Theme.c
+    Box(
+        modifier
+            .fillMaxWidth()
+            .windowInsetsPadding(WindowInsets.navigationBars)
+            .padding(bottom = BAR_GAP),
+        contentAlignment = Alignment.BottomCenter,
+    ) {
+        Row(
+            Modifier
+                .height(BAR_HEIGHT)
+                .shadow(18.dp, RoundedCornerShape(BAR_HEIGHT / 2), ambientColor = Color.Black.copy(alpha = 0.25f), spotColor = Color.Black.copy(alpha = 0.25f))
+                .clip(RoundedCornerShape(BAR_HEIGHT / 2))
+                .background(c.card)
+                .border(1.dp, c.hairline, RoundedCornerShape(BAR_HEIGHT / 2))
+                .padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            controls.forEach { it() }
         }
     }
 }

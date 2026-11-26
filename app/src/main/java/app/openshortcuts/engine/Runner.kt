@@ -335,6 +335,16 @@ object Runner {
                 r.error?.let { fail(it) }
                 r.shown.lastOrNull() ?: prev
             }
+            ActionType.WORKSPACE_ACTION -> {
+                val call = app.openshortcuts.model.WorkspaceCall.decode(a.p("action")) ?: fail("Choose a workspace action.")
+                val adapter = app.openshortcuts.model.AdapterStore.get(call.adapterId) ?: fail("That workspace isn't on this phone anymore.")
+                val action = adapter.actionById(call.actionId) ?: fail("${adapter.name} no longer has that action.")
+                if (!app.openshortcuts.model.AdapterStore.hasToken(adapter)) fail("Add your ${adapter.name} access token in the workspace's settings.")
+                val res = AdapterEngine.runCall(adapter, action, call.params.mapValues { fill(st, it.value) })
+                if (!res.ok) fail("${adapter.name}: ${res.message}")
+                log += "${adapter.name}: ${res.message}"
+                res.message
+            }
             ActionType.OPEN_APP -> {
                 val pkg = a.p("app").ifBlank { fail("Choose an app to open.") }
                 val intent = ctx.packageManager.getLaunchIntentForPackage(pkg) ?: fail("That app isn't installed.")

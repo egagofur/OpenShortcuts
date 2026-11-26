@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Workspace tokens never leave the phone: not in cloud backup, not in device-to-device transfer.
+     Workspace caches live in noBackupFilesDir, which is never backed up. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="adapter_secrets.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="adapter_secrets.xml" />
+    </device-transfer>
+</data-extraction-rules>

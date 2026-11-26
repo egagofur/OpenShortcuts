@@ -18,7 +18,18 @@ object Portable {
     val importError = MutableStateFlow<String?>(null)
 
     fun receive(ctx: Context, uri: Uri) {
-        runCatching { read(ctx, uri) }
+        val raw = runCatching { readRaw(ctx, uri) }.getOrElse {
+            importError.value = it.message ?: "Couldn't read that file."
+            return
+        }
+        val root = runCatching { JSONObject(raw) }.getOrNull()
+        if (root?.optString("format") == WorkspaceAdapter.FORMAT) {
+            runCatching { WorkspaceAdapter.fromJson(root) }
+                .onSuccess { AdapterStore.incoming.value = it; importError.value = null }
+                .onFailure { importError.value = it.message ?: "Couldn't read adapter file." }
+            return
+        }
+        runCatching { decode(raw, Store.library.value) }
             .onSuccess { incoming.value = it; importError.value = null }
             .onFailure { importError.value = it.message ?: "Couldn't read that file." }
     }
@@ -77,7 +88,9 @@ object Portable {
         return "$name $n"
     }
 
-    fun read(ctx: Context, uri: Uri): Imported {
+    fun read(ctx: Context, uri: Uri): Imported = decode(readRaw(ctx, uri), Store.library.value)
+
+    private fun readRaw(ctx: Context, uri: Uri): String {
         val bytes = ctx.contentResolver.openInputStream(uri)?.use { input ->
             val out = java.io.ByteArrayOutputStream()
             val buf = ByteArray(8192)
@@ -85,7 +98,7 @@ object Portable {
             out.toByteArray()
         } ?: error("Couldn't open that file.")
         if (bytes.size > MAX_BYTES) error("That file is too big to be a shortcut.")
-        return decode(bytes.toString(Charsets.UTF_8), Store.library.value)
+        return bytes.toString(Charsets.UTF_8)
     }
 
     fun shareIntent(ctx: Context, s: Shortcut, recipe: String): Intent {

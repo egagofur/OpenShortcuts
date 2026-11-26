@@ -82,6 +82,9 @@ fun HomeScreen(
     onAutomation: (Automation) -> Unit,
     onToggle: (Automation) -> Unit,
     onSetup: () -> Unit,
+    adapters: List<app.openshortcuts.model.WorkspaceAdapter> = emptyList(),
+    onOpenWorkspace: (app.openshortcuts.model.WorkspaceAdapter) -> Unit = {},
+    onImportAdapter: () -> Unit = {},
 ) {
     val c = Theme.c
     LaunchedEffect(Unit) { Tour.done(Tour.Step.GoBack) }
@@ -99,17 +102,20 @@ fun HomeScreen(
                 transitionSpec = { fadeIn(tween(160)) togetherWith fadeOut(tween(100)) },
                 label = "tab",
             ) { t ->
-                if (t == 0) ShortcutGrid(lib, runs, missingSetup, bottomPad, onEdit, onSetup) { s ->
-                    removedShortcut = Triple(s, lib.shortcuts.indexOfFirst { it.id == s.id }, lib.automations.filter { it.shortcutId == s.id })
-                    app.openshortcuts.model.Store.deleteShortcut(s.id)
-                }
-                else AutomationList(lib, bottomPad, onAutomation, onToggle) { a ->
-                    removed = a to lib.automations.indexOfFirst { it.id == a.id }
-                    app.openshortcuts.model.Store.deleteAutomation(a.id)
+                when (t) {
+                    0 -> ShortcutGrid(lib, runs, missingSetup, bottomPad, onEdit, onSetup) { s ->
+                        removedShortcut = Triple(s, lib.shortcuts.indexOfFirst { it.id == s.id }, lib.automations.filter { it.shortcutId == s.id })
+                        app.openshortcuts.model.Store.deleteShortcut(s.id)
+                    }
+                    1 -> AutomationList(lib, bottomPad, onAutomation, onToggle) { a ->
+                        removed = a to lib.automations.indexOfFirst { it.id == a.id }
+                        app.openshortcuts.model.Store.deleteAutomation(a.id)
+                    }
+                    else -> WorkspaceHub(adapters, bottomPad, onOpen = onOpenWorkspace, onImport = onImportAdapter)
                 }
             }
             TabBar(
-                tab = tab, onTab = onTab, compact = short,
+                tab = tab, onTab = onTab, compact = short, showWorkspaces = adapters.isNotEmpty(),
                 modifier = if (short) Modifier
                     .align(Alignment.TopEnd)
                     .windowInsetsPadding(WindowInsets.topBar.only(WindowInsetsSides.Top))
@@ -117,7 +123,7 @@ fun HomeScreen(
                 else Modifier
                     .align(Alignment.BottomCenter)
                     .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Start))
-                    .padding(start = 16.dp, bottom = 16.dp),
+                    .padding(start = 12.dp, end = 4.dp, bottom = 16.dp),
             )
             Box(Modifier.fillMaxSize().padding(bottom = if (short) 0.dp else 72.dp)) {
                 UndoBar(removed?.let { "Automation deleted" }, "Undo") {
@@ -131,7 +137,7 @@ fun HomeScreen(
             }
         }
         Rail(
-            { GlassCircle("plus", if (tab == 0) "New shortcut" else "New automation", modifier = Modifier.tipAnchor("railPlus"), onClick = onNew) },
+            { GlassCircle("plus", if (tab == 0) "New shortcut" else if (tab == 1) "New automation" else "Import workspace", modifier = Modifier.tipAnchor("railPlus"), onClick = onNew) },
             { GlassCircle("sliders", "Setup", onClick = onSetup) },
         )
     }
@@ -362,36 +368,39 @@ fun TriggerKind.tint(): app.openshortcuts.model.Tint = when (this) {
 }
 
 @Composable
-private fun TabBar(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Modifier, compact: Boolean = false) {
+private fun TabBar(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Modifier, compact: Boolean = false, showWorkspaces: Boolean = false) {
     val segH = if (compact) 40.dp else 48.dp
     val c = Theme.c
-    val labels = listOf("Shortcuts", "Automation")
-    var segW by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
-    val density = LocalDensity.current
-    val x by animateDpAsState(with(density) { (segW * tab).toDp() }, Motion.settle(), label = "seg")
-    Box(
-        modifier
-            .shadow(if (c.dark) 0.dp else 18.dp, RoundedCornerShape(30.dp), ambientColor = c.shadow, spotColor = c.shadow)
-            .clip(RoundedCornerShape(30.dp))
-            .background(c.raised)
-            .padding(5.dp),
-    ) {
-        if (segW > 0) Box(
-            Modifier.offset(x = x).width(with(density) { segW.toDp() }).height(segH)
-                .clip(RoundedCornerShape(segH / 2)).background(c.fill),
-        )
-        Row {
-            labels.forEachIndexed { i, l ->
-                Box(
-                    Modifier
-                        .height(segH)
-                        .width(if (compact) 108.dp else 124.dp)
-                        .then(if (i == 1) Modifier.tipAnchor("tabAutomation") else Modifier)
-                        .onSizeChanged { if (i == 0) segW = it.width }
-                        .pressable(scale = 0.96f, label = l, role = androidx.compose.ui.semantics.Role.Tab) { onTab(i) },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(l, style = Theme.t.label, color = if (tab == i) c.ink else c.ink2)
+    val labels = if (showWorkspaces) listOf("Shortcuts", "Automation", "Workspaces") else listOf("Shortcuts", "Automation")
+    val maxSeg = if (compact) 108.dp else 124.dp
+    androidx.compose.foundation.layout.BoxWithConstraints(modifier) {
+        val avail = if (compact) (maxWidth - 10.dp).coerceAtMost(maxSeg * labels.size) else (maxWidth - 10.dp).coerceAtMost(maxSeg * labels.size)
+        val segDp = (avail / labels.size).coerceAtLeast(72.dp)
+        val x by animateDpAsState(segDp * tab.coerceIn(0, labels.lastIndex), Motion.settle(), label = "seg")
+        val labelStyle = if (segDp < 104.dp) Theme.t.label.copy(fontSize = 13.sp) else Theme.t.label
+        Box(
+            Modifier
+                .shadow(if (c.dark) 0.dp else 18.dp, RoundedCornerShape(30.dp), ambientColor = c.shadow, spotColor = c.shadow)
+                .clip(RoundedCornerShape(30.dp))
+                .background(c.raised)
+                .padding(5.dp),
+        ) {
+            Box(
+                Modifier.offset(x = x).width(segDp).height(segH)
+                    .clip(RoundedCornerShape(segH / 2)).background(c.fill),
+            )
+            Row {
+                labels.forEachIndexed { i, l ->
+                    Box(
+                        Modifier
+                            .height(segH)
+                            .width(segDp)
+                            .then(if (i == 1) Modifier.tipAnchor("tabAutomation") else Modifier)
+                            .pressable(scale = 0.96f, label = l, role = androidx.compose.ui.semantics.Role.Tab) { onTab(i) },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(l, style = labelStyle, color = if (tab == i) c.ink else c.ink2, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
+                    }
                 }
             }
         }

@@ -6,6 +6,7 @@ import android.os.Bundle
 import app.openshortcuts.engine.Launchers
 import app.openshortcuts.engine.Notifs
 import app.openshortcuts.engine.Scheduler
+import app.openshortcuts.model.AdapterStore
 import app.openshortcuts.model.Store
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,6 +20,8 @@ class ShortcutsApp : Application() {
     override fun onCreate() {
         super.onCreate()
         Store.init(this)
+        AdapterStore.init(this)
+        app.openshortcuts.engine.AdapterEngine.init(this)
         app.openshortcuts.ui.Tour.init(this, freshInstall = Store.fresh)
         Notifs.channels(this)
         Store.onChange = { Scheduler.rescheduleAll(this, it); Launchers.sync(this, it); app.openshortcuts.engine.EventHost.current?.watchApps() }

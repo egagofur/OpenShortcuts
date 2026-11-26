@@ -40,6 +40,8 @@ sealed interface Route {
     data class Auto(val id: String) : Route
     data object Setup : Route
     data object Gallery : Route
+    data class Workspace(val id: String) : Route
+    data class WorkspaceItem(val adapterId: String, val widgetId: String, val itemJson: String) : Route
 }
 
 class MainActivity : ComponentActivity() {
@@ -85,6 +87,9 @@ private fun App() {
     var draft by remember { mutableStateOf<app.openshortcuts.engine.Describe.Draft?>(null) }
     val incoming by app.openshortcuts.model.Portable.incoming.collectAsStateWithLifecycle()
     val importError by app.openshortcuts.model.Portable.importError.collectAsStateWithLifecycle()
+    val adapters by app.openshortcuts.model.AdapterStore.adapters.collectAsStateWithLifecycle()
+    val incomingAdapter by app.openshortcuts.model.AdapterStore.incoming.collectAsStateWithLifecycle()
+    val adapterError by app.openshortcuts.model.AdapterStore.importError.collectAsStateWithLifecycle()
     val pickFile = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
     ) { uri -> uri?.let { app.openshortcuts.model.Portable.receive(ctx, it) } }
@@ -119,12 +124,19 @@ private fun App() {
                 lib = lib, tab = tab, runs = runs, missingSetup = missingSetup,
                 onTab = { tab = it },
                 onNew = {
-                    if (tab == 0) newShortcut = true else newAuto = true
+                    when (tab) {
+                        0 -> newShortcut = true
+                        1 -> newAuto = true
+                        else -> pickFile.launch(arrayOf("*/*"))
+                    }
                 },
                 onEdit = { push(Route.Editor(it.id)) },
                 onAutomation = { push(Route.Auto(it.id)) },
                 onToggle = { Store.upsert(it.copy(enabled = !it.enabled)) },
                 onSetup = { push(Route.Setup) },
+                adapters = adapters,
+                onOpenWorkspace = { push(Route.Workspace(it.id)) },
+                onImportAdapter = { pickFile.launch(arrayOf("*/*")) },
             )
             is Route.Editor -> {
                 val s = remember(r.id) { Store.shortcut(r.id) }
@@ -148,6 +160,19 @@ private fun App() {
             }
             Route.Setup -> SetupScreen(resumeTick, onBack = ::pop)
             Route.Gallery -> app.openshortcuts.ui.GalleryScreen(onBack = ::pop, onOpen = { push(Route.Editor(it)) })
+            is Route.Workspace -> app.openshortcuts.ui.WorkspaceScreen(
+                adapterId = r.id,
+                runs = runs,
+                onOpenDetail = { widgetId, itemJson -> push(Route.WorkspaceItem(r.id, widgetId, itemJson)) },
+                onBack = ::pop,
+            )
+            is Route.WorkspaceItem -> app.openshortcuts.ui.WorkspaceDetailScreen(
+                adapterId = r.adapterId,
+                widgetId = r.widgetId,
+                itemJson = r.itemJson,
+                runs = runs,
+                onBack = ::pop,
+            )
         }
     }
     }
@@ -203,6 +228,26 @@ private fun App() {
             app.openshortcuts.ui.DialogTitle("Couldn't import", msg)
             app.openshortcuts.ui.PrimaryButton("OK", androidx.compose.ui.Modifier.fillMaxWidth()) {
                 app.openshortcuts.model.Portable.importError.value = null
+            }
+        }
+    }
+    incomingAdapter?.let { imp ->
+        app.openshortcuts.ui.ImportAdapterDialog(
+            imp,
+            onCancel = { app.openshortcuts.model.AdapterStore.incoming.value = null },
+            onAdd = {
+                app.openshortcuts.model.AdapterStore.incoming.value = null
+                app.openshortcuts.model.AdapterStore.upsert(imp)
+                nav.reset(listOf(Route.Home)); tab = 2
+                push(Route.Workspace(imp.id))
+            },
+        )
+    }
+    adapterError?.let { msg ->
+        app.openshortcuts.ui.DuoDialog({ app.openshortcuts.model.AdapterStore.importError.value = null }) {
+            app.openshortcuts.ui.DialogTitle("Couldn't import adapter", msg)
+            app.openshortcuts.ui.PrimaryButton("OK", androidx.compose.ui.Modifier.fillMaxWidth()) {
+                app.openshortcuts.model.AdapterStore.importError.value = null
             }
         }
     }

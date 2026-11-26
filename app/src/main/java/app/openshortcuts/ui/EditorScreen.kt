@@ -310,6 +310,7 @@ fun tokenFor(ctx: android.content.Context, a: Action, spec: ParamSpec, all: List
         ParamKind.DATETIME -> TokenView(dayTimeLabel(v).ifBlank { spec.placeholder }, empty = v.isBlank())
         ParamKind.CHOICE -> TokenView(if (v == "and let me tap Send") "for review" else v)
         ParamKind.SHORTCUT -> Store.shortcut(v)?.let { TokenView(it.name, it.glyph, it.tint.color()) } ?: TokenView(spec.placeholder, empty = true)
+        ParamKind.WORKSPACE_ACTION -> workspaceCallLabel(v)?.let { TokenView(it) } ?: TokenView(spec.placeholder, empty = v.isBlank())
         ParamKind.APP -> if (v.isBlank()) TokenView(spec.placeholder, empty = true)
             else TokenView(runCatching { ctx.packageManager.getApplicationLabel(ctx.packageManager.getApplicationInfo(v, 0)).toString() }.getOrDefault(v))
         ParamKind.INPUT -> if (v == "@prev") {
@@ -592,6 +593,7 @@ private fun keywords(t: ActionType): List<String> = when (t) {
     ActionType.ASK -> listOf("tanya", "input", "masukan", "prompt")
     ActionType.SET_VARIABLE, ActionType.GET_VARIABLE -> listOf("variabel", "variable", "simpan")
     ActionType.COPY -> listOf("salin", "clipboard", "copy")
+    ActionType.WORKSPACE_ACTION -> listOf("workspace", "api", "clock in", "clock out", "absen", "masuk kerja", "pulang", "timer kerja")
     else -> emptyList()
 }
 

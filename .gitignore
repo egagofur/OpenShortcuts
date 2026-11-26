@@ -16,3 +16,7 @@ local.properties
 keystore.properties
 *.jks
 *.keystore
+
+# Private workspace adapters & tokens
+*.osadapter
+local-adapters/

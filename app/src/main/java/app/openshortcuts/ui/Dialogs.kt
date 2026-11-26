@@ -221,6 +221,7 @@ fun ParamDialog(a: Action, spec: ParamSpec, owner: Shortcut, index: Int, onDismi
                 Spacer(Modifier.height(16.dp))
                 PrimaryButton("Done", Modifier.fillMaxWidth()) { done(v) }
             }
+            ParamKind.WORKSPACE_ACTION -> WorkspaceActionPicker(a.p(spec.key), vars) { done(it) }
             ParamKind.SHORTCUT -> {
                 val options = Store.library.value.shortcuts.filter { it.id != owner.id }
                 if (options.isEmpty()) Text("Make another shortcut first.", style = Theme.t.body, color = c.ink2)

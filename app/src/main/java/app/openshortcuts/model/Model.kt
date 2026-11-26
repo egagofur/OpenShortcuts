@@ -4,7 +4,7 @@ import java.time.LocalTime
 import java.time.DayOfWeek
 import java.util.UUID
 
-enum class ParamKind { TEXT, NUMBER, CHOICE, TIME, APP, SHORTCUT, INPUT, PHONE, EMAIL, DATETIME }
+enum class ParamKind { TEXT, NUMBER, CHOICE, TIME, APP, SHORTCUT, INPUT, PHONE, EMAIL, DATETIME, WORKSPACE_ACTION }
 
 data class ParamSpec(
     val key: String,
@@ -345,6 +345,12 @@ enum class ActionType(
     OPEN_APP(
         "Open App", "Open {app}", Category.Apps, Tint.Blue, "grid",
         listOf(ParamSpec("app", ParamKind.APP, "", placeholder = "App")),
+    ),
+    WORKSPACE_ACTION(
+        "Run Workspace Action", "Run {action}", Category.Apps, Tint.Indigo, "layers",
+        listOf(ParamSpec("action", ParamKind.WORKSPACE_ACTION, "", placeholder = "Workspace action")),
+        output = "Result",
+        summary = "Runs an action from one of your workspaces, like Clock In. If the workspace shows it's already running, it's skipped.",
     ),
     OPEN_URL(
         "Open URL", "Open {url}", Category.Apps, Tint.Blue, "link",
