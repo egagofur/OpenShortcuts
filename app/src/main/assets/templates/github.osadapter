@@ -1,0 +1,156 @@
+{
+  "format": "openshortcuts-adapter",
+  "version": 2,
+  "id": "github",
+  "name": "GitHub",
+  "subtitle": "Pull requests, reviews and issues",
+  "glyph": "braces",
+  "tint": "Gray",
+  "baseUrl": "https://api.github.com",
+  "allowedDomains": [],
+  "authKind": "bearer",
+  "authHeader": "Authorization",
+  "authPrefix": "Bearer ",
+  "tokenHint": "A fine-grained personal access token",
+  "tabs": [
+    {
+      "id": "overview",
+      "label": "Overview",
+      "endpoint": "/user",
+      "widgets": [
+        {
+          "id": "me",
+          "type": "profile_card",
+          "title": "Profile",
+          "tint": "Gray",
+          "endpoint": "/user",
+          "titlePath": "name",
+          "subtitlePath": "login",
+          "metaPath": "html_url",
+          "badgePath": "type"
+        },
+        {
+          "id": "stats",
+          "type": "stat_grid",
+          "title": "Account",
+          "endpoint": "/user",
+          "metrics": [
+            {
+              "label": "Public repos",
+              "valuePath": "public_repos",
+              "tint": "Blue"
+            },
+            {
+              "label": "Followers",
+              "valuePath": "followers",
+              "tint": "Indigo"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "prs",
+      "label": "My PRs",
+      "endpoint": "/search/issues?q=is:open+is:pr+author:@me&per_page=30",
+      "widgets": [
+        {
+          "id": "my_prs",
+          "type": "list",
+          "title": "Open pull requests",
+          "tint": "Green",
+          "glyph": "none",
+          "endpoint": "/search/issues?q=is:open+is:pr+author:@me&per_page=30",
+          "itemsPath": "items",
+          "titlePath": "title",
+          "subtitlePath": "",
+          "badgePath": "",
+          "metaPath": "updated_at",
+          "detail": {
+            "bodyPath": "body",
+            "urlPath": "html_url",
+            "fields": [
+              {
+                "label": "Comments",
+                "path": "comments"
+              },
+              {
+                "label": "Updated",
+                "path": "updated_at"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "reviews",
+      "label": "Reviews",
+      "endpoint": "/search/issues?q=is:open+is:pr+review-requested:@me&per_page=30",
+      "widgets": [
+        {
+          "id": "reviews",
+          "type": "list",
+          "title": "Waiting for your review",
+          "tint": "Orange",
+          "glyph": "none",
+          "endpoint": "/search/issues?q=is:open+is:pr+review-requested:@me&per_page=30",
+          "itemsPath": "items",
+          "titlePath": "title",
+          "subtitlePath": "user.login",
+          "badgePath": "",
+          "metaPath": "updated_at",
+          "detail": {
+            "bodyPath": "body",
+            "urlPath": "html_url",
+            "fields": [
+              {
+                "label": "Author",
+                "path": "user.login"
+              },
+              {
+                "label": "Updated",
+                "path": "updated_at"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "issues",
+      "label": "Issues",
+      "endpoint": "/issues?filter=assigned&state=open&per_page=30",
+      "widgets": [
+        {
+          "id": "issues",
+          "type": "list",
+          "title": "Assigned to you",
+          "tint": "Red",
+          "glyph": "none",
+          "endpoint": "/issues?filter=assigned&state=open&per_page=30",
+          "itemsPath": "",
+          "titlePath": "title",
+          "subtitlePath": "repository.full_name",
+          "badgePath": "",
+          "metaPath": "updated_at",
+          "detail": {
+            "bodyPath": "body",
+            "urlPath": "html_url",
+            "fields": [
+              {
+                "label": "Repository",
+                "path": "repository.full_name"
+              },
+              {
+                "label": "Updated",
+                "path": "updated_at"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "globalActions": []
+}

@@ -82,6 +82,7 @@ private fun App() {
     var tab by remember { mutableIntStateOf(0) }
     var resumeTick by remember { mutableIntStateOf(0) }
     var newAuto by remember { mutableStateOf(false) }
+    var newWorkspace by remember { mutableStateOf(false) }
     var newShortcut by remember { mutableStateOf(false) }
     var describing by remember { mutableStateOf(false) }
     var draft by remember { mutableStateOf<app.openshortcuts.engine.Describe.Draft?>(null) }
@@ -127,7 +128,7 @@ private fun App() {
                     when (tab) {
                         0 -> newShortcut = true
                         1 -> newAuto = true
-                        else -> pickFile.launch(arrayOf("*/*"))
+                        else -> newWorkspace = true
                     }
                 },
                 onEdit = { push(Route.Editor(it.id)) },
@@ -136,7 +137,7 @@ private fun App() {
                 onSetup = { push(Route.Setup) },
                 adapters = adapters,
                 onOpenWorkspace = { push(Route.Workspace(it.id)) },
-                onImportAdapter = { pickFile.launch(arrayOf("*/*")) },
+                onImportAdapter = { newWorkspace = true },
             )
             is Route.Editor -> {
                 val s = remember(r.id) { Store.shortcut(r.id) }
@@ -183,6 +184,11 @@ private fun App() {
             windowStart = LocalTime.of(23, 0), windowEnd = LocalTime.of(5, 0), warnFirst = false)
         Store.upsert(a); push(Route.Auto(a.id))
     }
+    if (newWorkspace) app.openshortcuts.ui.NewWorkspaceDialog(
+        onDismiss = { newWorkspace = false },
+        onImport = { newWorkspace = false; pickFile.launch(arrayOf("*/*")) },
+        onCreated = { newWorkspace = false; push(Route.Workspace(it.id)) },
+    )
     if (newShortcut) app.openshortcuts.ui.NewShortcutDialog(
         onDismiss = { newShortcut = false },
         onNew = {

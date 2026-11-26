@@ -184,7 +184,9 @@ object AdapterEngine {
         method: String,
         endpoint: String,
         jsonBody: String?,
-    ): AdapterResult = if (!isOnline()) {
+    ): AdapterResult = if (DemoApi.isDemo(AdapterStore.getEffectiveBaseUrl(adapter))) {
+        DemoApi.respond(method, endpoint, jsonBody)
+    } else if (!isOnline()) {
         AdapterResult(false, 0, "You're offline. Connect to the internet and try again.")
     } else try {
         send(adapter, method, endpoint, jsonBody)

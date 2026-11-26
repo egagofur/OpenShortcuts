@@ -149,14 +149,14 @@ fun WorkspaceHub(
             Card(
                 Modifier
                     .fillMaxWidth()
-                    .pressable(label = "Import workspace adapter", onClick = onImport),
+                    .pressable(label = "New workspace", onClick = onImport),
             ) {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconTile("plus", c.accent, size = 34.dp)
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("Import .osadapter", style = Theme.t.label, color = c.ink)
-                        Text("Add a company or custom dashboard locally.", style = Theme.t.small, color = c.ink2)
+                        Text("New Workspace", style = Theme.t.label, color = c.ink)
+                        Text("Start blank, from GitHub, GitLab or the demo, or import a file.", style = Theme.t.small, color = c.ink2)
                     }
                     Glyph("chevronRight", c.ink3, size = 18.dp)
                 }
@@ -185,7 +185,8 @@ fun WorkspaceScreen(
         return
     }
 
-    var editMode by remember(adapterId) { mutableStateOf(false) }
+    // A workspace with nothing on it yet opens ready to build.
+    var editMode by remember(adapterId) { mutableStateOf(curAdapter.tabs.all { it.widgets.isEmpty() }) }
     androidx.activity.compose.BackHandler(enabled = editMode) { editMode = false }
     var showSettings by remember(adapterId) { mutableStateOf(!AdapterStore.hasToken(curAdapter)) }
     var showAddTab by remember { mutableStateOf(false) }
@@ -327,7 +328,7 @@ fun WorkspaceScreen(
                 if (!short) {
                     Spacer(Modifier.height(2.dp))
                     Text(
-                        AdapterStore.getEffectiveBaseUrl(curAdapter).removePrefix("https://"),
+                        curAdapter.subtitle.ifBlank { AdapterStore.getEffectiveBaseUrl(curAdapter).removePrefix("https://") },
                         style = Theme.t.small,
                         color = c.ink2,
                         maxLines = 1,
@@ -484,13 +485,23 @@ fun WorkspaceScreen(
                             pendingRowAction = act to raw
                         },
                         onOpenDetail = { widgetId, item -> onOpenDetail(widgetId, item.raw.toString()) },
-                        onMoveWidget = { widgetIdx, delta ->
-                            val target = widgetIdx + delta
-                            if (target in tab.widgets.indices) {
+                        tabs = tabs,
+                        onMoveWidget = { from, to ->
+                            if (from in tab.widgets.indices && to in tab.widgets.indices) {
                                 val mutable = tab.widgets.toMutableList()
-                                val moved = mutable.removeAt(widgetIdx)
-                                mutable.add(target, moved)
+                                mutable.add(to, mutable.removeAt(from))
                                 saveAdapter(curAdapter.copy(tabs = tabs.mapIndexed { idx, t -> if (idx == pageIdx) t.copy(widgets = mutable) else t }))
+                            }
+                        },
+                        onMoveTab = { from, to ->
+                            if (from in tabs.indices && to in tabs.indices) {
+                                // Stay on the tab you were looking at, wherever it moved to.
+                                val shownId = tabs.getOrNull(pagerState.currentPage)?.id
+                                val mutable = tabs.toMutableList()
+                                mutable.add(to, mutable.removeAt(from))
+                                saveAdapter(curAdapter.copy(tabs = mutable))
+                                val newIdx = mutable.indexOfFirst { it.id == shownId }.coerceAtLeast(0)
+                                scope.launch { pagerState.scrollToPage(newIdx) }
                             }
                         },
                         onDeleteWidget = { widgetId ->
@@ -697,7 +708,9 @@ private fun TabDashboardPage(
     onRunAction: (AdapterAction) -> Unit,
     onSwipeRow: (app.openshortcuts.model.AdapterRowAction, JSONObject) -> Unit,
     onOpenDetail: (widgetId: String, item: WorkspaceItem) -> Unit,
+    tabs: List<AdapterTab>,
     onMoveWidget: (Int, Int) -> Unit,
+    onMoveTab: (Int, Int) -> Unit,
     onDeleteWidget: (String) -> Unit,
     onAddWidget: () -> Unit,
 ) {
@@ -724,33 +737,48 @@ private fun TabDashboardPage(
         contentPadding = PaddingValues(start = Dimens.gutter, end = 4.dp, bottom = bottomPad),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        tab.widgets.forEachIndexed { wIdx, w ->
-            val ep = w.endpoint?.takeIf { it.isNotBlank() } ?: tab.endpoint
-            val result = cache[ep]
-            val payload = result?.getOrNull()
-            val err = result?.exceptionOrNull()?.message
-
-            if (editMode) {
-                item(key = "edit_${w.id}") {
-                    Card(Modifier.fillMaxWidth()) {
-                        Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                            IconTile(w.glyph, w.tint.color(), size = 28.dp)
-                            Spacer(Modifier.width(10.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(w.title.ifBlank { w.type.label }, style = Theme.t.label, color = c.ink, maxLines = 1)
-                                Text(w.type.label, style = Theme.t.small, color = c.ink3)
-                            }
-                            if (wIdx > 0) {
-                                Text("↑", style = Theme.t.title, color = c.accent, modifier = Modifier.padding(horizontal = 8.dp).pressable { onMoveWidget(wIdx, -1) })
-                            }
-                            if (wIdx < tab.widgets.lastIndex) {
-                                Text("↓", style = Theme.t.title, color = c.accent, modifier = Modifier.padding(horizontal = 8.dp).pressable { onMoveWidget(wIdx, 1) })
-                            }
-                            RemoveDot("Remove ${w.title}") { onDeleteWidget(w.id) }
+        if (editMode) {
+            if (tabs.size > 1 || tab.widgets.size > 1) item(key = "edit_hint") {
+                Text("Hold and drag a row to reorder.", style = Theme.t.small, color = c.ink3, modifier = Modifier.padding(start = 4.dp, top = 4.dp))
+            }
+            if (tabs.size > 1) {
+                item(key = "edit_tabs") {
+                    Column {
+                        Text("Tabs", style = Theme.t.label, color = c.ink2, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
+                        ReorderableColumn(tabs, keyOf = { it.id }, onMove = onMoveTab) { t, _ ->
+                            EditRow(
+                                glyph = "grid",
+                                tint = if (t.id == tab.id) c.accent else c.ink3,
+                                title = t.label,
+                                subtitle = if (t.widgets.size == 1) "1 widget" else "${t.widgets.size} widgets",
+                            )
                         }
                     }
                 }
             }
+            item(key = "edit_widgets_${tab.id}") {
+                Column {
+                    Text("Widgets on ${tab.label}", style = Theme.t.label, color = c.ink2, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
+                    if (tab.widgets.isEmpty()) {
+                        Text("No widgets yet. Add one below.", style = Theme.t.small, color = c.ink3, modifier = Modifier.padding(start = 4.dp))
+                    }
+                    ReorderableColumn(tab.widgets, keyOf = { it.id }, onMove = onMoveWidget) { w, _ ->
+                        EditRow(
+                            glyph = w.glyph.takeIf { it != "none" } ?: "layers",
+                            tint = w.tint.color(),
+                            title = w.title.ifBlank { w.type.label },
+                            subtitle = w.type.label,
+                            onRemove = { onDeleteWidget(w.id) },
+                        )
+                    }
+                }
+            }
+        }
+        if (!editMode) tab.widgets.forEachIndexed { wIdx, w ->
+            val ep = w.endpoint?.takeIf { it.isNotBlank() } ?: tab.endpoint
+            val result = cache[ep]
+            val payload = result?.getOrNull()
+            val err = result?.exceptionOrNull()?.message
 
             val needsFetch = w.type != WidgetType.ACTION_GRID && w.type != WidgetType.NOTE_CARD && w.type != WidgetType.SENTENCE_BAR
             if (result == null && loading && needsFetch) {
@@ -1299,4 +1327,22 @@ private fun parseListItems(w: DashboardWidget, payload: Any?): List<Pair<String,
             )
         }
         .toList()
+}
+
+@Composable
+private fun EditRow(glyph: String, tint: Color, title: String, subtitle: String, onRemove: (() -> Unit)? = null) {
+    val c = Theme.c
+    Card(Modifier.fillMaxWidth()) {
+        Row(Modifier.height(60.dp).padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconTile(glyph, tint, size = 28.dp)
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, style = Theme.t.label, color = c.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(subtitle, style = Theme.t.small, color = c.ink3, maxLines = 1)
+            }
+            if (onRemove != null) RemoveDot("Remove $title", onClick = onRemove)
+            Spacer(Modifier.width(10.dp))
+            Glyph("menu", c.ink3, size = 18.dp)
+        }
+    }
 }

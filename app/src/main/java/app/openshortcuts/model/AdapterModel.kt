@@ -549,3 +549,54 @@ data class WorkspaceAdapter(
         }
     }
 }
+
+/** Starting points for a new workspace: built-in templates and a blank one for your own API. */
+object WorkspaceTemplates {
+    val keys = listOf("demo", "github", "gitlab")
+
+    fun load(ctx: android.content.Context, key: String): WorkspaceAdapter? = runCatching {
+        WorkspaceAdapter.fromJson(JSONObject(ctx.assets.open("templates/$key.osadapter").bufferedReader().readText()))
+    }.getOrNull()
+
+    /** "github", then "github-2", "github-3"… so adding a template twice never overwrites the first. */
+    fun uniqueId(base: String, taken: Set<String>): String {
+        val clean = base.lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-').ifEmpty { "workspace" }
+        if (clean !in taken) return clean
+        var n = 2
+        while ("$clean-$n" in taken) n++
+        return "$clean-$n"
+    }
+
+    fun instantiate(template: WorkspaceAdapter, existing: List<WorkspaceAdapter>, baseUrl: String = template.baseUrl): WorkspaceAdapter {
+        val id = uniqueId(template.id, existing.map { it.id }.toSet())
+        // "GitHub", "GitHub 2"… counting only earlier copies, not other workspaces that merely start with the name.
+        val copy = Regex("^" + Regex.escape(template.name) + "( \\d+)?$")
+        val sameName = existing.count { copy.matches(it.name) }
+        return template.copy(
+            id = id,
+            name = if (sameName == 0) template.name else "${template.name} ${sameName + 1}",
+            baseUrl = baseUrl.trim().trimEnd('/'),
+        )
+    }
+
+    fun blank(name: String, baseUrl: String, auth: AuthKind, existing: List<WorkspaceAdapter>): WorkspaceAdapter = WorkspaceAdapter(
+        id = uniqueId(name, existing.map { it.id }.toSet()),
+        name = name.trim(),
+        subtitle = "",
+        glyph = "layers",
+        tint = Tint.Blue,
+        baseUrl = baseUrl.trim().trimEnd('/'),
+        allowedDomains = emptyList(),
+        authKind = auth,
+        authHeader = if (auth == AuthKind.PRIVATE_TOKEN) "PRIVATE-TOKEN" else "Authorization",
+        authPrefix = if (auth == AuthKind.BEARER) "Bearer " else "",
+        tabs = listOf(AdapterTab(id = "overview", label = "Overview")),
+    )
+
+    /** A usable API address: http(s), a host, no spaces. */
+    fun isValidBaseUrl(url: String): Boolean {
+        val u = url.trim()
+        if (!(u.startsWith("https://") || u.startsWith("http://")) || u.any { it.isWhitespace() }) return false
+        return runCatching { !java.net.URI(u).host.isNullOrBlank() }.getOrDefault(false)
+    }
+}

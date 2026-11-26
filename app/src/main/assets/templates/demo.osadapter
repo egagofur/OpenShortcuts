@@ -1,0 +1,241 @@
+{
+  "format": "openshortcuts-adapter",
+  "version": 2,
+  "id": "demo",
+  "name": "Demo",
+  "subtitle": "Sample data, works offline",
+  "glyph": "layers",
+  "tint": "Indigo",
+  "baseUrl": "demo://local",
+  "allowedDomains": [],
+  "authKind": "none",
+  "tabs": [
+    {
+      "id": "overview",
+      "label": "Overview",
+      "endpoint": "/summary",
+      "widgets": [
+        {
+          "id": "timer",
+          "type": "live_status",
+          "title": "Timer running",
+          "tint": "Green",
+          "glyph": "timer",
+          "endpoint": "/timer",
+          "activePath": "data.running",
+          "activeTitlePath": "data.title",
+          "inactiveText": "No timer running",
+          "activeActionId": "stop_timer",
+          "inactiveActionId": "start_timer"
+        },
+        {
+          "id": "week",
+          "type": "target_bar",
+          "title": "This week",
+          "tint": "Blue",
+          "endpoint": "/summary",
+          "metrics": [
+            {
+              "label": "This week",
+              "valuePath": "data.week_hours",
+              "targetPath": "data.week_goal",
+              "suffix": "h",
+              "tint": "Blue"
+            },
+            {
+              "label": "This month",
+              "valuePath": "data.month_hours",
+              "targetPath": "data.month_goal",
+              "suffix": "h",
+              "tint": "Indigo"
+            }
+          ]
+        },
+        {
+          "id": "days",
+          "type": "bar_chart",
+          "title": "Hours per day",
+          "tint": "Blue",
+          "endpoint": "/entries",
+          "itemsPath": "data",
+          "metaPath": "started_at",
+          "valuePath": "hours",
+          "range": "thisWeek",
+          "unit": "h",
+          "target": 8
+        },
+        {
+          "id": "weeks",
+          "type": "bar_chart",
+          "title": "Last 5 weeks",
+          "tint": "Blue",
+          "endpoint": "/entries",
+          "itemsPath": "data",
+          "metaPath": "started_at",
+          "valuePath": "hours",
+          "bucket": "week",
+          "count": 5,
+          "unit": "h",
+          "target": 40
+        },
+        {
+          "id": "clients",
+          "type": "breakdown",
+          "title": "Hours by client",
+          "tint": "Blue",
+          "endpoint": "/entries",
+          "itemsPath": "data",
+          "groupPath": "client.name",
+          "valuePath": "hours",
+          "unit": "h",
+          "count": 4
+        },
+        {
+          "id": "note",
+          "type": "note_card",
+          "title": "This is a demo",
+          "tint": "Gray",
+          "glyph": "info",
+          "body": "Everything here is sample data made on your phone. Tap Edit to rearrange widgets, or add a workspace for your own API."
+        }
+      ]
+    },
+    {
+      "id": "log",
+      "label": "Time log",
+      "endpoint": "/entries",
+      "widgets": [
+        {
+          "id": "entries",
+          "type": "grouped_list",
+          "title": "Entries",
+          "tint": "Blue",
+          "glyph": "none",
+          "endpoint": "/entries",
+          "itemsPath": "data",
+          "titlePath": "title",
+          "subtitlePath": "client.name",
+          "badgePath": "status",
+          "metaPath": "started_at",
+          "groupBy": "week",
+          "valuePath": "hours",
+          "unit": "h",
+          "badgeTints": {
+            "BILLED": "Green",
+            "UNBILLED": "Orange"
+          },
+          "detail": {
+            "endpoint": "/entries/{{id}}",
+            "bodyPath": "note",
+            "fields": [
+              {
+                "label": "Client",
+                "path": "client.name"
+              },
+              {
+                "label": "Hours",
+                "path": "hours"
+              },
+              {
+                "label": "Status",
+                "path": "status"
+              },
+              {
+                "label": "Started",
+                "path": "started_at"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "tasks",
+      "label": "Tasks",
+      "endpoint": "/tasks",
+      "widgets": [
+        {
+          "id": "task_list",
+          "type": "list",
+          "title": "Tasks",
+          "tint": "Purple",
+          "glyph": "none",
+          "endpoint": "/tasks",
+          "itemsPath": "",
+          "titlePath": "title",
+          "subtitlePath": "project",
+          "badgePath": "status",
+          "metaPath": "updated_at",
+          "badgeTints": {
+            "TODO": "Gray",
+            "IN_PROGRESS": "Blue",
+            "IN_REVIEW": "Orange",
+            "DONE": "Green"
+          },
+          "detail": {
+            "bodyPath": "description",
+            "fields": [
+              {
+                "label": "Project",
+                "path": "project"
+              },
+              {
+                "label": "Status",
+                "path": "status"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "activity",
+      "label": "Activity",
+      "endpoint": "/me",
+      "widgets": [
+        {
+          "id": "me",
+          "type": "profile_card",
+          "title": "Profile",
+          "tint": "Indigo",
+          "endpoint": "/me"
+        },
+        {
+          "id": "heat",
+          "type": "heatmap_chart",
+          "title": "Activity",
+          "tint": "Green",
+          "endpoint": "/activity",
+          "itemsPath": "",
+          "metaPath": "created_at"
+        }
+      ]
+    }
+  ],
+  "globalActions": [
+    {
+      "id": "start_timer",
+      "title": "Start Timer",
+      "method": "POST",
+      "endpoint": "/timer/start",
+      "tint": "Green",
+      "glyph": "playFill",
+      "bodyTemplate": "{\"description\": \"{{description}}\"}",
+      "params": [
+        {
+          "key": "description",
+          "label": "What are you working on?",
+          "placeholder": "Task"
+        }
+      ]
+    },
+    {
+      "id": "stop_timer",
+      "title": "Stop Timer",
+      "method": "POST",
+      "endpoint": "/timer/stop",
+      "tint": "Red",
+      "glyph": "pause"
+    }
+  ]
+}

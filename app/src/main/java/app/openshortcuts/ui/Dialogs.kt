@@ -550,6 +550,7 @@ private val SENSITIVE = mapOf(
     app.openshortcuts.model.ActionType.UPCOMING_EVENTS to "read your calendar",
     app.openshortcuts.model.ActionType.LOCATION to "read your location",
     app.openshortcuts.model.ActionType.SHARE to "share text",
+    app.openshortcuts.model.ActionType.WORKSPACE_ACTION to "send requests to your workspaces",
 )
 
 @Composable

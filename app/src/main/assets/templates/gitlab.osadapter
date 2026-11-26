@@ -1,0 +1,206 @@
+{
+  "format": "openshortcuts-adapter",
+  "version": 2,
+  "id": "gitlab",
+  "name": "GitLab",
+  "subtitle": "Merge requests, reviews and issues",
+  "glyph": "braces",
+  "tint": "Orange",
+  "baseUrl": "https://gitlab.com/api/v4",
+  "allowedDomains": [],
+  "authKind": "private_token",
+  "authHeader": "PRIVATE-TOKEN",
+  "authPrefix": "",
+  "tokenHint": "A personal access token with read_api",
+  "tabs": [
+    {
+      "id": "overview",
+      "label": "Overview",
+      "endpoint": "/user",
+      "widgets": [
+        {
+          "id": "me",
+          "type": "profile_card",
+          "title": "Profile",
+          "tint": "Orange",
+          "endpoint": "/user",
+          "titlePath": "name",
+          "subtitlePath": "username",
+          "metaPath": "email",
+          "badgePath": "state"
+        },
+        {
+          "id": "heat",
+          "type": "heatmap_chart",
+          "title": "Activity",
+          "tint": "Blue",
+          "endpoint": "/events?per_page=100",
+          "pages": 10,
+          "itemsPath": "",
+          "metaPath": "created_at"
+        },
+        {
+          "id": "week",
+          "type": "bar_chart",
+          "title": "This week",
+          "tint": "Indigo",
+          "endpoint": "/events?per_page=100",
+          "itemsPath": "",
+          "metaPath": "created_at",
+          "range": "thisWeek"
+        }
+      ]
+    },
+    {
+      "id": "mrs",
+      "label": "My MRs",
+      "endpoint": "/merge_requests?state=opened&scope=assigned_to_me&per_page=25",
+      "widgets": [
+        {
+          "id": "mrs",
+          "type": "list",
+          "title": "Merge requests",
+          "tint": "Orange",
+          "glyph": "none",
+          "endpoint": "/merge_requests?state=opened&scope=assigned_to_me&per_page=25",
+          "itemsPath": "",
+          "titlePath": "title",
+          "subtitlePath": "references.full",
+          "badgePath": "detailed_merge_status",
+          "metaPath": "source_branch",
+          "badgeTints": {
+            "mergeable": "Green",
+            "conflict": "Red",
+            "ci_still_running": "Blue"
+          },
+          "detail": {
+            "endpoint": "/projects/{{project_id}}/merge_requests/{{iid}}",
+            "commentsEndpoint": "/projects/{{project_id}}/merge_requests/{{iid}}/notes?sort=asc&per_page=30",
+            "commitsEndpoint": "/projects/{{project_id}}/merge_requests/{{iid}}/commits",
+            "changesEndpoint": "/projects/{{project_id}}/merge_requests/{{iid}}/changes",
+            "bodyPath": "description",
+            "urlPath": "web_url",
+            "fields": [
+              {
+                "label": "Reference",
+                "path": "references.full"
+              },
+              {
+                "label": "Branch",
+                "path": "source_branch"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "reviews",
+      "label": "Reviews",
+      "endpoint": "/merge_requests?state=opened&scope=reviews_for_me&per_page=25",
+      "widgets": [
+        {
+          "id": "reviews",
+          "type": "list",
+          "title": "Waiting for your review",
+          "tint": "Blue",
+          "glyph": "none",
+          "endpoint": "/merge_requests?state=opened&scope=reviews_for_me&per_page=25",
+          "itemsPath": "",
+          "titlePath": "title",
+          "subtitlePath": "author.name",
+          "badgePath": "references.full",
+          "metaPath": "source_branch",
+          "detail": {
+            "endpoint": "/projects/{{project_id}}/merge_requests/{{iid}}",
+            "commentsEndpoint": "/projects/{{project_id}}/merge_requests/{{iid}}/notes?sort=asc&per_page=30",
+            "commitsEndpoint": "/projects/{{project_id}}/merge_requests/{{iid}}/commits",
+            "changesEndpoint": "/projects/{{project_id}}/merge_requests/{{iid}}/changes",
+            "bodyPath": "description",
+            "urlPath": "web_url",
+            "fields": [
+              {
+                "label": "Author",
+                "path": "author.name"
+              },
+              {
+                "label": "Branch",
+                "path": "source_branch"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "issues",
+      "label": "Issues",
+      "endpoint": "/issues?state=opened&scope=assigned_to_me&per_page=25",
+      "widgets": [
+        {
+          "id": "issues",
+          "type": "list",
+          "title": "Assigned issues",
+          "tint": "Red",
+          "glyph": "none",
+          "endpoint": "/issues?state=opened&scope=assigned_to_me&per_page=25",
+          "itemsPath": "",
+          "titlePath": "title",
+          "subtitlePath": "references.full",
+          "badgePath": "state",
+          "metaPath": "updated_at",
+          "detail": {
+            "commentsEndpoint": "/projects/{{project_id}}/issues/{{iid}}/notes?sort=asc&per_page=30",
+            "bodyPath": "description",
+            "urlPath": "web_url",
+            "fields": [
+              {
+                "label": "Reference",
+                "path": "references.full"
+              },
+              {
+                "label": "Updated",
+                "path": "updated_at"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "projects",
+      "label": "Projects",
+      "endpoint": "/projects?membership=true&order_by=last_activity_at&per_page=25",
+      "widgets": [
+        {
+          "id": "projects",
+          "type": "list",
+          "title": "Recent projects",
+          "tint": "Indigo",
+          "glyph": "none",
+          "endpoint": "/projects?membership=true&order_by=last_activity_at&per_page=25",
+          "itemsPath": "",
+          "titlePath": "name_with_namespace",
+          "subtitlePath": "default_branch",
+          "badgePath": "visibility",
+          "metaPath": "last_activity_at",
+          "detail": {
+            "bodyPath": "description",
+            "urlPath": "web_url",
+            "fields": [
+              {
+                "label": "Default branch",
+                "path": "default_branch"
+              },
+              {
+                "label": "Last activity",
+                "path": "last_activity_at"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "globalActions": []
+}

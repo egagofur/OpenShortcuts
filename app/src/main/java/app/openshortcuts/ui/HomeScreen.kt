@@ -137,7 +137,7 @@ fun HomeScreen(
             }
         }
         Rail(
-            { GlassCircle("plus", if (tab == 0) "New shortcut" else if (tab == 1) "New automation" else "Import workspace", modifier = Modifier.tipAnchor("railPlus"), onClick = onNew) },
+            { GlassCircle("plus", if (tab == 0) "New shortcut" else if (tab == 1) "New automation" else "New workspace", modifier = Modifier.tipAnchor("railPlus"), onClick = onNew) },
             { GlassCircle("sliders", "Setup", onClick = onSetup) },
         )
     }
