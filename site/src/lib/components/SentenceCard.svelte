@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Tile from './Tile.svelte';
+	import { cubicOut } from 'svelte/easing';
 	import type { Tint } from '#lib/site.ts';
 
 	type Part = string | { token: string };
@@ -16,11 +17,23 @@
 	let i = $state(0);
 	let ex = $derived(examples[i]);
 	const next = () => (i = (i + 1) % examples.length);
+
+	const still = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+	function swap(_: Element, { duration }: { duration: number }) {
+		return {
+			duration,
+			easing: cubicOut,
+			css: (t: number) =>
+				still ? `opacity:${t}` : `opacity:${t};translate:0 ${(1 - t) * 6}px;filter:blur(${(1 - t) * 2}px)`
+		};
+	}
 </script>
 
 <div class="sentence card">
 	<p class="label">Automation</p>
+	<div class="stack">
 	{#key i}
+		<div class="ex" in:swap={{ duration: 260 }} out:swap={{ duration: 160 }}>
 		<div class="row">
 			<Tile glyph={ex.glyph} tint={ex.tint} size={44} />
 			<p class="text">
@@ -33,7 +46,9 @@
 			<Tile glyph="layers" tint="indigo" size={44} />
 			<p class="text">Run <button type="button" class="token" onclick={next}>{ex.run}</button></p>
 		</div>
+		</div>
 	{/key}
+	</div>
 	<p class="hint">Tap a blue word to see another automation.</p>
 </div>
 
@@ -45,7 +60,7 @@
 		text-align: left;
 	}
 	.label {
-		font-size: 13px;
+		font-size: 0.8125rem;
 		font-weight: 600;
 		text-transform: uppercase;
 		letter-spacing: 0.04em;
@@ -59,15 +74,18 @@
 		padding: 14px;
 		border-radius: 18px;
 		background: var(--bg);
-		animation: settle 420ms var(--ease-out);
+	}
+	.stack {
+		display: grid;
+	}
+	.ex {
+		grid-area: 1 / 1;
 	}
 	.run {
 		margin-top: 10px;
-		animation-delay: 60ms;
-		animation-fill-mode: backwards;
 	}
 	.text {
-		font-size: clamp(19px, 2.4vw, 24px);
+		font-size: clamp(1.1875rem, 2.4vw, 1.5rem);
 		font-weight: 600;
 		line-height: 1.45;
 		letter-spacing: -0.01em;
@@ -81,28 +99,25 @@
 		border-radius: 10px;
 		padding: 0 8px;
 		margin: 0 1px;
+		position: relative;
 		cursor: pointer;
 		touch-action: manipulation;
 		transition: scale 140ms var(--ease-out);
 	}
+	.token::before {
+		content: '';
+		position: absolute;
+		inset: -9px -2px;
+	}
 	.token:active {
-		scale: 0.95;
+		scale: 0.97;
 	}
 	.hint {
 		margin-top: 14px;
-		font-size: 14px;
+		font-size: 0.875rem;
 		color: var(--ink3);
 	}
-	@keyframes settle {
-		from {
-			opacity: 0;
-			translate: 0 6px;
-		}
-	}
 	@media (prefers-reduced-motion: reduce) {
-		.row {
-			animation: none;
-		}
 		.token:active {
 			scale: none;
 		}

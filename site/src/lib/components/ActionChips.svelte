@@ -35,7 +35,7 @@
 		gap: 10px;
 	}
 	h3 {
-		font-size: 16px;
+		font-size: 1rem;
 		font-weight: 600;
 		letter-spacing: 0;
 	}
@@ -52,7 +52,7 @@
 		border-radius: var(--radius-pill);
 		background: var(--card);
 		box-shadow: var(--shadow);
-		font-size: 15px;
+		font-size: 0.9375rem;
 		font-weight: 500;
 	}
 </style>

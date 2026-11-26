@@ -33,7 +33,7 @@
 		justify-content: space-between;
 		gap: 16px;
 		min-height: 60px;
-		font-size: 17px;
+		font-size: 1.0625rem;
 		font-weight: 600;
 		cursor: pointer;
 		list-style: none;

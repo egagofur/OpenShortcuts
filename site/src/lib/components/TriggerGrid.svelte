@@ -35,7 +35,7 @@
 		padding: 20px;
 	}
 	h3 {
-		font-size: 15px;
+		font-size: 0.9375rem;
 		font-weight: 600;
 		color: var(--ink2);
 		letter-spacing: 0;
@@ -52,7 +52,7 @@
 		display: flex;
 		align-items: center;
 		gap: 12px;
-		font-size: 16px;
+		font-size: 1rem;
 		font-weight: 500;
 		min-width: 0;
 	}

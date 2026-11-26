@@ -20,7 +20,7 @@
 		padding-block: 32px 48px;
 		margin-top: var(--section-gap);
 		border-top: 1px solid var(--hairline);
-		font-size: 14px;
+		font-size: 0.875rem;
 		color: var(--ink3);
 	}
 	ul {

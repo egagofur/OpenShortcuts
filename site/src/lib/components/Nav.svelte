@@ -45,6 +45,19 @@
 		-webkit-backdrop-filter: saturate(180%) blur(20px);
 		box-shadow: 0 1px 0 var(--hairline);
 	}
+	@media (prefers-reduced-transparency: reduce) {
+		header.scrolled {
+			background: var(--bg);
+			backdrop-filter: none;
+			-webkit-backdrop-filter: none;
+		}
+	}
+	@media (prefers-contrast: more) {
+		header.scrolled {
+			background: var(--bg);
+			box-shadow: 0 1px 0 var(--ink3);
+		}
+	}
 	nav {
 		display: flex;
 		align-items: center;
@@ -56,7 +69,7 @@
 		align-items: center;
 		gap: 10px;
 		font-weight: 650;
-		font-size: 17px;
+		font-size: 1.0625rem;
 		text-decoration: none;
 	}
 	ul {
@@ -66,7 +79,7 @@
 		list-style: none;
 		margin: 0;
 		padding: 0;
-		font-size: 15px;
+		font-size: 0.9375rem;
 	}
 	ul a:not(:global(.btn)) {
 		color: var(--ink2);

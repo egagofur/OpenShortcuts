@@ -27,7 +27,7 @@
 		padding: 24px;
 	}
 	h3 {
-		font-size: 19px;
+		font-size: 1.1875rem;
 		font-weight: 650;
 		letter-spacing: -0.01em;
 		margin-top: 16px;
@@ -35,7 +35,7 @@
 	p {
 		color: var(--ink2);
 		margin-top: 6px;
-		font-size: 16px;
+		font-size: 1rem;
 	}
 	@media (max-width: 860px) {
 		.cards {

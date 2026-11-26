@@ -35,12 +35,12 @@
 	.large {
 		min-height: 50px;
 		padding: 0 24px;
-		font-size: 17px;
+		font-size: 1.0625rem;
 	}
 	.small {
 		min-height: 36px;
 		padding: 0 16px;
-		font-size: 15px;
+		font-size: 0.9375rem;
 	}
 	.filled {
 		background: var(--accent);

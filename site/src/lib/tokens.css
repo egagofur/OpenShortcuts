@@ -75,7 +75,7 @@ body {
 	background: var(--bg);
 	color: var(--ink);
 	font-family: var(--font);
-	font-size: 17px;
+	font-size: 1.0625rem;
 	line-height: 1.5;
 	-webkit-font-smoothing: antialiased;
 	text-rendering: optimizeLegibility;
@@ -123,19 +123,19 @@ img {
 }
 
 .eyebrow {
-	font-size: 15px;
+	font-size: 0.9375rem;
 	font-weight: 600;
 	color: var(--accent);
 	margin-bottom: 12px;
 }
 
 .h2 {
-	font-size: clamp(32px, 4.6vw, 48px);
+	font-size: clamp(2rem, 4.6vw, 3rem);
 	font-weight: 700;
 }
 
 .lede {
-	font-size: clamp(17px, 1.6vw, 20px);
+	font-size: clamp(1.0625rem, 1.6vw, 1.25rem);
 	color: var(--ink2);
 	margin-top: 16px;
 	max-width: 36em;
@@ -151,8 +151,8 @@ img {
 	opacity: 0;
 	translate: 0 12px;
 	transition:
-		opacity 700ms var(--ease-out),
-		translate 700ms var(--ease-out);
+		opacity 500ms var(--ease-out),
+		translate 500ms var(--ease-out);
 }
 
 .reveal.in {
@@ -165,9 +165,8 @@ img {
 		scroll-behavior: auto;
 	}
 	.reveal {
-		opacity: 1;
 		translate: none;
-		transition: none;
+		transition: opacity 300ms ease;
 	}
 }
 

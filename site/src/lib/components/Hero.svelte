@@ -27,13 +27,13 @@
 		padding-top: clamp(40px, 7vw, 72px);
 	}
 	h1 {
-		font-size: clamp(38px, 6.4vw, 68px);
+		font-size: clamp(2.375rem, 6.4vw, 4.25rem);
 		font-weight: 700;
 		max-width: 13em;
 		margin-inline: auto;
 	}
 	.sub {
-		font-size: clamp(18px, 2vw, 22px);
+		font-size: clamp(1.125rem, 2vw, 1.375rem);
 		color: var(--ink2);
 		max-width: 30em;
 		margin: 18px auto 0;
@@ -47,7 +47,7 @@
 	}
 	.fine {
 		margin-top: 16px;
-		font-size: 14px;
+		font-size: 0.875rem;
 		color: var(--ink3);
 	}
 	.phones {
