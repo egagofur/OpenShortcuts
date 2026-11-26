@@ -102,7 +102,11 @@ fun WorkspaceHub(
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    if (adapters.size == 1) "1 workspace connected" else "${adapters.size} workspaces connected",
+                    when (adapters.size) {
+                        0 -> "No workspaces yet"
+                        1 -> "1 workspace"
+                        else -> "${adapters.size} workspaces"
+                    },
                     style = Theme.t.small,
                     color = c.ink2,
                 )

@@ -1,21 +1,6 @@
 package app.openshortcuts.engine
 
 import android.content.Context
-import com.anthropic.client.AnthropicClient
-import com.anthropic.client.okhttp.AnthropicOkHttpClient
-import com.anthropic.core.JsonValue
-import com.anthropic.errors.AnthropicIoException
-import com.anthropic.errors.AnthropicServiceException
-import com.anthropic.errors.BadRequestException
-import com.anthropic.errors.PermissionDeniedException
-import com.anthropic.errors.RateLimitException
-import com.anthropic.errors.UnauthorizedException
-import com.anthropic.models.beta.messages.BetaCacheControlEphemeral
-import com.anthropic.models.beta.messages.BetaJsonOutputFormat
-import com.anthropic.models.beta.messages.BetaOutputConfig
-import com.anthropic.models.beta.messages.BetaStopReason
-import com.anthropic.models.beta.messages.BetaTextBlockParam
-import com.anthropic.models.beta.messages.MessageCreateParams
 import app.openshortcuts.model.ActionType
 import app.openshortcuts.model.Automation
 import app.openshortcuts.model.BUILT_IN_VARIABLES
@@ -39,12 +24,12 @@ object Describe {
     private fun keyFile(ctx: Context) = File(ctx.noBackupFilesDir, "claude_api_key")
     fun key(ctx: Context): String? = keyFile(ctx).takeIf { it.exists() }?.readText()?.trim()?.ifEmpty { null }
     fun saveKey(ctx: Context, key: String) = keyFile(ctx).writeText(key.trim())
-    fun clearKey(ctx: Context) { keyFile(ctx).delete(); client = null }
+    fun clearKey(ctx: Context) { keyFile(ctx).delete() }
 
-    @Volatile private var client: Pair<String, AnthropicClient>? = null
-    private fun client(key: String): AnthropicClient =
-        client?.takeIf { it.first == key }?.second
-            ?: AnthropicOkHttpClient.builder().apiKey(key).build().also { client = key to it }
+    // One Messages API call, sent directly: the SDK and its JSON libraries made up most of the APK.
+    private const val ENDPOINT = "https://api.anthropic.com/v1/messages"
+    private const val API_VERSION = "2026-10-21"
+    private const val FALLBACK_BETA = "server-side-fallback-2026-07-01"
 
     fun systemPrompt(): String = buildString {
         appendLine("You turn a person's description into one OpenShortcuts shortcut for Android, plus an optional automation that runs it.")
@@ -94,7 +79,15 @@ object Describe {
         "type" to "object", "additionalProperties" to false, "required" to required, "properties" to props,
     )
 
-    private fun schema(): BetaJsonOutputFormat.Schema {
+    /** Maps and lists of JSON-able values to org.json, keeping key order. */
+    private fun json(v: Any?): Any = when (v) {
+        is Map<*, *> -> JSONObject().apply { v.forEach { (k, x) -> put(k.toString(), json(x)) } }
+        is List<*> -> JSONArray().apply { v.forEach { put(json(it)) } }
+        null -> JSONObject.NULL
+        else -> v
+    }
+
+    internal fun schema(): JSONObject {
         val action = obj(mapOf(
             "type" to mapOf("type" to "string", "enum" to ActionType.entries.map { it.name }),
             "params" to mapOf("type" to "array", "items" to obj(mapOf(
@@ -122,53 +115,75 @@ object Describe {
             "automation" to automation,
             "note" to mapOf("type" to "string"),
         ))
-        return BetaJsonOutputFormat.Schema.builder().apply { root.forEach { (k, v) -> putAdditionalProperty(k, JsonValue.from(v)) } }.build()
+        return json(root) as JSONObject
+    }
+
+    /** The request body, kept separate from sending it so it can be checked in tests. */
+    internal fun requestBody(request: String, lib: Library): JSONObject = JSONObject()
+        .put("model", MODEL)
+        .put("max_tokens", 16000)
+        .put("system", JSONArray().put(
+            JSONObject().put("type", "text").put("text", systemPrompt())
+                .put("cache_control", JSONObject().put("type", "ephemeral")),
+        ))
+        .put("output_config", JSONObject()
+            .put("effort", "medium")
+            .put("format", JSONObject().put("type", "json_schema").put("schema", schema())))
+        // If a safety check declines, the API retries on a suitable model instead of failing.
+        .put("fallbacks", "default")
+        .put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", buildString {
+            appendLine("My existing shortcuts: ${lib.shortcuts.joinToString { it.name }.ifEmpty { "none" }}")
+            appendLine()
+            append(request.trim())
+        })))
+
+    private fun send(key: String, body: JSONObject): JSONObject {
+        val conn = (java.net.URL(ENDPOINT).openConnection() as java.net.HttpURLConnection).apply {
+            requestMethod = "POST"
+            connectTimeout = 20_000
+            readTimeout = 300_000
+            doOutput = true
+            setRequestProperty("content-type", "application/json")
+            setRequestProperty("x-api-key", key)
+            setRequestProperty("anthropic-version", API_VERSION)
+            setRequestProperty("anthropic-beta", FALLBACK_BETA)
+        }
+        try {
+            conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+            val code = conn.responseCode
+            val text = (if (code in 200..299) conn.inputStream else conn.errorStream)?.bufferedReader()?.use { it.readText() }.orEmpty()
+            if (code in 200..299) return JSONObject(text)
+            val message = runCatching { JSONObject(text).getJSONObject("error").optString("message") }.getOrNull().orEmpty()
+            error(when (code) {
+                401 -> "That API key wasn't accepted. Check it at console.anthropic.com."
+                403 -> "This API key can't use $MODEL."
+                429 -> "Too many requests right now. Try again in a minute."
+                400, 404, 413, 422 -> "Claude couldn't take that request: ${message.ifBlank { "error $code" }}"
+                else -> "Claude had a problem ($code). Try again."
+            })
+        } catch (e: java.io.IOException) {
+            error("Couldn't reach Claude. Check your internet connection.")
+        } finally {
+            conn.disconnect()
+        }
+    }
+
+    /** The JSON text Claude wrote, or a plain reason it didn't. */
+    internal fun replyText(response: JSONObject): String {
+        when (response.optString("stop_reason")) {
+            "refusal" -> error("Claude declined to build that shortcut.")
+            "max_tokens" -> error("That description made a shortcut too long to finish. Try a smaller one.")
+        }
+        val content = response.optJSONArray("content") ?: JSONArray()
+        return (0 until content.length()).mapNotNull { i ->
+            content.optJSONObject(i)?.takeIf { it.optString("type") == "text" }?.optString("text")
+        }.joinToString("")
     }
 
     suspend fun describe(ctx: Context, request: String, lib: Library): Draft = withContext(Dispatchers.IO) {
         val key = key(ctx) ?: error("Add your Claude API key first.")
         if (request.isBlank()) error("Describe what the shortcut should do.")
-        val params = MessageCreateParams.builder()
-            .model(MODEL)
-            .maxTokens(16000L)
-            .systemOfBetaTextBlockParams(listOf(
-                BetaTextBlockParam.builder().text(systemPrompt())
-                    .cacheControl(BetaCacheControlEphemeral.builder().build()).build(),
-            ))
-            .outputConfig(BetaOutputConfig.builder()
-                .effort(BetaOutputConfig.Effort.MEDIUM)
-                .format(BetaJsonOutputFormat.builder().schema(schema()).build())
-                .build())
-            // If a safety check declines, let the API retry on a suitable model instead of failing.
-            .addBeta("server-side-fallback-2026-07-01")
-            .putAdditionalBodyProperty("fallbacks", JsonValue.from("default"))
-            .addUserMessage(buildString {
-                appendLine("My existing shortcuts: ${lib.shortcuts.joinToString { it.name }.ifEmpty { "none" }}")
-                appendLine()
-                append(request.trim())
-            })
-            .build()
-        val response = try {
-            client(key).beta().messages().create(params)
-        } catch (e: UnauthorizedException) {
-            error("That API key wasn't accepted. Check it at console.anthropic.com.")
-        } catch (e: PermissionDeniedException) {
-            error("This API key can't use $MODEL.")
-        } catch (e: RateLimitException) {
-            error("Too many requests right now. Try again in a minute.")
-        } catch (e: BadRequestException) {
-            error("Claude couldn't take that request: ${e.message}")
-        } catch (e: AnthropicServiceException) {
-            error("Claude had a problem (${e.statusCode()}). Try again.")
-        } catch (e: AnthropicIoException) {
-            error("Couldn't reach Claude. Check your internet connection.")
-        }
-        when (response.stopReason().orElse(null)) {
-            BetaStopReason.REFUSAL -> error("Claude declined to build that shortcut.")
-            BetaStopReason.MAX_TOKENS -> error("That description made a shortcut too long to finish. Try a smaller one.")
-            else -> Unit
-        }
-        val text = response.content().mapNotNull { it.text().orElse(null)?.text() }.joinToString("")
+        val text = replyText(send(key, requestBody(request, lib)))
         parse(text, lib)
     }
 

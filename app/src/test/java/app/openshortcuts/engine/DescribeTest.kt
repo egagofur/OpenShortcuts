@@ -60,4 +60,28 @@ class DescribeTest {
         val p = Describe.systemPrompt()
         ActionType.entries.forEach { assertTrue(it.name, p.contains("- ${it.name}:")) }
     }
+
+    @Test fun requestBodyMatchesTheMessagesApi() {
+        val body = Describe.requestBody("Turn on Do Not Disturb at 23:00", app.openshortcuts.model.Library())
+        org.junit.Assert.assertEquals(Describe.MODEL, body.getString("model"))
+        org.junit.Assert.assertEquals("default", body.getString("fallbacks"))
+        val system = body.getJSONArray("system").getJSONObject(0)
+        org.junit.Assert.assertEquals("ephemeral", system.getJSONObject("cache_control").getString("type"))
+        val format = body.getJSONObject("output_config").getJSONObject("format")
+        org.junit.Assert.assertEquals("json_schema", format.getString("type"))
+        val schema = format.getJSONObject("schema")
+        org.junit.Assert.assertEquals(false, schema.getBoolean("additionalProperties"))
+        org.junit.Assert.assertTrue(schema.getJSONObject("properties").getJSONObject("actions").getJSONObject("items").has("properties"))
+        val msg = body.getJSONArray("messages").getJSONObject(0)
+        org.junit.Assert.assertEquals("user", msg.getString("role"))
+        org.junit.Assert.assertTrue(msg.getString("content").endsWith("Turn on Do Not Disturb at 23:00"))
+        org.json.JSONObject(body.toString())
+    }
+
+    @Test fun replyTextSkipsThinkingAndReportsStops() {
+        val ok = org.json.JSONObject("""{"stop_reason":"end_turn","content":[{"type":"thinking","thinking":""},{"type":"text","text":"{\"a\""},{"type":"text","text":":1}"}]}""")
+        org.junit.Assert.assertEquals("{\"a\":1}", Describe.replyText(ok))
+        val refused = runCatching { Describe.replyText(org.json.JSONObject("""{"stop_reason":"refusal","content":[]}""")) }.exceptionOrNull()?.message
+        org.junit.Assert.assertEquals("Claude declined to build that shortcut.", refused)
+    }
 }

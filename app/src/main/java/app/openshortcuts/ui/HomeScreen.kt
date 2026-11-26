@@ -115,7 +115,7 @@ fun HomeScreen(
                 }
             }
             TabBar(
-                tab = tab, onTab = onTab, compact = short, showWorkspaces = adapters.isNotEmpty(),
+                tab = tab, onTab = onTab, compact = short, showWorkspaces = true,
                 modifier = if (short) Modifier
                     .align(Alignment.TopEnd)
                     .windowInsetsPadding(WindowInsets.topBar.only(WindowInsetsSides.Top))
