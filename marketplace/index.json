@@ -1,0 +1,55 @@
+{
+  "format": "openshortcuts-marketplace",
+  "version": 1,
+  "categories": ["Developers", "Get started"],
+  "workspaces": [
+    {
+      "id": "stracode",
+      "name": "Stracode",
+      "author": "OpenShortcuts",
+      "description": "Strava for code: your commits as a card for your story, plus your contribution heatmap. Just your GitHub username, no sign-in.",
+      "glyph": "laptopRun",
+      "tint": "Green",
+      "category": "Developers",
+      "needs": "GitHub username",
+      "file": "workspaces/stracode.osadapter",
+      "featured": true
+    },
+    {
+      "id": "github",
+      "name": "GitHub",
+      "author": "OpenShortcuts",
+      "description": "Your pull requests, review requests and issues, plus a Stracode card that includes private repos.",
+      "glyph": "braces",
+      "tint": "Gray",
+      "category": "Developers",
+      "needs": "GitHub token",
+      "file": "workspaces/github.osadapter",
+      "featured": true
+    },
+    {
+      "id": "gitlab",
+      "name": "GitLab",
+      "author": "OpenShortcuts",
+      "description": "Merge requests, pipelines and your pushes on gitlab.com or your company's GitLab.",
+      "glyph": "braces",
+      "tint": "Orange",
+      "category": "Developers",
+      "needs": "GitLab token",
+      "file": "workspaces/gitlab.osadapter",
+      "featured": false
+    },
+    {
+      "id": "demo",
+      "name": "Demo",
+      "author": "OpenShortcuts",
+      "description": "Every widget with sample data, a timer you can start, and a Stracode card. Nothing to sign in to.",
+      "glyph": "layers",
+      "tint": "Indigo",
+      "category": "Get started",
+      "needs": "",
+      "file": "workspaces/demo.osadapter",
+      "featured": true
+    }
+  ]
+}

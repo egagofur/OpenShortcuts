@@ -19,8 +19,11 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateRotation
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,7 +46,8 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.statusBarsIgnoringVisibility
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -71,7 +75,10 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -103,7 +110,7 @@ private const val EXPORT_SCALE = 2f
 
 /** The editor's tools, along the bottom like a photo editor. */
 private enum class Tool(val label: String, val glyph: String) {
-    Style("Style", "layers"), Text("Text", "text"), Photo("Photo", "flash"), Tags("Tags", "braces"), Brand("Brand", "pin"),
+    Style("Style", "palette"), Text("Text", "type"), Photo("Photo", "image"), Tags("Tags", "tag"), Brand("Brand", "stamp"),
 }
 
 /** Photo framing, kept apart from the rest so a pinch never touches the text overlay. */
@@ -117,7 +124,9 @@ private val SpecSaver = Saver<ShipSpec, Map<String, Any?>>(
             "period" to s.period.ordinal, "headlineIdx" to s.headlineIdx, "kicker" to s.kicker, "headline" to s.headline, "sub" to s.sub,
             "handle" to s.handle, "languages" to ArrayList(s.languages), "tagStyle" to s.tagStyle.ordinal,
             "agents" to s.agents?.let { ArrayList(it) }, "showAi" to s.showAi, "stamp" to s.stamp.ordinal, "sticker" to s.sticker,
-            "dim" to s.dim, "logoCorner" to s.logoCorner.ordinal,
+            "dim" to s.dim, "logoCorner" to s.logoCorner.ordinal, "font" to s.font, "texts" to textsToJson(s.texts),
+            "limitStyle" to s.limitStyle.ordinal, "limitTop" to s.limitTop, "limitAction" to s.limitAction, "resetAt" to s.resetAt,
+            "stampText" to s.stampText,
         )
     },
     restore = { m ->
@@ -130,9 +139,40 @@ private val SpecSaver = Saver<ShipSpec, Map<String, Any?>>(
             handle = m["handle"] as String, languages = m["languages"] as List<String>, tagStyle = ShipTagStyle.entries[m["tagStyle"] as Int],
             agents = m["agents"] as List<String>?, showAi = m["showAi"] as Boolean, stamp = ShipStamp.entries[m["stamp"] as Int],
             sticker = m["sticker"] as Boolean, dim = m["dim"] as Float, logoCorner = ShipLogoCorner.entries[m["logoCorner"] as Int],
+            font = m["font"] as String? ?: ShipFonts.SYSTEM, texts = textsFromJson(m["texts"] as String?),
+            limitStyle = app.openshortcuts.model.ShipLimitStyle.entries.getOrElse(m["limitStyle"] as Int? ?: 1) { app.openshortcuts.model.ShipLimitStyle.Card },
+            limitTop = m["limitTop"] as Boolean? ?: false, limitAction = m["limitAction"] as String?, resetAt = m["resetAt"] as String? ?: "",
+            stampText = m["stampText"] as String? ?: "OpenShortcuts",
         )
     },
 )
+
+private fun textsToJson(texts: List<ShipText>): String = org.json.JSONArray(texts.map { t ->
+    org.json.JSONObject().put("id", t.id).put("text", t.text).put("font", t.font).put("color", t.color).put("size", t.size.toDouble())
+        .put("x", t.x.toDouble()).put("y", t.y.toDouble()).put("rotation", t.rotation.toDouble()).put("style", t.style.name)
+}).toString()
+
+private fun textsFromJson(json: String?): List<ShipText> = runCatching {
+    val a = org.json.JSONArray(json ?: return emptyList())
+    (0 until a.length()).map { i ->
+        val o = a.getJSONObject(i)
+        ShipText(
+            id = o.getLong("id"), text = o.getString("text"), font = o.optString("font", ShipFonts.SYSTEM), color = o.getInt("color"),
+            size = o.getDouble("size").toFloat(), x = o.getDouble("x").toFloat(), y = o.getDouble("y").toFloat(),
+            rotation = o.optDouble("rotation", 0.0).toFloat(), style = runCatching { ShipTextStyle.valueOf(o.getString("style")) }.getOrDefault(ShipTextStyle.Shadow),
+        )
+    }
+}.getOrDefault(emptyList())
+
+/** Is [pos] (card pixels) on sticker [t]? Tested in the sticker's own rotated frame, with a little slack for fingers. */
+private fun hits(t: ShipText, pos: Offset, w: Float, h: Float, slack: Float): Boolean {
+    val r = ShipCardRenderer.textBounds(t, w, h)
+    val rad = Math.toRadians(-t.rotation.toDouble())
+    val dx = pos.x - r.centerX(); val dy = pos.y - r.centerY()
+    val lx = (dx * kotlin.math.cos(rad) - dy * kotlin.math.sin(rad)).toFloat()
+    val ly = (dx * kotlin.math.sin(rad) + dy * kotlin.math.cos(rad)).toFloat()
+    return kotlin.math.abs(lx) <= r.width() / 2 + slack && kotlin.math.abs(ly) <= r.height() / 2 + slack
+}
 
 private val FrameSaver = Saver<Frame, List<Float>>(save = { listOf(it.zoom, it.panX, it.panY) }, restore = { Frame(it[0], it[1], it[2]) })
 
@@ -162,6 +202,10 @@ fun ShipStudioScreen(adapterId: String, widgetId: String, onBack: () -> Unit) {
     var photo by remember { mutableStateOf<Bitmap?>(null) }
     var busy by remember { mutableStateOf<String?>(null) }
     var note by remember { mutableStateOf<String?>(null) }
+    /** The text sticker being edited, if any. */
+    var selected by rememberSaveable { mutableStateOf<Long?>(null) }
+    var fontsVersion by remember { mutableStateOf(0) }
+    remember { ShipFonts.init(ctx) }
 
     BackHandler(enabled = tool != null) { tool = null }
 
@@ -189,7 +233,7 @@ fun ShipStudioScreen(adapterId: String, widgetId: String, onBack: () -> Unit) {
     }
     // The words, route and stamp: redrawn only when something other than the framing changes.
     LaunchedEffect(spec.overlayKey(), data, hackHours) {
-        overlay = withContext(Dispatchers.Default) { ShipCardRenderer.render(spec, stats(), null, 0.5f, zone, withPhoto = false).asImageBitmap() }
+        overlay = withContext(Dispatchers.Default) { ShipCardRenderer.render(spec, stats(), null, 0.5f, zone, withPhoto = false, withTexts = false).asImageBitmap() }
     }
 
     val takePhoto = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
@@ -208,6 +252,21 @@ fun ShipStudioScreen(adapterId: String, widgetId: String, onBack: () -> Unit) {
             if (bmp != null) spec = spec.copy(logo = bmp) else note = "Couldn't read that image."
         }
     }
+
+    val pickFont = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch {
+            withContext(Dispatchers.IO) { ShipFonts.import(ctx, uri) }
+                .onSuccess { f ->
+                    fontsVersion++
+                    val sel = selected
+                    spec = if (sel != null) spec.copy(texts = spec.texts.map { if (it.id == sel) it.copy(font = f.key) else it }) else spec.copy(font = f.key)
+                    note = "Added ${f.label}. It stays on this phone."
+                }
+                .onFailure { note = it.message ?: "Couldn't add that font." }
+        }
+    }
+
+    fun updateText(id: Long, f: (ShipText) -> ShipText) { spec = spec.copy(texts = spec.texts.map { if (it.id == id) f(it) else it }) }
 
     fun export(share: Boolean) {
         if (busy != null) return
@@ -242,9 +301,11 @@ fun ShipStudioScreen(adapterId: String, widgetId: String, onBack: () -> Unit) {
         Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars).only(WindowInsetsSides.Bottom))) {
             // A story runs edge to edge under the floating bar, like Instagram's editor; feed and square
             // cards start below it so the bar never covers their first line.
+            // The card starts below the status bar so the clock and battery never sit on it. A story runs
+            // under the floating bar, like Instagram's editor; feed and square start below it.
             BoxWithConstraints(
-                Modifier.weight(1f).fillMaxWidth()
-                    .then(if (spec.aspect == ShipAspect.Story) Modifier else Modifier.windowInsetsPadding(WindowInsets.statusBars).padding(top = 60.dp)),
+                Modifier.weight(1f).fillMaxWidth().windowInsetsPadding(WindowInsets.statusBarsIgnoringVisibility.union(WindowInsets.displayCutout).only(WindowInsetsSides.Top))
+                    .then(if (spec.aspect == ShipAspect.Story) Modifier else Modifier.padding(top = 60.dp)),
                 contentAlignment = Alignment.TopCenter,
             ) {
                 val ratio = spec.aspect.w.toFloat() / spec.aspect.h
@@ -254,23 +315,67 @@ fun ShipStudioScreen(adapterId: String, widgetId: String, onBack: () -> Unit) {
                     Modifier.size(cardW, (cardW.value / ratio).dp)
                         .clip(RoundedCornerShape(if (edge) 0.dp else 18.dp))
                         .background(if (spec.sticker) Color(0xFF2A2F3A) else Color.Black)
-                        .pointerInput(photo != null && !spec.sticker, spec.aspect) {
-                            if (photo == null || spec.sticker) return@pointerInput
-                            detectTransformGestures { _, pan, zoom, _ ->
-                                reframe(Frame(frame.zoom * zoom, frame.panX + pan.x / size.width, frame.panY + pan.y / size.height))
+                        .pointerInput(spec.aspect) {
+                            // One finger or two: on a text sticker it moves, scales and turns the sticker;
+                            // anywhere else it frames the photo. A tap selects a sticker or closes the panel.
+                            var lastTap = 0L
+                            awaitEachGesture {
+                                val down = awaitFirstDown(requireUnconsumed = false)
+                                val w = size.width.toFloat(); val h = size.height.toFloat()
+                                val hit = spec.texts.lastOrNull { hits(it, down.position, w, h, 12.dp.toPx()) }
+                                var moved = false
+                                var travel = Offset.Zero
+                                do {
+                                    val event = awaitPointerEvent()
+                                    val pan = event.calculatePan(); val zoom = event.calculateZoom(); val rot = event.calculateRotation()
+                                    travel += pan
+                                    if (!moved && (travel.getDistance() > viewConfiguration.touchSlop || event.changes.size > 1)) moved = true
+                                    if (moved) {
+                                        if (hit != null) {
+                                            if (selected != hit.id) selected = hit.id
+                                            updateText(hit.id) {
+                                                it.copy(
+                                                    x = (it.x + pan.x / w).coerceIn(0.02f, 0.98f), y = (it.y + pan.y / h).coerceIn(0.02f, 0.98f),
+                                                    size = (it.size * zoom).coerceIn(18f, 420f), rotation = (it.rotation + rot) % 360f,
+                                                )
+                                            }
+                                        } else if (photo != null && !spec.sticker) {
+                                            reframe(Frame(frame.zoom * zoom, frame.panX + pan.x / w, frame.panY + pan.y / h))
+                                        }
+                                        event.changes.forEach { if (it.positionChanged()) it.consume() }
+                                    }
+                                } while (event.changes.any { it.pressed })
+                                if (!moved) {
+                                    val now = System.currentTimeMillis()
+                                    when {
+                                        hit != null -> { view.tick(); selected = hit.id; tool = Tool.Text }
+                                        now - lastTap < 300 && photo != null -> reframe(Frame())
+                                        else -> { selected = null; tool = null }
+                                    }
+                                    lastTap = now
+                                }
                             }
-                        }
-                        .pointerInput(Unit) { detectTapGestures(onDoubleTap = { reframe(Frame()) }, onTap = { tool = null }) },
+                        },
                 ) {
                     LivePhoto(photo, spec, frame)
-                    overlay?.let { Image(it, "Ship Card preview", Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds) }
+                    overlay?.let { Image(it, "Stracode preview", Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds) }
+                    LiveTexts(spec.texts, selected.takeIf { tool == Tool.Text })
                 }
             }
             AnimatedContent(tool, transitionSpec = { fadeIn(tween(160)) togetherWith fadeOut(tween(100)) }, label = "panel") { t ->
                 if (t != null) Panel(if (typing) 0.26f else 0.42f) {
                     when (t) {
                         Tool.Style -> StylePanel(spec, hackHours, data, error, adapter?.name.orEmpty(), stats(), { spec = it }) { hackHours = it }
-                        Tool.Text -> TextPanel(spec, stats(), zone) { spec = it }
+                        Tool.Text -> TextPanel(
+                            spec, stats(), zone, selected, fontsVersion, onChange = { spec = it },
+                            onSelect = { selected = it },
+                            onImportFont = { pickFont.launch(arrayOf("*/*")) },
+                            onRemoveFont = { key ->
+                                ShipFonts.delete(key); fontsVersion++
+                                spec = spec.copy(font = if (spec.font == key) ShipFonts.SYSTEM else spec.font,
+                                    texts = spec.texts.map { if (it.font == key) it.copy(font = ShipFonts.SYSTEM) else it })
+                            },
+                        )
                         Tool.Photo -> PhotoPanel(
                             spec, hasPhoto = photo != null, onChange = { spec = it },
                             onCamera = {
@@ -291,11 +396,11 @@ fun ShipStudioScreen(adapterId: String, widgetId: String, onBack: () -> Unit) {
                 }
             }
             // While typing, the keyboard takes the tool bar's place so the card stays big enough to read.
-            if (!typing) ToolBar(tool) { t -> view.tick(); tool = if (tool == t) null else t }
+            if (!typing) ToolBar(tool) { t -> view.tick(); tool = if (tool == t) null else t; if (tool != Tool.Text) selected = null }
         }
         // Floating over the card's top edge, clear of the status bar.
         Row(
-            Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(horizontal = 14.dp, vertical = 8.dp),
+            Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBarsIgnoringVisibility.union(WindowInsets.displayCutout).only(WindowInsetsSides.Top)).padding(horizontal = 14.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             GlassCircle("chevronLeft", "Back", onClick = onBack)
@@ -331,6 +436,29 @@ private fun LivePhoto(photo: Bitmap?, spec: ShipSpec, frame: Frame) {
             colorFilter = filter,
         )
         if (spec.dim > 0f) drawRect(Color.Black.copy(alpha = spec.dim.coerceIn(0f, 0.7f)))
+    }
+}
+
+/** Text stickers drawn live with the export's own code, so moving one never redraws the rest. */
+@Composable
+private fun LiveTexts(texts: List<ShipText>, selected: Long?) {
+    if (texts.isEmpty()) return
+    Canvas(Modifier.fillMaxSize()) {
+        drawIntoCanvas { c ->
+            val nc = c.nativeCanvas
+            texts.forEach { ShipCardRenderer.drawText(nc, it, size.width, size.height) }
+            texts.firstOrNull { it.id == selected }?.let { t ->
+                val r = ShipCardRenderer.textBounds(t, size.width, size.height)
+                nc.save()
+                nc.rotate(t.rotation, r.centerX(), r.centerY())
+                val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                    style = android.graphics.Paint.Style.STROKE; strokeWidth = 1.5.dp.toPx(); color = 0xE6FFFFFF.toInt()
+                    pathEffect = android.graphics.DashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx()), 0f)
+                }
+                nc.drawRoundRect(r, 8.dp.toPx(), 8.dp.toPx(), p)
+                nc.restore()
+            }
+        }
     }
 }
 
@@ -389,7 +517,12 @@ private fun StylePanel(
         // A new style brings its own words; the period follows when it's a hackathon.
         onChange(spec.copy(
             persona = p, headlineIdx = 0, kicker = null, headline = null, sub = null,
-            period = if (p == ShipPersona.Hackathon) ShipPeriod.Hackathon else if (spec.period == ShipPeriod.Hackathon) ShipPeriod.Today else spec.period,
+            period = when {
+                p == ShipPersona.Hackathon -> ShipPeriod.Hackathon
+                p == ShipPersona.Heatmap -> ShipPeriod.Months
+                spec.period == ShipPeriod.Hackathon || spec.period == ShipPeriod.Months -> ShipPeriod.Today
+                else -> spec.period
+            },
         ))
     }
     Section("Period")
@@ -413,12 +546,82 @@ private fun StylePanel(
     }
 }
 
-/** Pick a ready-made line, or write your own; stats go in as their values, not as codes. */
+/** Text stickers like Phonto (add, type, font, color, style; move them on the card), then the card's own words. */
 @Composable
-private fun TextPanel(spec: ShipSpec, stats: ShipStats, zone: ZoneId, onChange: (ShipSpec) -> Unit) {
+private fun TextPanel(
+    spec: ShipSpec, stats: ShipStats, zone: ZoneId, selected: Long?, fontsVersion: Int,
+    onChange: (ShipSpec) -> Unit, onSelect: (Long?) -> Unit, onImportFont: () -> Unit, onRemoveFont: (String) -> Unit,
+) {
     val c = Theme.c
+    val fonts = remember(fontsVersion) { ShipFonts.all() }
+    val sticker = spec.texts.firstOrNull { it.id == selected }
+    if (sticker != null) {
+        fun edit(f: (ShipText) -> ShipText) = onChange(spec.copy(texts = spec.texts.map { if (it.id == sticker.id) f(it) else it }))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Text sticker", style = Theme.t.label, color = c.ink, modifier = Modifier.weight(1f))
+            Chip("Done", true) { onSelect(null) }
+        }
+        Spacer(Modifier.height(10.dp))
+        Field(sticker.text, { v -> edit { it.copy(text = v.take(80)) } }, "Type something", autofocus = sticker.text.isEmpty())
+        Spacer(Modifier.height(6.dp))
+        Text("Drag it on the card. Pinch to resize, twist to turn.", style = Theme.t.small, color = c.ink3)
+        Section("Font")
+        FontChips(fonts, sticker.font, onImportFont, onRemoveFont) { k -> edit { it.copy(font = k) } }
+        Section("Color")
+        ColorDots(sticker.color, spec.accent.argb) { col -> edit { it.copy(color = col) } }
+        Section("Style")
+        Chips(ShipTextStyle.entries.map { it.label }, sticker.style.ordinal) { i -> edit { it.copy(style = ShipTextStyle.entries[i]) } }
+        Section("Size")
+        val sizes = listOf(44f, 72f, 110f, 160f)
+        Chips(listOf("S", "M", "L", "XL"), sizes.indexOfFirst { kotlin.math.abs(it - sticker.size) < 1f }) { i -> edit { it.copy(size = sizes[i]) } }
+        Spacer(Modifier.height(14.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            QuietButton("Duplicate", Modifier.weight(1f)) {
+                val copy = sticker.copy(id = System.nanoTime(), x = (sticker.x + 0.04f).coerceAtMost(0.98f), y = (sticker.y + 0.04f).coerceAtMost(0.98f))
+                onChange(spec.copy(texts = spec.texts + copy)); onSelect(copy.id)
+            }
+            QuietButton("Delete", Modifier.weight(1f), color = c.danger) { onChange(spec.copy(texts = spec.texts.filter { it.id != sticker.id })); onSelect(null) }
+        }
+        return
+    }
+
+    QuietButton("+ Add text", Modifier.fillMaxWidth()) {
+        val t = ShipText(id = System.nanoTime(), text = "", font = spec.font, color = 0xFFFFFFFF.toInt(), y = 0.22f + 0.06f * (spec.texts.size % 5))
+        onChange(spec.copy(texts = spec.texts + t)); onSelect(t.id)
+    }
+    if (spec.texts.isNotEmpty()) {
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            spec.texts.forEach { t -> Chip(t.text.ifBlank { "Empty text" }.take(18), false) { onSelect(t.id) } }
+        }
+    }
+
     val (kicker, headline, sub) = ShipCardRenderer.filledLines(spec, stats, zone)
     val options = ShipCardRenderer.filledHeadlines(spec, stats, zone)
+    if (spec.persona.layout == app.openshortcuts.model.ShipLayout.Limit) {
+        // The AI-limit notice over your photo: which look, where, and its button.
+        Section("Notice")
+        Chips(app.openshortcuts.model.ShipLimitStyle.entries.map { it.label }, spec.limitStyle.ordinal) {
+            onChange(spec.copy(limitStyle = app.openshortcuts.model.ShipLimitStyle.entries[it], limitAction = null))
+        }
+        Section("Position")
+        Chips(listOf("Bottom", "Top"), if (spec.limitTop) 1 else 0) { onChange(spec.copy(limitTop = it == 1)) }
+        Section(if (spec.limitStyle == app.openshortcuts.model.ShipLimitStyle.Banner) "Link" else "Button")
+        val presets = listOf("Default", "Upgrade to Max", "Hide")
+        val sel = when (spec.limitAction) { null -> 0; "Upgrade to Max" -> 1; "" -> 2; else -> -1 }
+        Chips(presets, sel) { onChange(spec.copy(limitAction = when (it) { 0 -> null; 1 -> "Upgrade to Max"; else -> "" })) }
+        Spacer(Modifier.height(8.dp))
+        Field(spec.limitAction.orEmpty(), { onChange(spec.copy(limitAction = it.take(30).ifEmpty { null })) }, "Or type your own, e.g. Touch grass", autofocus = false)
+        Section("Resets at")
+        Field(spec.resetAt, { onChange(spec.copy(resetAt = it.take(12))) }, "e.g. 3:40 PM (blank: about two hours on)", autofocus = false)
+        Spacer(Modifier.height(6.dp))
+        Text("The AI named in the notice is your first AI teammate (Tags).", style = Theme.t.small, color = c.ink3)
+        Section("Your name")
+        Field(spec.handle, { onChange(spec.copy(handle = it.removePrefix("@").take(30))) }, "e.g. ega", autofocus = false)
+        return
+    }
+    Section("Card font")
+    FontChips(fonts, spec.font, onImportFont, onRemoveFont) { onChange(spec.copy(font = it)) }
     Section("Headline")
     options.forEachIndexed { i, line ->
         val on = spec.headline == null && spec.headlineIdx == i
@@ -440,6 +643,8 @@ private fun TextPanel(spec: ShipSpec, stats: ShipStats, zone: ZoneId, onChange: 
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         facts.forEach { f -> Chip("+ $f", false) { onChange(spec.copy(headline = (headline.trimEnd() + " " + f).trim().take(70))) } }
     }
+    Section("Your name")
+    Field(spec.handle, { onChange(spec.copy(handle = it.removePrefix("@").take(30))) }, "e.g. ega", autofocus = false)
     Section("Small line on top")
     Field(kicker, { onChange(spec.copy(kicker = it.take(50))) }, "e.g. VIBE CODING SESSION", autofocus = false)
     Section("Under the headline")
@@ -447,6 +652,47 @@ private fun TextPanel(spec: ShipSpec, stats: ShipStats, zone: ZoneId, onChange: 
     if (spec.kicker != null || spec.headline != null || spec.sub != null) {
         Spacer(Modifier.height(10.dp))
         QuietButton("Reset to the style's words", Modifier.fillMaxWidth()) { onChange(spec.copy(kicker = null, headline = null, sub = null)) }
+    }
+}
+
+/** Each font shown in itself; your imported ones last, then "Import font". */
+@Composable
+private fun FontChips(fonts: List<ShipFonts.Face>, selected: String, onImport: () -> Unit, onRemove: (String) -> Unit, onPick: (String) -> Unit) {
+    val c = Theme.c
+    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        fonts.forEach { f ->
+            val on = f.key == selected
+            val family = remember(f.key) { androidx.compose.ui.text.font.FontFamily(ShipFonts.typeface(f.key, 700)) }
+            Box(
+                Modifier.heightIn(min = 40.dp).pressable(scale = 0.96f, label = f.label) { onPick(f.key) }
+                    .clip(RoundedCornerShape(20.dp)).background(if (on) c.ink else c.fill)
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                contentAlignment = Alignment.Center,
+            ) { Text(f.label, style = Theme.t.label.copy(fontFamily = family), color = if (on) c.bg else c.ink, maxLines = 1) }
+        }
+        Chip("+ Import font", false, onImport)
+    }
+    if (selected.startsWith("file:")) {
+        Spacer(Modifier.height(6.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Imported fonts stay on this phone.", style = Theme.t.small, color = c.ink3, modifier = Modifier.weight(1f))
+            Chip("Remove font", false) { onRemove(selected) }
+        }
+    }
+}
+
+@Composable
+private fun ColorDots(selected: Int, accent: Int, onPick: (Int) -> Unit) {
+    val colors = listOf(0xFFFFFFFF.toInt(), 0xFF0B0B0B.toInt(), accent, 0xFFFFD84D.toInt(), 0xFFFF6B6B.toInt(), 0xFF8EA8FF.toInt(), 0xFF6EE7B7.toInt(), 0xFFFF8FC7.toInt())
+        .distinct()
+    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        colors.forEach { col ->
+            Box(
+                Modifier.size(36.dp).clip(CircleShape).background(Color(col))
+                    .border(if (col == selected) 3.dp else 1.dp, if (col == selected) Theme.c.ink else Theme.c.hairline, CircleShape)
+                    .pressable(scale = 0.96f, label = "Color") { onPick(col) },
+            )
+        }
     }
 }
 
@@ -527,6 +773,10 @@ private fun BrandPanel(spec: ShipSpec, onChange: (ShipSpec) -> Unit, onPickLogo:
     val c = Theme.c
     Section("Made-with mark")
     Chips(ShipStamp.entries.map { it.label }, spec.stamp.ordinal) { onChange(spec.copy(stamp = ShipStamp.entries[it])) }
+    if (spec.stamp == ShipStamp.Signature || spec.stamp == ShipStamp.Frame) {
+        Spacer(Modifier.height(8.dp))
+        Field(spec.stampText, { onChange(spec.copy(stampText = it.take(28))) }, "OpenShortcuts", autofocus = false)
+    }
     Section("Your logo")
     Text("Stays on this phone. Nothing is uploaded.", style = Theme.t.small, color = c.ink3)
     Spacer(Modifier.height(8.dp))
@@ -600,7 +850,7 @@ private suspend fun shareImage(ctx: Context, bmp: Bitmap, sticker: Boolean) {
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
     withContext(Dispatchers.Main) {
-        ctx.startActivity(Intent.createChooser(send, "Share Ship Card").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        ctx.startActivity(Intent.createChooser(send, "Share Stracode card").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 }
 
@@ -613,13 +863,13 @@ fun ShipCardTile(widget: app.openshortcuts.model.DashboardWidget, adapterId: Str
     val c = Theme.c
     val open = LocalOpenShipCard.current
     val view = LocalView.current
-    Card(Modifier.fillMaxWidth().pressable(scale = 0.97f, label = "Open Ship Card") { view.tick(); open(adapterId, widget.id) }) {
+    Card(Modifier.fillMaxWidth().pressable(scale = 0.97f, label = "Open Stracode") { view.tick(); open(adapterId, widget.id) }) {
         Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconTile("send", widget.tint.color(), 40.dp)
+            IconTile("laptopRun", widget.tint.color(), 40.dp)
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text(widget.title.ifBlank { "Ship Card" }, style = Theme.t.label, color = c.ink)
-                Text("Turn your commits into a photo card to share", style = Theme.t.small, color = c.ink2)
+                Text(widget.title.ifBlank { "Stracode" }, style = Theme.t.label, color = c.ink)
+                Text("Your commits as a card to share, like a run", style = Theme.t.small, color = c.ink2)
             }
             Glyph("chevronRight", c.ink3, 18.dp)
         }

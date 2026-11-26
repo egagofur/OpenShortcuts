@@ -27,7 +27,7 @@ enum class WidgetType(val key: String, val label: String, val summary: String) {
     BAR_CHART("bar_chart", "Bar Chart", "Daily or weekly totals, counted or summed"),
     HEATMAP_CHART("heatmap_chart", "Contribution Heatmap", "GitLab-style weekly contribution grid"),
     BREAKDOWN("breakdown", "Breakdown", "Totals per group as ranked bars"),
-    SHARE_CARD("share_card", "Ship Card", "Your commits as a shareable photo card");
+    SHARE_CARD("share_card", "Stracode", "Your commits as a shareable photo card");
 
     companion object {
         fun from(key: String): WidgetType = entries.firstOrNull { it.key == key } ?: LIST
@@ -200,6 +200,12 @@ data class AdapterTab(
     val widgets: List<DashboardWidget> = emptyList(),
 )
 
+/**
+ * Something the workspace asks you for besides a token, like your GitHub username. Endpoints use it
+ * as {{input.key}}. Kept on this device with the token.
+ */
+data class AdapterInput(val key: String, val label: String, val hint: String = "")
+
 data class WorkspaceAdapter(
     val id: String,
     val name: String,
@@ -214,6 +220,9 @@ data class WorkspaceAdapter(
     val tokenHint: String = "Paste your access token",
     val tabs: List<AdapterTab> = emptyList(),
     val globalActions: List<AdapterAction> = emptyList(),
+    /** Works without a token too; a token only adds more (private repos, higher limits). */
+    val tokenOptional: Boolean = false,
+    val inputs: List<AdapterInput> = emptyList(),
 ) {
     fun actionById(actionId: String?): AdapterAction? {
         if (actionId.isNullOrBlank()) return null
@@ -238,6 +247,8 @@ data class WorkspaceAdapter(
         put("authHeader", authHeader)
         put("authPrefix", authPrefix)
         put("tokenHint", tokenHint)
+        if (tokenOptional) put("tokenOptional", true)
+        if (inputs.isNotEmpty()) put("inputs", JSONArray(inputs.map { JSONObject().put("key", it.key).put("label", it.label).put("hint", it.hint) }))
         put("tabs", JSONArray(tabs.map { t ->
             JSONObject().apply {
                 put("id", t.id)
@@ -562,6 +573,14 @@ data class WorkspaceAdapter(
                 tokenHint = o.optString("tokenHint", "Paste your access token"),
                 tabs = tabs,
                 globalActions = globals,
+                tokenOptional = o.optBoolean("tokenOptional", false),
+                inputs = o.optJSONArray("inputs")?.let { a ->
+                    (0 until a.length()).mapNotNull { i ->
+                        val io = a.optJSONObject(i) ?: return@mapNotNull null
+                        val key = io.optString("key").trim().takeIf { it.matches(Regex("[A-Za-z0-9_]{1,40}")) } ?: return@mapNotNull null
+                        AdapterInput(key, io.optString("label", key), io.optString("hint", ""))
+                    }
+                }.orEmpty(),
             )
         }
     }
@@ -569,10 +588,10 @@ data class WorkspaceAdapter(
 
 /** Starting points for a new workspace: built-in templates and a blank one for your own API. */
 object WorkspaceTemplates {
-    val keys = listOf("demo", "github", "gitlab")
+    val keys = listOf("demo", "stracode", "github", "gitlab")
 
     fun load(ctx: android.content.Context, key: String): WorkspaceAdapter? = runCatching {
-        WorkspaceAdapter.fromJson(JSONObject(ctx.assets.open("templates/$key.osadapter").bufferedReader().readText()))
+        WorkspaceAdapter.fromJson(JSONObject(ctx.assets.open("workspaces/$key.osadapter").bufferedReader().readText()))
     }.getOrNull()
 
     /** "github", then "github-2", "github-3"… so adding a template twice never overwrites the first. */

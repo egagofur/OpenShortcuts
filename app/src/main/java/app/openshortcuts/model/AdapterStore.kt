@@ -34,12 +34,29 @@ object AdapterStore {
         secrets = context.getSharedPreferences("adapter_secrets", Context.MODE_PRIVATE)
         val arr = runCatching { JSONArray(file.readText()) }.getOrNull() ?: JSONArray()
         state.value = (0 until arr.length()).mapNotNull { i ->
-            runCatching { WorkspaceAdapter.fromJson(arr.getJSONObject(i)) }.getOrNull()
+            runCatching { WorkspaceAdapter.fromJson(arr.getJSONObject(i)) }.getOrNull()?.let(::renamed)
         }
         // Read saved responses off the main thread now, so even the first open of a workspace
         // has its data on the first frame instead of loading it mid-slide.
         val ids = state.value.map { it.id }
         Thread({ ids.forEach { runCatching { loadCache(it) } } }, "workspace-cache").apply { isDaemon = true; start() }
+    }
+
+    /** "Ship Card" became Stracode: workspaces saved before the rename read the new name. */
+    private fun renamed(a: WorkspaceAdapter): WorkspaceAdapter {
+        val old = setOf("Ship Card", "Make a Ship Card")
+        fun fix(t: String) = if (t in old) "Stracode" else t
+        if (a.name !in old && a.tabs.none { t -> t.label == "Ship" || t.widgets.any { it.title in old } }) return a
+        return a.copy(
+            name = fix(a.name),
+            subtitle = if (a.name in old) "Your commits as a card to share, like a run" else a.subtitle,
+            glyph = if (a.name in old) "laptopRun" else a.glyph,
+            tabs = a.tabs.map { t ->
+                t.copy(label = if (t.label == "Ship") "Stracode" else t.label, widgets = t.widgets.map { w ->
+                    if (w.title in old) w.copy(title = "Stracode", glyph = "laptopRun") else w
+                })
+            },
+        )
     }
 
     fun get(id: String): WorkspaceAdapter? = state.value.firstOrNull { it.id == id }
@@ -54,7 +71,9 @@ object AdapterStore {
         val next = state.value.filterNot { it.id == id }
         state.value = next
         save(next)
-        secrets.edit().remove("token_$id").remove("url_$id").apply()
+        secrets.edit().remove("token_$id").remove("url_$id").apply {
+            secrets.all.keys.filter { it.startsWith("input_${id}_") }.forEach { remove(it) }
+        }.apply()
         memCache.remove(id)
         if (::file.isInitialized) File(cacheDir, "adapter_cache_$id.json").delete()
     }
@@ -106,8 +125,16 @@ object AdapterStore {
         else secrets.edit().putString("url_$id", clean).apply()
     }
 
+    fun getInput(id: String, key: String): String = if (!::secrets.isInitialized) "" else secrets.getString("input_${id}_$key", "").orEmpty()
+
+    fun setInput(id: String, key: String, value: String) {
+        secrets.edit().putString("input_${id}_$key", value.trim()).apply()
+    }
+
+    /** Ready to load: signed in (or no sign-in needed) and everything it asks for is filled in. */
     fun hasToken(adapter: WorkspaceAdapter): Boolean =
-        adapter.authKind == AuthKind.NONE || getToken(adapter.id).isNotBlank()
+        (adapter.authKind == AuthKind.NONE || adapter.tokenOptional || getToken(adapter.id).isNotBlank()) &&
+            adapter.inputs.all { getInput(adapter.id, it.key).isNotBlank() }
 
     fun receive(ctx: Context, uri: Uri) {
         runCatching { read(ctx, uri) }

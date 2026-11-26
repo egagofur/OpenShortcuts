@@ -112,6 +112,20 @@ fun WorkspaceHub(
                 )
             }
         }
+        item(key = "market") {
+            val openMarket = LocalOpenMarketplace.current
+            Card(Modifier.fillMaxWidth().pressable(label = "Open the marketplace", onClick = openMarket)) {
+                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    IconTile("store", Tint.Green.color(), size = 34.dp)
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Marketplace", style = Theme.t.label, color = c.ink)
+                        Text("Add a ready-made workspace in one tap", style = Theme.t.small, color = c.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    Glyph("chevronRight", c.ink3, size = 18.dp)
+                }
+            }
+        }
         items(adapters, key = { it.id }) { adapter ->
             val connected = AdapterStore.hasToken(adapter)
             Card(
@@ -160,7 +174,7 @@ fun WorkspaceHub(
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         Text("New Workspace", style = Theme.t.label, color = c.ink)
-                        Text("Build with AI, start blank, or use GitHub, GitLab or the demo.", style = Theme.t.small, color = c.ink2)
+                        Text("Build with AI, start blank, or paste one. Ready-made ones are in the Marketplace.", style = Theme.t.small, color = c.ink2)
                     }
                     Glyph("chevronRight", c.ink3, size = 18.dp)
                 }
@@ -465,8 +479,12 @@ fun WorkspaceScreen(
                             IconTile("lock", Tint.Orange.color(), size = 34.dp)
                             Spacer(Modifier.width(12.dp))
                             Column(Modifier.weight(1f)) {
-                                Text("Token required", style = Theme.t.label, color = c.ink)
-                                Text("Tap to add your token locally.", style = Theme.t.small, color = c.ink2)
+                                val needsInput = curAdapter.inputs.isNotEmpty() && (curAdapter.authKind == AuthKind.NONE || curAdapter.tokenOptional)
+                                Text(if (needsInput) "One more step" else "Token required", style = Theme.t.label, color = c.ink)
+                                Text(
+                                    if (needsInput) "Tap to add your ${curAdapter.inputs.joinToString(" and ") { it.label.lowercase() }}." else "Tap to add your token locally.",
+                                    style = Theme.t.small, color = c.ink2,
+                                )
                             }
                             Glyph("chevronRight", c.ink3, size = 18.dp)
                         }
@@ -1183,6 +1201,7 @@ private fun WorkspaceSettingsDialog(
     var token by remember(adapter.id) { mutableStateOf(AdapterStore.getToken(adapter.id)) }
     var revealToken by remember(adapter.id) { mutableStateOf(false) }
     var baseUrl by remember(adapter.id) { mutableStateOf(AdapterStore.getEffectiveBaseUrl(adapter)) }
+    val inputs = remember(adapter.id) { androidx.compose.runtime.mutableStateMapOf<String, String>().apply { adapter.inputs.forEach { put(it.key, AdapterStore.getInput(adapter.id, it.key)) } } }
     var confirmRemove by remember { mutableStateOf(false) }
 
     val maskTransformation = remember {
@@ -1201,8 +1220,14 @@ private fun WorkspaceSettingsDialog(
 
     DuoDialog(onDismiss = onDismiss) {
         DialogTitle("${adapter.name} Settings", "Tokens stay on this device and are never exported.")
+        adapter.inputs.forEach { input ->
+            Text(input.label, style = Theme.t.small, color = c.ink2)
+            Spacer(Modifier.height(4.dp))
+            Field(inputs[input.key].orEmpty(), { inputs[input.key] = it.take(100) }, input.hint.ifBlank { input.label }, autofocus = false)
+            Spacer(Modifier.height(12.dp))
+        }
         if (adapter.authKind != AuthKind.NONE) {
-            Text("Access Token", style = Theme.t.small, color = c.ink2)
+            Text(if (adapter.tokenOptional) "Access Token (optional)" else "Access Token", style = Theme.t.small, color = c.ink2)
             Spacer(Modifier.height(4.dp))
             Row(
                 Modifier
@@ -1261,6 +1286,7 @@ private fun WorkspaceSettingsDialog(
         PrimaryButton("Save", Modifier.fillMaxWidth()) {
             AdapterStore.setToken(adapter.id, token)
             AdapterStore.setBaseUrlOverride(adapter.id, baseUrl)
+            inputs.forEach { (k, v) -> AdapterStore.setInput(adapter.id, k, v.removePrefix("@")) }
             onSaved()
         }
         Spacer(Modifier.height(8.dp))

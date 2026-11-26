@@ -91,6 +91,8 @@ object Tour {
         val p = ctx.getSharedPreferences("tour", Context.MODE_PRIVATE)
         prefs = p
         if (!p.contains("step")) p.edit().putString("step", (if (freshInstall) Step.Welcome else Step.Finished).name).apply()
+        // The marketplace is offered once to new installs; people updating already have their workspaces.
+        if (!freshInstall && !p.contains("market_offered")) p.edit().putBoolean("market_offered", true).apply()
         step = runCatching { Step.valueOf(p.getString("step", null)!!) }.getOrDefault(Step.Finished)
     }
 

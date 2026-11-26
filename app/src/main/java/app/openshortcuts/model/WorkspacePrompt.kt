@@ -44,7 +44,7 @@ Widget types:
 - "breakdown": totals per group, largest first. "itemsPath","groupPath","valuePath" (omit to count),"unit","count" (groups shown)
 - "heatmap_chart": a year of activity, one square per day. "itemsPath","metaPath"
 - "live_status": shows if something is running, with a start/stop button and a timer counting up. "activePath" (true/false),"activeTitlePath","subtitlePath" (e.g. the project),"startedAtPath" (ISO start time, so the timer is right),"holdToStop": true (stop needs press-and-hold),"inactiveText","activeActionId","inactiveActionId"
-- "share_card": a "Ship Card" studio that turns recent commits into a shareable photo card. "endpoint" (profile),"titlePath" (handle),"itemsEndpoint" (commits; "{{login}}" etc. are filled from the profile, "{{since_7d}}" is a week ago),"itemsPath","metaPath" (commit time),"messagePath","groupPath" (repo),"valuePath" (commits per item)
+- "share_card": a "Stracode" studio that turns recent commits into a shareable photo card. "endpoint" (profile),"titlePath" (handle),"itemsEndpoint" (commits; "{{login}}" etc. are filled from the profile, "{{since_7d}}" is a week ago),"itemsPath","metaPath" (commit time),"messagePath","groupPath" (repo),"valuePath" (commits per item)
 - "action_grid": tiles that run actions. "actionRefs": [{"title","glyph","tint","actionId"}]
 - "profile_card": the signed-in user. "titlePath","subtitlePath","metaPath","badgePath"
 - "note_card": "body" (short text)

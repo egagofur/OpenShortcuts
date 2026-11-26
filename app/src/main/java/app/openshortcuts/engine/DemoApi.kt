@@ -38,7 +38,7 @@ object DemoApi {
         if (method.uppercase() != "GET") return act(path, body)
         val json: Any = when {
             path == "/me" -> JSONObject()
-                .put("name", "Alex Rivera").put("username", "alex").put("email", "alex@example.com").put("state", "active")
+                .put("name", "Ega").put("username", "ega").put("email", "ega@example.com").put("state", "active")
             path == "/timer" -> JSONObject().put(
                 "data",
                 JSONObject().put("running", running).put("title", runningTitle.ifBlank { JSONObject.NULL })
@@ -51,7 +51,8 @@ object DemoApi {
                 ?: return AdapterResult(false, 404, "Not found")
             path == "/tasks" -> JSONArray(taskList(today))
             path == "/activity" -> JSONArray(activity(today))
-            path == "/commits" -> JSONArray(commits(today))
+            // One page holds everything; later pages are empty, like a real API at its end.
+            path == "/commits" -> JSONArray(if (Regex("[?&]page=([2-9]|\\d{2,})").containsMatchIn(endpoint)) emptyList() else commits(today))
             else -> return AdapterResult(false, 404, "The demo has no $path.")
         }
         return AdapterResult(true, 200, "OK", json)
@@ -145,20 +146,27 @@ object DemoApi {
     }
 
     /**
-     * A week of commits with real-looking times, some crediting an AI pair in a Co-Authored-By
+     * Sixteen weeks of commits with real-looking times (enough for a heatmap), some crediting an AI pair in a Co-Authored-By
      * trailer, the way Claude Code, Copilot and friends sign theirs.
      */
     fun commits(today: LocalDate, now: java.time.LocalTime = java.time.LocalTime.now()): List<JSONObject> {
-        val repos = listOf("alex/openboard", "alex/portfolio", "northwind/checkout")
+        val repos = listOf("ega/openboard", "ega/portfolio", "northwind/checkout")
         val ais = listOf(
             "Claude <noreply@anthropic.com>", "Claude <noreply@anthropic.com>", "Copilot <copilot@github.com>",
             "Gemini <gemini@google.com>", null, null, null,
         )
         val out = ArrayList<JSONObject>()
-        var d = today.minusDays(7)
+        var d = today.minusDays(118)
         while (!d.isAfter(today)) {
             val rnd = Random(d.toEpochDay() * 17)
-            val n = if (d.dayOfWeek == DayOfWeek.SATURDAY || d.dayOfWeek == DayOfWeek.SUNDAY) rnd.nextInt(0, 3) else rnd.nextInt(3, 9)
+            val weekend = d.dayOfWeek == DayOfWeek.SATURDAY || d.dayOfWeek == DayOfWeek.SUNDAY
+            // Older weeks are quieter and patchier, so the heatmap has some texture.
+            val n = when {
+                d.isAfter(today.minusDays(8)) -> if (weekend) rnd.nextInt(0, 3) else rnd.nextInt(3, 9)
+                rnd.nextInt(0, 10) < 3 -> 0
+                weekend -> rnd.nextInt(0, 2)
+                else -> rnd.nextInt(1, 7)
+            }
             repeat(n) { i ->
                 val hour = 9 + (i * 11 / n.coerceAtLeast(1)) + rnd.nextInt(0, 2)
                 val minute = rnd.nextInt(0, 60)

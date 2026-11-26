@@ -33,7 +33,7 @@ enum class AiAgent(val label: String, private val match: List<String>) {
 
 /** The time window a card covers. */
 enum class ShipPeriod(val label: String) {
-    Today("Today"), Week("This week"), Hackathon("Hackathon");
+    Today("Today"), Week("This week"), Months("16 weeks"), Hackathon("Hackathon");
 }
 
 /** The numbers on a card, worked out from commits in its window. */
@@ -53,13 +53,28 @@ data class ShipStats(
     val times: List<Instant>,
     val from: Instant,
     val to: Instant,
+    /** Commits per local day in the window: the heatmap. */
+    val perDay: Map<LocalDate, Int> = emptyMap(),
 ) {
+    /** Longest run of days in a row with at least one commit. */
+    val streak: Int get() {
+        var best = 0; var run = 0; var prev: LocalDate? = null
+        perDay.filterValues { it > 0 }.keys.sorted().forEach { d ->
+            run = if (prev != null && d == prev!!.plusDays(1)) run + 1 else 1
+            best = maxOf(best, run); prev = d
+        }
+        return best
+    }
+    val bestDay: Int get() = perDay.values.maxOrNull() ?: 0
+
     companion object {
         fun window(period: ShipPeriod, now: Instant, zone: ZoneId, hackathonHours: Int): Pair<Instant, Instant> {
             val today = LocalDate.ofInstant(now, zone)
             return when (period) {
                 ShipPeriod.Today -> today.atStartOfDay(zone).toInstant() to now
                 ShipPeriod.Week -> today.with(java.time.DayOfWeek.MONDAY).atStartOfDay(zone).toInstant() to now
+                // This week plus the fifteen before it: sixteen whole columns on the heatmap.
+                ShipPeriod.Months -> today.with(java.time.DayOfWeek.MONDAY).minusWeeks(15).atStartOfDay(zone).toInstant() to now
                 ShipPeriod.Hackathon -> now.minus(Duration.ofHours(hackathonHours.toLong())) to now
             }
         }
@@ -86,6 +101,7 @@ data class ShipStats(
                 times = inWindow.map { it.at },
                 from = from,
                 to = to,
+                perDay = inWindow.groupBy { LocalDate.ofInstant(it.at, zone) }.mapValues { (_, l) -> l.sumOf { it.count } },
             )
         }
 
@@ -102,11 +118,14 @@ data class ShipStats(
 }
 
 /** Which layout a persona draws with. */
-enum class ShipLayout { Stack, Recap, Hackathon }
+enum class ShipLayout { Stack, Recap, Hackathon, Heatmap, Limit }
+
+/** How the AI-limit notice looks: plain words, or one of three app-style notices. */
+enum class ShipLimitStyle(val label: String) { Text("Text"), Card("Card"), Banner("Banner"), Dialog("Dialog") }
 
 /**
  * A card's personality: its layout and its words. Every line can be edited; {tokens} are filled
- * from the stats ({commits} {span} {repos} {days} {ai} {agents} {handle} {night} {last} {rest} {hours} {date} {week}).
+ * from the stats ({commits} {span} {repos} {days} {ai} {agents} {handle} {night} {last} {rest} {hours} {date} {week} {streak} {best}).
  */
 enum class ShipPersona(
     val label: String,
@@ -141,6 +160,10 @@ enum class ShipPersona(
     Hackathon("Hackathon", ShipLayout.Hackathon, "HACKATHON",
         listOf("Hack Night", "Built it in {hours}h", "Nggak tidur demi demo", "Demo day survivor"),
         "Built in {hours}h", listOf("Commits" to "{commits}", "Repos" to "{repos}", "AI pair" to "{ai}")),
+    RateLimited("AI Limit", ShipLayout.Limit, "", listOf("Usage limit reached."), "", emptyList()),
+    Heatmap("Heatmap", ShipLayout.Heatmap, "CONTRIBUTIONS",
+        listOf("{commits} commits in 16 weeks", "Green squares only.", "Kotak hijau, hati senang", "Consistency, visualized."),
+        "@{handle}", listOf("Commits" to "{commits}", "Active days" to "{days}", "Best streak" to "{streak}d", "Best day" to "{best}")),
     ;
 
     val headline: String get() = headlines.first()
@@ -163,6 +186,7 @@ enum class ShipPersona(
                     "days" -> s.activeDays.toString()
                     "ai" -> "${(s.aiShare * 100).toInt()}%"
                     "agents" -> names.joinToString(" + ").ifBlank { "AI" }
+                    "agent" -> names.firstOrNull() ?: "Claude"
                     "handle" -> handle.ifBlank { "me" }
                     "night" -> s.times.count { val h = it.atZone(zone).hour; h >= 22 || h < 4 }.toString()
                     "last" -> s.times.lastOrNull()?.atZone(zone)?.let { "%02d:%02d".format(it.hour, it.minute) } ?: "—"
@@ -170,6 +194,8 @@ enum class ShipPersona(
                     "hours" -> Duration.between(s.from, s.to).toHours().coerceAtLeast(1).toString()
                     "date" -> java.time.format.DateTimeFormatter.ofPattern("EEE d MMM", java.util.Locale.ENGLISH).format(local)
                     "week" -> local.get(java.time.temporal.IsoFields.WEEK_OF_WEEK_BASED_YEAR).toString()
+                    "streak" -> s.streak.toString()
+                    "best" -> s.bestDay.toString()
                     else -> m.value
                 }
             }

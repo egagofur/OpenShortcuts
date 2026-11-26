@@ -20,8 +20,17 @@ object ShipSource {
         val handle = AdapterEngine.extractString(profile, widget.titlePath)
         val itemsEp = AdapterEngine.interpolateUrl(widget.itemsEndpoint, profile as? JSONObject, emptyMap())
         if (widget.itemsEndpoint.isBlank()) return@runCatching ShipData(handle, emptyList())
-        val raw = AdapterEngine.fetchEndpoints(adapter, setOf(itemsEp))[itemsEp]?.getOrThrow()
-        val commits = AdapterEngine.extractList(raw, widget.itemsPath).mapNotNull { o ->
+        // Up to three pages of 100, so a busy coder's heatmap reaches back a few months.
+        val items = ArrayList<JSONObject>()
+        for (page in 1..3) {
+            val ep = if (page == 1) itemsEp else itemsEp + (if ('?' in itemsEp) "&" else "?") + "page=$page"
+            val res = AdapterEngine.fetchEndpoints(adapter, setOf(ep))[ep] ?: break
+            if (res.isFailure) { if (page == 1) res.getOrThrow() else break }
+            val got = AdapterEngine.extractList(res.getOrNull(), widget.itemsPath)
+            items += got
+            if (got.size < 100) break
+        }
+        val commits = items.mapNotNull { o ->
             val at = AdapterEngine.parseInstantOrNull(AdapterEngine.extractString(o, widget.metaPath)) ?: return@mapNotNull null
             ShipCommit(
                 at = at,

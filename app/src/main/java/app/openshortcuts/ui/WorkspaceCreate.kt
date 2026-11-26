@@ -21,9 +21,12 @@ import app.openshortcuts.model.WorkspaceAdapter
 import app.openshortcuts.model.WorkspaceTemplates
 import app.openshortcuts.model.WorkspacePrompt
 
-private enum class CreateStep { Pick, Blank, GitLab, Ai }
+private enum class CreateStep { Pick, Blank, Ai }
 
-/** Start a workspace: blank for your own API, a template (GitHub, GitLab, Demo), or an .osadapter file. */
+/** Opens the marketplace. Provided by the app's navigation. */
+val LocalOpenMarketplace = androidx.compose.runtime.staticCompositionLocalOf<() -> Unit> { {} }
+
+/** Start a workspace: from the marketplace, with AI, blank for your own API, or from a pasted or .osadapter file. */
 @Composable
 fun NewWorkspaceDialog(onDismiss: () -> Unit, onImport: () -> Unit, onPaste: () -> Unit, onCreated: (WorkspaceAdapter) -> Unit) {
     val c = Theme.c
@@ -33,43 +36,21 @@ fun NewWorkspaceDialog(onDismiss: () -> Unit, onImport: () -> Unit, onPaste: () 
         AdapterStore.upsert(a)
         onCreated(a)
     }
-    fun fromTemplate(key: String, baseUrl: String? = null) {
-        val t = WorkspaceTemplates.load(ctx, key) ?: return
-        create(WorkspaceTemplates.instantiate(t, AdapterStore.adapters.value, baseUrl ?: t.baseUrl))
-    }
 
     DuoDialog(onDismiss) {
         when (step) {
             CreateStep.Pick -> {
                 DialogTitle("New Workspace", "A dashboard for an API you use. Your token stays on this phone.")
+                val openMarket = LocalOpenMarketplace.current
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ChoiceRow("Browse the marketplace", false, "store", Tint.Green.color()) { onDismiss(); openMarket() }
                     ChoiceRow("Build with AI", false, "quote", Tint.Purple.color()) { step = CreateStep.Ai }
                     ChoiceRow("Start blank", false, "plus", Tint.Blue.color()) { step = CreateStep.Blank }
-                    ChoiceRow("GitHub", false, "braces", Tint.Gray.color()) { fromTemplate("github") }
-                    ChoiceRow("GitLab", false, "braces", Tint.Orange.color()) { step = CreateStep.GitLab }
-                    ChoiceRow("Demo with sample data", false, "layers", Tint.Indigo.color()) { fromTemplate("demo") }
                     ChoiceRow("Paste a workspace", false, "copy", Tint.Gray.color(), onPaste)
                     ChoiceRow("Import an .osadapter file", false, "down", Tint.Gray.color(), onImport)
                 }
             }
             CreateStep.Ai -> AiStep(onPaste = onPaste, onBack = { step = CreateStep.Pick })
-            CreateStep.GitLab -> {
-                var host by remember { mutableStateOf("https://gitlab.com") }
-                val base = host.trim().trimEnd('/').removeSuffix("/api/v4") + "/api/v4"
-                val ok = WorkspaceTemplates.isValidBaseUrl(base)
-                DialogTitle("GitLab", "Use gitlab.com, or your company's own GitLab address.")
-                Text("GitLab address", style = Theme.t.small, color = c.ink2)
-                Spacer(Modifier.height(4.dp))
-                Field(host, { host = it }, "https://gitlab.example.com", autofocus = false)
-                if (!ok && host.isNotBlank()) {
-                    Spacer(Modifier.height(6.dp))
-                    Text("Start with https:// and include the host.", style = Theme.t.small, color = c.danger)
-                }
-                Spacer(Modifier.height(16.dp))
-                PrimaryButton("Add GitLab", Modifier.fillMaxWidth()) { if (ok) fromTemplate("gitlab", base) }
-                Spacer(Modifier.height(8.dp))
-                QuietButton("Back", Modifier.fillMaxWidth()) { step = CreateStep.Pick }
-            }
             CreateStep.Blank -> {
                 var name by remember { mutableStateOf("") }
                 var url by remember { mutableStateOf("https://") }

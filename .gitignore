@@ -19,6 +19,6 @@ keystore.properties
 
 # Private workspace adapters & tokens
 *.osadapter
-# Built-in templates ship with the app; they hold no tokens or personal hosts.
-!app/src/main/assets/templates/*.osadapter
+# Marketplace workspaces ship with the app and on GitHub; they hold no tokens or personal hosts.
+!marketplace/workspaces/*.osadapter
 local-adapters/

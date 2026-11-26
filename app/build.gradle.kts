@@ -55,6 +55,9 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     buildFeatures { compose = true }
+    // The marketplace folder at the repo root ships inside the app too (index.json and workspaces/),
+    // so the built-in workspaces and the store work offline; the app also fetches the latest index from GitHub.
+    sourceSets.getByName("main").assets.srcDir(rootProject.file("marketplace"))
 }
 
 dependencies {

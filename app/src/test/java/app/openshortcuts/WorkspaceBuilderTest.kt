@@ -18,7 +18,7 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 
 class WorkspaceBuilderTest {
-    private fun template(key: String) = WorkspaceAdapter.fromJson(JSONObject(File("src/main/assets/templates/$key.osadapter").readText()))
+    private fun template(key: String) = WorkspaceAdapter.fromJson(JSONObject(File("../marketplace/workspaces/$key.osadapter").readText()))
 
     @Test
     fun templatesParseAndHaveNoPersonalHosts() {
@@ -26,7 +26,7 @@ class WorkspaceBuilderTest {
             val a = template(key)
             assertEquals(key, a.id)
             assertTrue("$key has tabs", a.tabs.isNotEmpty() && a.tabs.all { it.widgets.isNotEmpty() })
-            val text = File("src/main/assets/templates/$key.osadapter").readText().lowercase()
+            val text = File("../marketplace/workspaces/$key.osadapter").readText().lowercase()
             assertFalse("$key carries a token", "\"token\":" in text)
             assertTrue("$key points at a public host", a.baseUrl in setOf("demo://local", "https://api.github.com", "https://gitlab.com/api/v4"))
         }

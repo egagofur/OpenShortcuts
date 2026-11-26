@@ -104,9 +104,9 @@
         {
           "id": "ship",
           "type": "share_card",
-          "title": "Ship Card",
+          "title": "Stracode",
           "tint": "Green",
-          "glyph": "send",
+          "glyph": "laptopRun",
           "endpoint": "/me",
           "titlePath": "username",
           "itemsEndpoint": "/commits",

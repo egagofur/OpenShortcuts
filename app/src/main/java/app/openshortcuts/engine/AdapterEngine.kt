@@ -184,7 +184,7 @@ object AdapterEngine {
         method: String,
         endpoint: String,
         jsonBody: String?,
-    ): AdapterResult = if (DemoApi.isDemo(AdapterStore.getEffectiveBaseUrl(adapter))) {
+    ): AdapterResult = withInputs(adapter, endpoint).let { endpoint -> if (DemoApi.isDemo(AdapterStore.getEffectiveBaseUrl(adapter))) {
         DemoApi.respond(method, endpoint, jsonBody)
     } else if (!isOnline()) {
         AdapterResult(false, 0, "You're offline. Connect to the internet and try again.")
@@ -198,7 +198,15 @@ object AdapterEngine {
         AdapterResult(false, 0, e.message ?: "Couldn't reach the server.")
     } catch (e: IllegalArgumentException) {
         AdapterResult(false, 0, "Invalid address: $endpoint")
-    }
+    } }
+
+    private val inputPlaceholder = Regex("""\{\{\s*input\.([A-Za-z0-9_]+)\s*\}\}""")
+
+    /** Fills {{input.key}} with what you entered for this workspace (percent-encoded, so it stays one URL part). */
+    private fun withInputs(adapter: WorkspaceAdapter, endpoint: String): String =
+        if ("{{" !in endpoint) endpoint else inputPlaceholder.replace(endpoint) { m ->
+            URLEncoder.encode(AdapterStore.getInput(adapter.id, m.groupValues[1]), "UTF-8").replace("+", "%20")
+        }
 
     private fun send(
         adapter: WorkspaceAdapter,
@@ -284,9 +292,13 @@ object AdapterEngine {
             "now_utc" to Instant.now().toString(),
             // A week back plus a day, so "this week" and a 72h hackathon are always covered.
             "since_7d" to now.minusDays(7).format(DateTimeFormatter.ISO_LOCAL_DATE),
+            // Sixteen weeks and change: enough for a contribution heatmap.
+            "since_120d" to now.minusDays(120).format(DateTimeFormatter.ISO_LOCAL_DATE),
         )
         return placeholder.replace(template) { m ->
             val key = m.groupValues[1].trim()
+            // {{input.x}} is filled per workspace just before the request goes out.
+            if (key.startsWith("input.") && key !in params) return@replace m.value
             val value = params[key] ?: builtIns[key] ?: item?.let { extractString(it, key) }.orEmpty()
             when (escape) {
                 Escape.NONE -> value
