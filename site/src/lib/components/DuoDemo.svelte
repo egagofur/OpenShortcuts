@@ -1,12 +1,14 @@
 <script lang="ts">
-	import { onMount, type Snippet } from 'svelte';
+	import { onMount, tick, type Snippet } from 'svelte';
 	import Glyph from './Glyph.svelte';
 	import type { Tint } from '#lib/site.ts';
 
 	// Every size below is the app's dp/sp value (ui/Theme.kt, Kit.kt, HomeScreen.kt, AutomationScreen.kt).
-	// The app lays itself out for an iPhone Duo sized inner screen (820×660 dp) and its outer screen (half as wide).
+	// The app lays itself out for an iPhone Duo sized inner screen (820×576 dp) and its outer screen (396×576 dp),
+	// the same proportions as the 3D model's screens (15.8×11.1 and 7.74×11.25).
 	type Lay = { w: number; h: number; top: number; start: number; bottom: number; short: boolean; k: number };
-	const INNER = { w: 820, h: 660 };
+	const INNER = { w: 820, h: 576 };
+	const COVER = { w: 396, h: 576 };
 	const BEZEL = 7;
 	const RIM = 3;
 
@@ -54,24 +56,52 @@
 
 	let box: HTMLElement;
 	let wide = $state(true);
-	let k = $state(1);
-	let frameW = $derived(INNER.w * k + 2 * (BEZEL + RIM));
-	let frameH = $derived(INNER.h * k + 2 * (BEZEL + RIM));
-	let inner = $derived<Lay>({ ...INNER, top: 0, start: 0, bottom: 0, short: false, k });
-	let cover = $derived<Lay>({ w: (frameW / 2 - 2 * (BEZEL + RIM)) / k, h: INNER.h, top: 0, start: 0, bottom: 0, short: false, k });
 	let phoneK = $state(1);
 	let phone = $derived<Lay>({ w: 410, h: 660, top: 0, start: 0, bottom: 0, short: false, k: phoneK });
+
+	// 3D stage: where the inner screen lands on the page, and whether the live UI sits on top of it.
+	let stageW = $state(960);
+	let rect = $state({ x: 0, y: 0, w: 1, h: 1, r: 0 });
+	let home = $state(true);
+	let inner = $derived<Lay>({ ...INNER, top: 0, start: 0, bottom: 0, short: false, k: rect.w / INNER.w });
+	const coverLay: Lay = { ...COVER, top: 0, start: 0, bottom: 0, short: false, k: 1 };
+	let canvas = $state<HTMLCanvasElement | undefined>();
+	let liveEl = $state<HTMLElement | undefined>();
+	let coverEl = $state<HTMLElement | undefined>();
+	let duo: import('#lib/duo3d.ts').Duo | null = null;
 
 	// Fold, after the iPhone Duo model: the rear-camera half (right) stays still and the cover half (left)
 	// swings over it on the hinge. t = 1 is open and flat, 0 is closed with the outer screen facing you.
 	let t = $state(0);
 	let foldRaf = 0;
+	let live = $derived(t >= 1 && home);
 	let playing = $state(false);
-	let bend = $derived(180 * (1 - t));
-	// Inner screens blur and darken as they turn away; the outer screen clears as it comes round to face you.
-	let innerFx = $derived(Math.min(1, bend / 90));
-	let outerFx = $derived(Math.min(1, Math.max(0, (180 - bend) / 90)));
-	function foldTo(target: number, seconds = 1.4) {
+	$effect(() => {
+		duo?.setFold(t);
+	});
+
+	// Photograph the live screens so the 3D model shows exactly what the UI shows right now.
+	async function capture() {
+		if (!duo) return;
+		const { domToCanvas } = await import('modern-screenshot');
+		const shot = (el: HTMLElement | undefined, w: number, h: number) =>
+			el?.querySelector<HTMLElement>('.screen')
+				? domToCanvas(el.querySelector<HTMLElement>('.screen')!, {
+						width: w,
+						height: h,
+						scale: 2,
+						style: { scale: '1', transform: 'none', left: '0', top: '0' }
+					})
+				: Promise.resolve(null);
+		const [a, b] = await Promise.all([shot(liveEl, INNER.w, INNER.h), shot(coverEl, COVER.w, COVER.h)]);
+		if (a) duo.setTexture('inner', a);
+		if (b) duo.setTexture('outer', b);
+	}
+	async function beforeFold() {
+		if (t >= 1 && home) await capture();
+	}
+	async function foldTo(target: number, seconds = 1.4) {
+		if (target < t) await beforeFold();
 		cancelAnimationFrame(foldRaf);
 		playing = false;
 		if (still()) {
@@ -88,12 +118,13 @@
 		foldRaf = requestAnimationFrame(step);
 	}
 	// Play: hold open 1.2 s, close over 3.1 s, hold closed 1.2 s, open over 3.1 s, repeat.
-	function togglePlay() {
+	async function togglePlay() {
 		if (playing) {
 			playing = false;
 			cancelAnimationFrame(foldRaf);
 			return;
 		}
+		await beforeFold();
 		cancelAnimationFrame(foldRaf);
 		playing = true;
 		let phase = 1.2 + (Math.acos(2 * t - 1) / Math.PI) * 3.1;
@@ -195,10 +226,10 @@
 	}
 	function edgeMove(e: PointerEvent) {
 		if (!dragging) return;
-		vel = (e.clientX - lastX) / k / Math.max(1, e.timeStamp - lastT);
+		vel = (e.clientX - lastX) / inner.k / Math.max(1, e.timeStamp - lastT);
 		lastX = e.clientX;
 		lastT = e.timeStamp;
-		p = Math.min(1, Math.max(0, startP + (e.clientX - startX) / k / INNER.w));
+		p = Math.min(1, Math.max(0, startP + (e.clientX - startX) / inner.k / INNER.w));
 	}
 	function edgeUp() {
 		if (!dragging) return;
@@ -259,6 +290,34 @@
 	}
 
 	let pinned = false;
+	$effect(() => {
+		if (!canvas) return;
+		let alive = true;
+		import('#lib/duo3d.ts').then(async ({ createDuo }) => {
+			if (!alive || !canvas) return;
+			duo = createDuo(canvas);
+			duo.setFold(t);
+			duo.onFrame(() => {
+				const r = duo!.innerRect();
+				if (Math.abs(r.w - rect.w) > 0.5 || Math.abs(r.x - rect.x) > 0.5 || Math.abs(r.y - rect.y) > 0.5) rect = r;
+				const h = duo!.atHome();
+				if (h !== home) home = h;
+			});
+			duo.onOrbitStart(() => capture());
+			await tick();
+			// Let the rail's clock and battery finish their entrance before the first photo.
+			await new Promise((r) => setTimeout(r, 900));
+			await capture();
+		});
+		const ro = new ResizeObserver(() => duo?.resize());
+		ro.observe(canvas);
+		return () => {
+			alive = false;
+			ro.disconnect();
+			duo?.dispose();
+			duo = null;
+		};
+	});
 	onMount(() => {
 		const q = import.meta.env.DEV ? new URLSearchParams(location.search).get('fold') : null;
 		if (q !== null) {
@@ -268,7 +327,7 @@
 		const ro = new ResizeObserver(([e]) => {
 			const w = e.contentRect.width;
 			wide = w >= 680;
-			k = Math.min((Math.min(w, 1040) - 2 * (BEZEL + RIM)) / INNER.w, 540 / INNER.h);
+			stageW = Math.min(w, 1040);
 			phoneK = Math.min((w - 2 * (BEZEL + RIM)) / 410, 640 / 660);
 		});
 		ro.observe(box);
@@ -281,7 +340,7 @@
 		const io = new IntersectionObserver(
 			([e]) => {
 				if (e.isIntersecting) {
-					if (!pinned) foldTo(1, 3.1);
+					if (!pinned) setTimeout(() => foldTo(1, 3.1), duo ? 0 : 900);
 					tapBattery();
 					io.disconnect();
 				}
@@ -290,6 +349,8 @@
 		);
 		io.observe(box);
 		return () => {
+			duo?.dispose();
+			duo = null;
 			ro.disconnect();
 			io.disconnect();
 			clearInterval(iv);
@@ -298,16 +359,6 @@
 			cancelAnimationFrame(foldRaf);
 		};
 	});
-
-	// The second copy of the folded screen is only there to be seen; keep it out of the tab order.
-	function untab(node: HTMLElement) {
-		const apply = () =>
-			node.querySelectorAll<HTMLElement>('button, input, [tabindex]').forEach((el) => el.setAttribute('tabindex', '-1'));
-		apply();
-		const mo = new MutationObserver(apply);
-		mo.observe(node, { childList: true, subtree: true });
-		return { destroy: () => mo.disconnect() };
-	}
 
 	const R = 17.5;
 	const C = 2 * Math.PI * R;
@@ -503,27 +554,23 @@
 
 <div class="demo" bind:this={box}>
 	{#if wide}
-		<div class="stage" style:width="{frameW}px" style:height="{frameH}px" style:--persp="{frameW * 2.5}px">
-			<div class="scene">
-				<div class="half right" style:width="{frameW / 2}px">
-					<div class="face front" aria-hidden="true" use:untab>
-						<div class="frame" style:width="{frameW}px" style:left="{-frameW / 2}px">{@render deviceBody(inner)}</div>
-						<span class="dark" style:opacity={innerFx * 0.12}></span>
-					</div>
-				</div>
-				<div class="half left" style:width="{frameW / 2}px" style:transform="rotateY({bend}deg)">
-					<div class="face front" style:filter={innerFx > 0.01 ? `blur(${innerFx * 10}px)` : null}>
-						<div class="frame" style:width="{frameW}px">{@render deviceBody(inner)}</div>
-						<span class="dark edge-l" style:opacity={innerFx}></span>
-					</div>
-					<div class="face back cover" aria-hidden="true" use:untab style:filter={outerFx > 0.01 ? `blur(${outerFx * 10}px)` : null}>
-						<div class="frame">{@render deviceBody(cover)}</div>
-						<span class="dark edge-r" style:opacity={outerFx}></span>
-						<button type="button" class="tap-open" tabindex="-1" aria-label="Open" onclick={() => foldTo(1)}></button>
-					</div>
-				</div>
-				<span class="crease" style:opacity={0.35 + innerFx * 0.65}></span>
+		<div class="stage3d" style:width="{stageW}px" style:height="{stageW * 0.72}px">
+			<canvas bind:this={canvas} class="gl" aria-label="iPhone Duo style phone. Drag the frame to turn it."></canvas>
+			<div
+				class="live"
+				class:on={live}
+				bind:this={liveEl}
+				style:left="{rect.x}px"
+				style:top="{rect.y}px"
+				style:width="{rect.w}px"
+				style:height="{rect.h}px"
+				style:border-radius="{rect.r}px"
+				inert={!live}
+			>
+				{@render deviceBody(inner)}
 			</div>
+			{#if t < 1}<button type="button" class="tap-open" aria-label="Open the phone" onclick={() => foldTo(1)}></button>{/if}
+			<div class="cover-src" bind:this={coverEl} aria-hidden="true" inert>{@render deviceBody(coverLay)}</div>
 		</div>
 		<div class="fold-controls">
 			<button type="button" class="play" onclick={togglePlay} aria-label={playing ? 'Pause folding' : 'Play folding'}>
@@ -531,7 +578,7 @@
 			</button>
 			<label class="slider">
 				<span class="sr-only">Fold</span>
-				<input type="range" min="0" max="1" step="0.001" bind:value={t} oninput={() => { playing = false; cancelAnimationFrame(foldRaf); }} style:--fill="{t * 100}%" />
+				<input type="range" min="0" max="1" step="0.001" bind:value={t} onpointerdown={beforeFold} oninput={() => { playing = false; cancelAnimationFrame(foldRaf); }} style:--fill="{t * 100}%" />
 			</label>
 			<span class="slider-label">Drag to fold</span>
 		</div>
@@ -564,89 +611,55 @@
 		display: grid;
 		justify-items: center;
 	}
-	.stage {
+	.stage3d {
 		position: relative;
-		margin-block: 24px 8px;
 		max-width: 100%;
-		perspective: var(--persp);
-		--r: 40px;
+		margin-top: 8px;
 	}
-	.scene {
+	.gl {
 		position: absolute;
 		inset: 0;
-		transform-style: preserve-3d;
-	}
-	.half {
-		position: absolute;
-		top: 0;
-		height: 100%;
-		transform-style: preserve-3d;
-	}
-	.half.left {
-		left: 0;
-		transform-origin: 100% 50%;
-		z-index: 1;
-	}
-	.half.right {
-		left: 50%;
-	}
-	.face {
-		position: absolute;
-		inset: 0;
-		overflow: hidden;
-		backface-visibility: hidden;
-		-webkit-backface-visibility: hidden;
-	}
-	.left .face.front {
-		border-radius: var(--r) 0 0 var(--r);
-	}
-	.right .face.front {
-		border-radius: 0 var(--r) var(--r) 0;
-	}
-	.face.back {
-		transform: rotateY(180deg) translateZ(1px);
-		border-radius: var(--r);
-	}
-	.frame {
-		position: absolute;
-		top: 0;
-		left: 0;
-		height: 100%;
-	}
-	.cover .frame {
 		width: 100%;
+		height: 100%;
+		touch-action: pan-y;
+		cursor: grab;
 	}
-	.frame.solo {
-		position: relative;
-		height: auto;
-		margin-top: 24px;
-	}
-	.dark {
+	.live {
 		position: absolute;
-		inset: 0;
+		overflow: hidden;
+		opacity: 0;
 		pointer-events: none;
-		background: black;
 	}
-	.dark.edge-l {
-		background: linear-gradient(to left, rgb(0 0 0 / 0.1) 20%, rgb(0 0 0 / 0.75));
+	.live.on {
+		opacity: 1;
+		pointer-events: auto;
 	}
-	.dark.edge-r {
-		background: linear-gradient(to right, rgb(0 0 0 / 0.1) 20%, rgb(0 0 0 / 0.75));
+	.live :global(.device),
+	.cover-src :global(.device) {
+		border: 0;
+		padding: 0;
+		background: none;
+		box-shadow: none;
+		border-radius: 0;
 	}
-	.crease {
+	.live :global(.viewport),
+	.cover-src :global(.viewport) {
+		border-radius: 0;
+	}
+	.cover-src {
 		position: absolute;
-		top: 10px;
-		bottom: 10px;
-		left: calc(50% - 6px);
-		width: 12px;
+		left: -100000px;
+		top: 0;
 		pointer-events: none;
-		background: linear-gradient(to right, transparent, rgb(0 0 0 / 0.07) 40%, rgb(255 255 255 / 0.06) 55%, transparent);
-		transform: translateZ(0.5px);
 	}
 	.tap-open {
 		position: absolute;
-		inset: 0;
+		inset: 18% 20%;
 		cursor: pointer;
+	}
+	.frame.solo {
+		position: relative;
+		margin-top: 24px;
 	}
 
 	/* iPhone Duo: thin black bezel inside a polished titanium rim */
