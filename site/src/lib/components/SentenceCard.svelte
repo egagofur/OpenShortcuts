@@ -49,7 +49,7 @@
 		</div>
 	{/key}
 	</div>
-	<p class="hint">Tap a blue word to see another automation.</p>
+	<p class="hint">Select a blue word to see another automation.</p>
 </div>
 
 <style>
@@ -63,7 +63,7 @@
 		font-size: 0.8125rem;
 		font-weight: 600;
 		text-transform: uppercase;
-		letter-spacing: 0.04em;
+		letter-spacing: 0.05em;
 		color: var(--ink3);
 		margin-bottom: 14px;
 	}

@@ -33,8 +33,8 @@
 	--gutter: clamp(20px, 5vw, 40px);
 	--measure: 1120px;
 
-	--font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, Inter, system-ui, sans-serif;
-	--font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, Inter, system-ui, sans-serif;
+	--font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter Variable', Inter, system-ui, sans-serif;
+	--font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter Variable', Inter, system-ui, sans-serif;
 
 	color-scheme: light dark;
 }
@@ -78,7 +78,9 @@ body {
 	font-size: 1.0625rem;
 	line-height: 1.5;
 	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
 	text-rendering: optimizeLegibility;
+	font-optical-sizing: auto;
 }
 
 h1,
@@ -89,6 +91,11 @@ h3 {
 	text-wrap: balance;
 	letter-spacing: -0.022em;
 	line-height: 1.08;
+}
+
+h3 {
+	letter-spacing: -0.01em;
+	line-height: 1.25;
 }
 
 p {
@@ -138,7 +145,7 @@ img {
 	font-size: clamp(1.0625rem, 1.6vw, 1.25rem);
 	color: var(--ink2);
 	margin-top: 16px;
-	max-width: 36em;
+	max-width: 65ch;
 }
 
 .card {

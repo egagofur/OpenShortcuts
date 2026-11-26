@@ -1,4 +1,5 @@
 <script lang="ts">
+	import '@fontsource-variable/inter/opsz.css';
 	import '#lib/tokens.css';
 	import { asset, resolve } from '$app/paths';
 	import { DESCRIPTION, REPO, SITE, TITLE } from '#lib/site.ts';

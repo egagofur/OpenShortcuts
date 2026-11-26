@@ -3,9 +3,9 @@
 
 	const faqs = [
 		{ q: 'Does it need root?', a: 'No. Everything uses standard Android permissions and WhatsApp’s own notification buttons.' },
-		{ q: 'Does it work with the screen off?', a: 'Yes. Ending a WhatsApp call and replying to a chat press the buttons on WhatsApp’s notification, so they work while the phone is locked. Settings like Do Not Disturb and brightness work too.' },
+		{ q: 'Does it work with the screen off?', a: 'Yes. Ending a WhatsApp call and replying to a chat use the buttons on WhatsApp’s notification, so they work while the phone is locked. Settings like Do Not Disturb and brightness work too.' },
 		{ q: 'Why does it ask for so many permissions?', a: 'It doesn’t ask for them all at once. Each permission is asked for only when one of your shortcuts needs it, with a short explanation of what it does and doesn’t do.' },
-		{ q: 'I have a Xiaomi, Oppo, Vivo or Samsung phone.', a: 'These phones stop apps that run in the background. Turn on Auto launch (or Autostart) for OpenShortcuts; the app shows you where.' },
+		{ q: 'Does it work on Xiaomi, Oppo, Vivo and Samsung phones?', a: 'Yes, with one setting. These phones stop apps that run in the background. Turn on Auto launch (or Autostart) for OpenShortcuts; the app shows you where.' },
 		{ q: 'Is it on Google Play?', a: 'Not yet. Download the APK from GitHub Releases, or build it yourself from the source.' }
 	];
 </script>
@@ -54,6 +54,6 @@
 	p {
 		color: var(--ink2);
 		padding-bottom: 18px;
-		max-width: 44em;
+		max-width: 65ch;
 	}
 </style>

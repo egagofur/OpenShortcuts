@@ -4,6 +4,7 @@
 	import SentenceCard from '#lib/components/SentenceCard.svelte';
 	import Split from '#lib/components/Split.svelte';
 	import TriggerGrid from '#lib/components/TriggerGrid.svelte';
+	import DuoDemo from '#lib/components/DuoDemo.svelte';
 	import Cards from '#lib/components/Cards.svelte';
 	import ActionChips from '#lib/components/ActionChips.svelte';
 	import Faq from '#lib/components/Faq.svelte';
@@ -45,9 +46,10 @@
 			<h2 class="h2">From sunset to your car’s Bluetooth.</h2>
 			<p class="lede">
 				From the time of day and sunset to arriving home, your car’s Bluetooth or a message from someone. Each automation
-				shows exactly when it runs next, and runs without a notice to approve.
+				shows when it runs next and starts without asking, unless you want it to.
 			</p>
 		</div>
+		<DuoDemo />
 		<TriggerGrid />
 	</section>
 

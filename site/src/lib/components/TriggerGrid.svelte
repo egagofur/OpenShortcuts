@@ -5,7 +5,7 @@
 
 	const groups: { title: string; items: [string, string, Tint][] }[] = [
 		{ title: 'Time & place', items: [['Time of day', 'clock', 'blue'], ['Sunrise & sunset', 'sun', 'orange'], ['Alarm', 'alarm', 'orange'], ['Arrive or leave', 'pin', 'red']] },
-		{ title: 'Apps & messages', items: [['App opened', 'layers', 'indigo'], ['Notification', 'bell', 'red'], ['WhatsApp message', 'quote', 'green'], ['Long WhatsApp call', 'phone', 'green']] },
+		{ title: 'Apps & messages', items: [['App opens or closes', 'layers', 'indigo'], ['Notification', 'bell', 'red'], ['WhatsApp message', 'quote', 'green'], ['WhatsApp call runs long', 'phone', 'green']] },
 		{ title: 'Connections', items: [['Wi-Fi', 'wifi', 'blue'], ['Bluetooth', 'bluetooth', 'blue'], ['Headphones', 'headphones', 'pink'], ['Airplane Mode', 'airplane', 'orange']] },
 		{ title: 'Power & focus', items: [['Charger', 'bolt', 'green'], ['Battery level', 'battery', 'green'], ['Battery Saver', 'battery', 'yellow'], ['Do Not Disturb', 'moon', 'indigo']] }
 	];
