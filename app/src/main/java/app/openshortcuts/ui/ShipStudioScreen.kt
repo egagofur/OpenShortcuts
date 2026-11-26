@@ -116,36 +116,93 @@ private enum class Tool(val label: String, val glyph: String) {
 /** Photo framing, kept apart from the rest so a pinch never touches the text overlay. */
 private data class Frame(val zoom: Float = 1f, val panX: Float = 0f, val panY: Float = 0f)
 
-/** Saves a card's settings (not the logo bitmap; that's reloaded from its file) across process death. */
-private val SpecSaver = Saver<ShipSpec, Map<String, Any?>>(
-    save = { s ->
-        mapOf(
-            "persona" to s.persona.ordinal, "filter" to s.filter.ordinal, "aspect" to s.aspect.ordinal, "accent" to s.accent.ordinal,
-            "period" to s.period.ordinal, "headlineIdx" to s.headlineIdx, "kicker" to s.kicker, "headline" to s.headline, "sub" to s.sub,
-            "handle" to s.handle, "languages" to ArrayList(s.languages), "tagStyle" to s.tagStyle.ordinal,
-            "agents" to s.agents?.let { ArrayList(it) }, "showAi" to s.showAi, "stamp" to s.stamp.ordinal, "sticker" to s.sticker,
-            "dim" to s.dim, "logoCorner" to s.logoCorner.ordinal, "font" to s.font, "texts" to textsToJson(s.texts),
-            "limitStyle" to s.limitStyle.ordinal, "limitTop" to s.limitTop, "limitAction" to s.limitAction, "resetAt" to s.resetAt,
-            "stampText" to s.stampText,
-        )
-    },
-    restore = { m ->
-        @Suppress("UNCHECKED_CAST")
-        ShipSpec(
-            persona = ShipPersona.entries[m["persona"] as Int], filter = ShipFilter.entries[m["filter"] as Int],
-            aspect = ShipAspect.entries[m["aspect"] as Int], accent = ShipAccent.entries[m["accent"] as Int],
-            period = ShipPeriod.entries[m["period"] as Int], headlineIdx = m["headlineIdx"] as Int,
-            kicker = m["kicker"] as String?, headline = m["headline"] as String?, sub = m["sub"] as String?,
-            handle = m["handle"] as String, languages = m["languages"] as List<String>, tagStyle = ShipTagStyle.entries[m["tagStyle"] as Int],
-            agents = m["agents"] as List<String>?, showAi = m["showAi"] as Boolean, stamp = ShipStamp.entries[m["stamp"] as Int],
-            sticker = m["sticker"] as Boolean, dim = m["dim"] as Float, logoCorner = ShipLogoCorner.entries[m["logoCorner"] as Int],
-            font = m["font"] as String? ?: ShipFonts.SYSTEM, texts = textsFromJson(m["texts"] as String?),
-            limitStyle = app.openshortcuts.model.ShipLimitStyle.entries.getOrElse(m["limitStyle"] as Int? ?: 1) { app.openshortcuts.model.ShipLimitStyle.Card },
-            limitTop = m["limitTop"] as Boolean? ?: false, limitAction = m["limitAction"] as String?, resetAt = m["resetAt"] as String? ?: "",
-            stampText = m["stampText"] as String? ?: "OpenShortcuts",
-        )
-    },
+/** A card's settings as plain values (everything but the logo bitmap, which lives in its own file). */
+private fun specToMap(s: ShipSpec): Map<String, Any?> = mapOf(
+    "persona" to s.persona.ordinal, "filter" to s.filter.ordinal, "aspect" to s.aspect.ordinal, "accent" to s.accent.ordinal,
+    "period" to s.period.ordinal, "headlineIdx" to s.headlineIdx, "kicker" to s.kicker, "headline" to s.headline, "sub" to s.sub,
+    "handle" to s.handle, "languages" to ArrayList(s.languages), "tagStyle" to s.tagStyle.ordinal,
+    "agents" to s.agents?.let { ArrayList(it) }, "showAi" to s.showAi, "stamp" to s.stamp.ordinal, "sticker" to s.sticker,
+    "dim" to s.dim, "logoCorner" to s.logoCorner.ordinal, "font" to s.font, "texts" to textsToJson(s.texts),
+    "limitStyle" to s.limitStyle.ordinal, "limitTop" to s.limitTop, "limitAction" to s.limitAction, "resetAt" to s.resetAt,
+    "stampText" to s.stampText,
 )
+
+/** Reads [specToMap]'s values back; anything missing or out of range keeps its default, so old saves still open. */
+@Suppress("UNCHECKED_CAST")
+private fun specFromMap(m: Map<String, Any?>): ShipSpec {
+    val d = ShipSpec()
+    fun int(k: String) = (m[k] as? Number)?.toInt()
+    fun <E> pick(k: String, all: List<E>, def: E): E = int(k)?.let { all.getOrNull(it) } ?: def
+    fun str(k: String) = m[k] as? String
+    fun list(k: String): List<String>? = (m[k] as? List<*>)?.map { it.toString() }
+    return ShipSpec(
+        persona = pick("persona", ShipPersona.entries, d.persona), filter = pick("filter", ShipFilter.entries, d.filter),
+        aspect = pick("aspect", ShipAspect.entries, d.aspect), accent = pick("accent", ShipAccent.entries, d.accent),
+        period = pick("period", ShipPeriod.entries, d.period), headlineIdx = int("headlineIdx") ?: 0,
+        kicker = str("kicker"), headline = str("headline"), sub = str("sub"),
+        handle = str("handle").orEmpty(), languages = list("languages").orEmpty(), tagStyle = pick("tagStyle", ShipTagStyle.entries, d.tagStyle),
+        agents = list("agents"), showAi = m["showAi"] as? Boolean ?: true, stamp = pick("stamp", ShipStamp.entries, d.stamp),
+        sticker = m["sticker"] as? Boolean ?: false, dim = (m["dim"] as? Number)?.toFloat() ?: d.dim,
+        logoCorner = pick("logoCorner", ShipLogoCorner.entries, d.logoCorner),
+        font = str("font") ?: ShipFonts.SYSTEM, texts = textsFromJson(str("texts")),
+        limitStyle = pick("limitStyle", app.openshortcuts.model.ShipLimitStyle.entries, d.limitStyle),
+        limitTop = m["limitTop"] as? Boolean ?: false, limitAction = str("limitAction"), resetAt = str("resetAt").orEmpty(),
+        stampText = str("stampText") ?: d.stampText,
+    )
+}
+
+private fun specToJson(s: ShipSpec): org.json.JSONObject = org.json.JSONObject().apply {
+    specToMap(s).forEach { (k, v) -> put(k, when (v) { null -> org.json.JSONObject.NULL; is List<*> -> org.json.JSONArray(v); else -> v }) }
+}
+
+private fun specFromJson(o: org.json.JSONObject): ShipSpec = specFromMap(o.keys().asSequence().associateWith { k ->
+    when (val v = o.get(k)) { org.json.JSONObject.NULL -> null; is org.json.JSONArray -> (0 until v.length()).map { v.getString(it) }; else -> v }
+})
+
+/** Saves a card's settings across process death. */
+private val SpecSaver = Saver<ShipSpec, String>(save = { specToJson(it).toString() }, restore = { specFromJson(org.json.JSONObject(it)) })
+
+/**
+ * Each card remembers how you left it (its settings, photo and framing) until you reset it, in the
+ * app's private storage. The photo is copied in, so it's still there next time.
+ */
+private object ShipCardStore {
+    private fun file(ctx: Context) = File(ctx.filesDir, "ship_cards.json")
+    private fun all(ctx: Context) = runCatching { org.json.JSONObject(file(ctx).readText()) }.getOrElse { org.json.JSONObject() }
+
+    fun photoFile(ctx: Context, key: String): File =
+        File(File(ctx.filesDir, "ship_photos").apply { mkdirs() }, key.replace(Regex("[^A-Za-z0-9_-]"), "_") + ".jpg")
+
+    class Saved(val spec: ShipSpec, val frame: Frame, val photo: File?)
+
+    fun load(ctx: Context, key: String): Saved? = runCatching {
+        val o = all(ctx).optJSONObject(key) ?: return null
+        val f = o.optJSONArray("frame")
+        Saved(
+            specFromJson(o.getJSONObject("spec")),
+            if (f != null && f.length() == 3) Frame(f.getDouble(0).toFloat(), f.getDouble(1).toFloat(), f.getDouble(2).toFloat()) else Frame(),
+            photoFile(ctx, key).takeIf { o.optBoolean("photo") && it.exists() },
+        )
+    }.getOrNull()
+
+    @Synchronized
+    fun save(ctx: Context, key: String, spec: ShipSpec, frame: Frame, hasPhoto: Boolean) {
+        val root = all(ctx)
+        root.put(key, org.json.JSONObject().put("spec", specToJson(spec))
+            .put("frame", org.json.JSONArray(listOf(frame.zoom.toDouble(), frame.panX.toDouble(), frame.panY.toDouble())))
+            .put("photo", hasPhoto))
+        val tmp = File(ctx.filesDir, "ship_cards.json.tmp")
+        tmp.writeText(root.toString())
+        tmp.renameTo(file(ctx))
+    }
+
+    /** Copies a picked or taken photo in, so the card still has it after the picker's access ends. */
+    fun keepPhoto(ctx: Context, key: String, uri: Uri): Uri? = runCatching {
+        val dst = photoFile(ctx, key)
+        ctx.contentResolver.openInputStream(uri)?.use { input -> dst.outputStream().use { input.copyTo(it) } } ?: return null
+        Uri.fromFile(dst).buildUpon().appendQueryParameter("v", System.currentTimeMillis().toString()).build()
+    }.getOrNull()
+}
 
 private fun textsToJson(texts: List<ShipText>): String = org.json.JSONArray(texts.map { t ->
     org.json.JSONObject().put("id", t.id).put("text", t.text).put("font", t.font).put("color", t.color).put("size", t.size.toDouble())
@@ -192,10 +249,12 @@ fun ShipStudioScreen(adapterId: String, widgetId: String, onBack: () -> Unit) {
 
     var data by remember { mutableStateOf<ShipData?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
-    var spec by rememberSaveable(stateSaver = SpecSaver) { mutableStateOf(ShipSpec()) }
-    var frame by rememberSaveable(stateSaver = FrameSaver) { mutableStateOf(Frame()) }
+    val cardKey = "$adapterId/$widgetId"
+    val saved = remember(cardKey) { ShipCardStore.load(ctx, cardKey) }
+    var spec by rememberSaveable(stateSaver = SpecSaver) { mutableStateOf(saved?.spec ?: ShipSpec()) }
+    var frame by rememberSaveable(stateSaver = FrameSaver) { mutableStateOf(saved?.frame ?: Frame()) }
     var hackHours by rememberSaveable { mutableStateOf(36) }
-    var photoUri by rememberSaveable { mutableStateOf<Uri?>(null) }
+    var photoUri by rememberSaveable { mutableStateOf<Uri?>(saved?.photo?.let { Uri.fromFile(it) }) }
     var cameraUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     var tool by rememberSaveable { mutableStateOf<Tool?>(null) }
     var overlay by remember { mutableStateOf<ImageBitmap?>(null) }
@@ -236,11 +295,23 @@ fun ShipStudioScreen(adapterId: String, widgetId: String, onBack: () -> Unit) {
         overlay = withContext(Dispatchers.Default) { ShipCardRenderer.render(spec, stats(), null, 0.5f, zone, withPhoto = false, withTexts = false).asImageBitmap() }
     }
 
+    fun usePhoto(uri: Uri) {
+        scope.launch {
+            val kept = withContext(Dispatchers.IO) { ShipCardStore.keepPhoto(ctx, cardKey, uri) }
+            photoUri = kept ?: uri; frame = Frame(); spec = spec.copy(sticker = false)
+        }
+    }
     val takePhoto = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
-        if (ok) { photoUri = cameraUri; frame = Frame(); spec = spec.copy(sticker = false) }
+        if (ok) cameraUri?.let(::usePhoto)
     }
     val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) { photoUri = uri; frame = Frame(); spec = spec.copy(sticker = false) }
+        if (uri != null) usePhoto(uri)
+    }
+    // How you left it is how it opens next time.
+    LaunchedEffect(spec, frame, photoUri) {
+        kotlinx.coroutines.delay(400)
+        val has = photoUri?.scheme == "file"
+        withContext(Dispatchers.IO) { ShipCardStore.save(ctx, cardKey, spec, frame, has) }
     }
     val pickLogo = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) scope.launch {
@@ -514,9 +585,9 @@ private fun StylePanel(
     Section("Style")
     Chips(ShipPersona.entries.map { it.label }, spec.persona.ordinal) {
         val p = ShipPersona.entries[it]
-        // A new style brings its own words; the period follows when it's a hackathon.
+        // A new style changes the layout; words you wrote yourself stay (reset brings the style's back).
         onChange(spec.copy(
-            persona = p, headlineIdx = 0, kicker = null, headline = null, sub = null,
+            persona = p, headlineIdx = 0,
             period = when {
                 p == ShipPersona.Hackathon -> ShipPeriod.Hackathon
                 p == ShipPersona.Heatmap -> ShipPeriod.Months
@@ -543,6 +614,16 @@ private fun StylePanel(
                     .pressable(scale = 0.96f, label = a.label) { onChange(spec.copy(accent = a)) },
             )
         }
+    }
+    Spacer(Modifier.height(18.dp))
+    // Back to the style as designed: its words and look. Your name, tags, logo, photo and stickers stay.
+    QuietButton("Reset to the style", Modifier.fillMaxWidth()) {
+        val d = ShipSpec()
+        onChange(spec.copy(
+            kicker = null, headline = null, sub = null, headlineIdx = 0, font = d.font, filter = d.filter, accent = d.accent,
+            dim = d.dim, stamp = d.stamp, stampText = d.stampText, tagStyle = d.tagStyle,
+            limitStyle = d.limitStyle, limitTop = d.limitTop, limitAction = d.limitAction, resetAt = d.resetAt,
+        ))
     }
 }
 

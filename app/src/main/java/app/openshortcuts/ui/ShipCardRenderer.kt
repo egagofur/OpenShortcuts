@@ -232,6 +232,7 @@ object ShipCardRenderer {
     private fun stickerPaint(t: ShipText, u: Float) = Paint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG).apply {
         textSize = t.size * u
         typeface = ShipFonts.typeface(t.font, 700)
+        fontFeatureSettings = "'lnum' 1"
         color = t.color
         textAlign = Paint.Align.CENTER
     }
@@ -360,10 +361,17 @@ object ShipCardRenderer {
             textSize = size
             typeface = face ?: weight(wt)
             this.color = color
-            fontFeatureSettings = "tnum"
+            // Lining, even-width figures: Playfair's default old-style 0 reads like an o.
+            fontFeatureSettings = "'lnum' 1, 'tnum' 1"
             letterSpacing = if (size > 60) -0.02f else 0f
             if (shadow) setShadowLayer(size * 0.22f, 0f, size * 0.04f, 0x99000000.toInt())
         }
+
+    /** Shrinks [p] until [s] fits in [maxW]: wide faces (Poppins, a big number) never run into the next column. */
+    private fun fit(p: Paint, s: String, maxW: Float): Paint {
+        while (p.measureText(s) > maxW && p.textSize > 8f) p.textSize *= 0.95f
+        return p
+    }
 
     private fun label(size: Float, color: Int = 0xCCFFFFFF.toInt()) = text(size, 500, color, mono).apply { letterSpacing = 0.12f }
 
@@ -438,16 +446,20 @@ object ShipCardRenderer {
     private fun kickerBlock(s: String, color: Int, safe: RectF, u: Float, centered: Boolean): Block? =
         s.takeIf { it.isNotBlank() }?.let {
             Block({ k -> 40 * u * k }) { cv, top, k ->
-                val p = label(30 * u * k, color)
+                val p = fit(label(30 * u * k, color), it, safe.width())
                 if (centered) cv.center(it, safe.centerX(), top + 32 * u * k, p) else cv.drawText(it, safe.left, top + 32 * u * k, p)
             }
         }
 
     private fun headlineBlock(s: String, size: Float, safe: RectF, u: Float, centered: Boolean, face: Typeface): Block {
-        val lineH = { k: Float -> size * u * k * 1.14f }
+        // Line height from the face's own metrics: Poppins and Playfair stand taller than the system sans.
+        val lineH = { k: Float ->
+            val fm = text(size * u * k, 800, face = face).fontMetrics
+            max(size * u * k * 1.12f, (fm.descent - fm.ascent) * 0.94f)
+        }
         return Block({ k -> wrap(s, text(size * u * k, 800, face = face), safe.width()).size * lineH(k) }) { cv, top, k ->
             val p = text(size * u * k, 800, face = face)
-            var y = top + size * u * k * 0.92f
+            var y = top - p.fontMetrics.ascent * 0.96f
             wrap(s, p, safe.width()).forEach { line ->
                 if (centered) cv.center(line, safe.centerX(), y, p) else cv.drawText(line, safe.left, y, p)
                 y += lineH(k)
@@ -457,7 +469,7 @@ object ShipCardRenderer {
 
     private fun subBlock(s: String, safe: RectF, u: Float, centered: Boolean): Block? = s.takeIf { it.isNotBlank() }?.let {
         Block({ k -> 40 * u * k }) { cv, top, k ->
-            val p = text(30 * u * k, 500, 0xD9FFFFFF.toInt())
+            val p = fit(text(30 * u * k, 500, 0xD9FFFFFF.toInt()), it, safe.width())
             if (centered) cv.center(it, safe.centerX(), top + 30 * u * k, p) else cv.drawText(it, safe.left, top + 30 * u * k, p)
         }
     }
@@ -474,8 +486,8 @@ object ShipCardRenderer {
         return Block({ k -> 56 * u * k }) { cv, top, k ->
             when (spec.tagStyle) {
                 ShipTagStyle.Text -> {
-                    val p = text(28 * u * k, 500, 0xD9FFFFFF.toInt(), mono).apply { letterSpacing = 0.04f }
                     val s = spec.languages.joinToString("  ·  ")
+                    val p = fit(text(28 * u * k, 500, 0xD9FFFFFF.toInt(), mono).apply { letterSpacing = 0.04f }, s, safe.width())
                     if (centered) cv.center(s, safe.centerX(), top + 38 * u * k, p) else cv.drawText(s, safe.left, top + 38 * u * k, p)
                 }
                 ShipTagStyle.Outline -> {
@@ -503,8 +515,8 @@ object ShipCardRenderer {
         if (copy.agents.all { said.contains(it, ignoreCase = true) }) return null
         val s = "with " + copy.agents.joinToString(" + ")
         return Block({ k -> 50 * u * k }) { cv, top, k ->
-            val p = text(30 * u * k, 600, 0xF2FFFFFF.toInt())
             val star = 26 * u * k
+            val p = fit(text(30 * u * k, 600, 0xF2FFFFFF.toInt()), s, safe.width() - star - 12 * u * k)
             val gap = 12 * u * k
             val total = star + gap + p.measureText(s)
             val x = if (centered) safe.centerX() - total / 2f else safe.left
@@ -576,7 +588,7 @@ object ShipCardRenderer {
         val rows = copy.rows.map { (k, v) ->
             Block({ s -> 212 * u * s }) { c, top, s ->
                 c.center(k, safe.centerX(), top + 32 * u * s, label(30 * u * s))
-                c.center(v, safe.centerX(), top + 150 * u * s, text(112 * u * s, 800, face = face))
+                c.center(v, safe.centerX(), top + 150 * u * s, fit(text(112 * u * s, 800, face = face), v, safe.width()))
             }
         }
         val blocks = listOfNotNull(kickerBlock(copy.kicker, spec.accent.argb, safe, u, true)) + rows + listOfNotNull(
@@ -597,8 +609,8 @@ object ShipCardRenderer {
             copy.rows.take(4).forEachIndexed { i, (label, v) ->
                 val x = safe.left + (i % 2) * safe.width() / 2f
                 val y = top + (i / 2) * 175 * u * k
-                c.drawText(label, x, y + 34 * u * k, text(30 * u * k, 500, 0xE6FFFFFF.toInt()))
-                c.drawText(v, x, y + 112 * u * k, text(80 * u * k, 800, face = face))
+                c.drawText(label, x, y + 34 * u * k, fit(text(30 * u * k, 500, 0xE6FFFFFF.toInt()), label, safe.width() / 2f - 24 * u))
+                c.drawText(v, x, y + 112 * u * k, fit(text(80 * u * k, 800, face = face), v, safe.width() / 2f - 24 * u))
             }
         }
         val blocks = listOfNotNull(
@@ -642,15 +654,15 @@ object ShipCardRenderer {
             val colW = safe.width() / 3f
             copy.rows.take(3).forEachIndexed { i, (label, v) ->
                 val x = safe.left + i * colW
-                c.drawText(label, x, top + 34 * u * k, text(30 * u * k, 500, 0xE6FFFFFF.toInt()))
-                c.drawText(v, x, top + 112 * u * k, text(72 * u * k, 800, face = face))
+                c.drawText(label, x, top + 34 * u * k, fit(text(30 * u * k, 500, 0xE6FFFFFF.toInt()), label, colW - 20 * u))
+                c.drawText(v, x, top + 112 * u * k, fit(text(72 * u * k, 800, face = face), v, colW - 20 * u))
             }
         }
         val team = buildList {
             add(spec.handle.takeIf { it.isNotBlank() }?.let { "@$it" } ?: "Me")
             addAll(copy.agents)
         }
-        val teamBlock = Block({ k -> 50 * u * k }) { c, top, k -> c.drawText("Team  " + team.joinToString("  +  "), safe.left, top + 38 * u * k, text(34 * u * k, 600)) }
+        val teamBlock = Block({ k -> 50 * u * k }) { c, top, k -> c.drawText("Team  " + team.joinToString("  +  "), safe.left, top + 38 * u * k, fit(text(34 * u * k, 600), "Team  " + team.joinToString("  +  "), safe.width())) }
         val head = listOfNotNull(kickerBlock(copy.kicker, spec.accent.argb, safe, u, false), headlineBlock(copy.headline, 88f, safe, u, false, face), subBlock(copy.sub, safe, u, false))
         // Title at the top, the rest at the bottom: two groups, each fitted to its part.
         val split = safe.top + safe.height() * 0.42f
@@ -725,7 +737,7 @@ object ShipCardRenderer {
                 val x = safe.left + (i % 2) * safe.width() / 2f
                 val y = top + (i / 2) * 160 * u * k
                 c.drawText(lbl, x, y + 32 * u * k, text(28 * u * k, 500, 0xE6FFFFFF.toInt()))
-                c.drawText(v, x, y + 108 * u * k, text(76 * u * k, 800, face = face))
+                c.drawText(v, x, y + 108 * u * k, fit(text(76 * u * k, 800, face = face), v, safe.width() / 2f - 24 * u))
             }
         }
         val blocks = listOfNotNull(

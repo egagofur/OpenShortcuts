@@ -80,7 +80,10 @@ fun MarketplaceScreen(firstRun: Boolean, onBack: () -> Unit, onAdded: (Workspace
         scope.launch {
             Marketplace.workspace(ctx, l)
                 .onSuccess { t ->
-                    val a = WorkspaceTemplates.instantiate(t, AdapterStore.adapters.value)
+                    // Already added: bring it up to the latest layout, keeping its id (so its username and
+                    // token stay) and the name you gave it.
+                    val existing = AdapterStore.adapters.value.firstOrNull { it.id == l.id || it.id.matches(Regex(Regex.escape(l.id) + "-\\d+")) }
+                    val a = existing?.let { t.copy(id = it.id, name = it.name) } ?: WorkspaceTemplates.instantiate(t, AdapterStore.adapters.value)
                     AdapterStore.upsert(a)
                     view.confirm()
                     open = null
@@ -235,11 +238,11 @@ private fun AddPill(isAdded: Boolean, busy: Boolean, onAdd: () -> Unit) {
     Box(
         Modifier.heightIn(min = 36.dp).clip(CircleShape)
             .background(if (isAdded) c.fill else c.ink)
-            .pressable(scale = 0.96f, label = if (isAdded) "Add another" else "Add", onClick = onAdd)
+            .pressable(scale = 0.96f, label = if (isAdded) "Update" else "Add", onClick = onAdd)
             .padding(horizontal = 16.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(if (busy) "Adding…" else if (isAdded) "Added" else "Add", style = Theme.t.label, color = if (isAdded) c.ink2 else c.bg, maxLines = 1)
+        Text(if (busy) "Adding…" else if (isAdded) "Update" else "Add", style = Theme.t.label, color = if (isAdded) c.ink2 else c.bg, maxLines = 1)
     }
 }
 
@@ -273,7 +276,11 @@ private fun ListingDialog(l: Listing, isAdded: Boolean, busy: Boolean, onDismiss
             }
         }
         Spacer(Modifier.height(16.dp))
-        PrimaryButton(if (busy) "Adding…" else if (isAdded) "Add another" else "Add workspace", Modifier.fillMaxWidth(), onClick = onAdd)
+        if (isAdded) {
+            Text("You have this one. Updating replaces its layout with the latest version; your username and token stay.", style = Theme.t.small, color = c.ink3)
+            Spacer(Modifier.height(10.dp))
+        }
+        PrimaryButton(if (busy) "Adding…" else if (isAdded) "Update to the latest" else "Add workspace", Modifier.fillMaxWidth(), onClick = onAdd)
         Spacer(Modifier.height(8.dp))
         QuietButton("Not now", Modifier.fillMaxWidth(), onClick = onDismiss)
     }

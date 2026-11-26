@@ -3,7 +3,7 @@
   "version": 2,
   "id": "stracode",
   "name": "Stracode",
-  "subtitle": "Your commits as a card to share, like a run",
+  "subtitle": "Your GitHub, at a glance, and a card to share",
   "glyph": "laptopRun",
   "tint": "Green",
   "baseUrl": "https://api.github.com",
@@ -23,7 +23,7 @@
   "tabs": [
     {
       "id": "ship",
-      "label": "Stracode",
+      "label": "Overview",
       "endpoint": "/users/{{input.username}}",
       "widgets": [
         {
@@ -48,8 +48,8 @@
           "endpoint": "/users/{{input.username}}",
           "titlePath": "name",
           "subtitlePath": "login",
-          "metaPath": "html_url",
-          "badgePath": "type"
+          "metaPath": "bio",
+          "badgePath": "location"
         },
         {
           "id": "stats",
@@ -66,8 +66,134 @@
               "label": "Followers",
               "valuePath": "followers",
               "tint": "Indigo"
+            },
+            {
+              "label": "Following",
+              "valuePath": "following",
+              "tint": "Purple"
+            },
+            {
+              "label": "Gists",
+              "valuePath": "public_gists",
+              "tint": "Teal"
             }
           ]
+        },
+        {
+          "id": "heat",
+          "type": "heatmap_chart",
+          "title": "Public activity",
+          "tint": "Green",
+          "endpoint": "/users/{{input.username}}/events/public?per_page=100",
+          "pages": 3,
+          "itemsPath": "",
+          "metaPath": "created_at"
+        },
+        {
+          "id": "week",
+          "type": "bar_chart",
+          "title": "This week",
+          "tint": "Green",
+          "endpoint": "/users/{{input.username}}/events/public?per_page=100",
+          "pages": 3,
+          "itemsPath": "",
+          "metaPath": "created_at",
+          "range": "thisWeek"
+        }
+      ]
+    },
+    {
+      "id": "repos",
+      "label": "Repos",
+      "endpoint": "/users/{{input.username}}/repos?sort=pushed&per_page=100",
+      "widgets": [
+        {
+          "id": "langs",
+          "type": "breakdown",
+          "title": "Languages",
+          "tint": "Blue",
+          "endpoint": "/users/{{input.username}}/repos?sort=pushed&per_page=100",
+          "itemsPath": "",
+          "groupPath": "language",
+          "count": 5
+        },
+        {
+          "id": "stars",
+          "type": "breakdown",
+          "title": "Most starred",
+          "tint": "Orange",
+          "endpoint": "/users/{{input.username}}/repos?sort=pushed&per_page=100",
+          "itemsPath": "",
+          "groupPath": "name",
+          "valuePath": "stargazers_count",
+          "unit": "★",
+          "count": 5
+        },
+        {
+          "id": "recent",
+          "type": "list",
+          "title": "Recently pushed",
+          "tint": "Green",
+          "glyph": "none",
+          "endpoint": "/users/{{input.username}}/repos?sort=pushed&per_page=100",
+          "itemsPath": "",
+          "titlePath": "name",
+          "subtitlePath": "description",
+          "badgePath": "language",
+          "metaPath": "pushed_at",
+          "detail": {
+            "bodyPath": "description",
+            "urlPath": "html_url",
+            "fields": [
+              {
+                "label": "Stars",
+                "path": "stargazers_count"
+              },
+              {
+                "label": "Forks",
+                "path": "forks_count"
+              },
+              {
+                "label": "Language",
+                "path": "language"
+              },
+              {
+                "label": "Updated",
+                "path": "pushed_at"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "activity",
+      "label": "Activity",
+      "endpoint": "/users/{{input.username}}/events/public?per_page=100",
+      "widgets": [
+        {
+          "id": "where",
+          "type": "breakdown",
+          "title": "Where you worked",
+          "tint": "Indigo",
+          "endpoint": "/users/{{input.username}}/events/public?per_page=100",
+          "pages": 3,
+          "itemsPath": "",
+          "groupPath": "repo.name",
+          "count": 5
+        },
+        {
+          "id": "events",
+          "type": "list",
+          "title": "Latest activity",
+          "tint": "Gray",
+          "glyph": "none",
+          "endpoint": "/users/{{input.username}}/events/public?per_page=100",
+          "pages": 3,
+          "itemsPath": "",
+          "titlePath": "repo.name",
+          "subtitlePath": "type",
+          "metaPath": "created_at"
         }
       ]
     }
