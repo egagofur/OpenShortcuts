@@ -4,9 +4,11 @@
 	import type { Tint } from '#lib/site.ts';
 
 	// Every size below is the app's dp/sp value (ui/Theme.kt, Kit.kt, HomeScreen.kt, AutomationScreen.kt).
-	// The screen is laid out at the Find X8's real size in dp, then scaled to fit the page.
-	const SIZE = { land: { w: 789, h: 359 }, port: { w: 359, h: 789 } };
-	const INSET = { land: { top: 0, start: 38, bottom: 0 }, port: { top: 34, start: 0, bottom: 20 } };
+	// The app lays itself out for an iPhone Duo sized inner screen (820×660 dp) and its outer screen (half as wide).
+	type Lay = { w: number; h: number; top: number; start: number; bottom: number; short: boolean; k: number };
+	const INNER = { w: 820, h: 660 };
+	const BEZEL = 7;
+	const RIM = 3;
 
 	type Kind = 'call' | 'time' | 'battery';
 	type Auto = {
@@ -51,11 +53,63 @@
 	}
 
 	let box: HTMLElement;
-	let mode = $state<'land' | 'port'>('land');
+	let wide = $state(true);
 	let k = $state(1);
-	let dim = $derived(SIZE[mode]);
-	let inset = $derived(INSET[mode]);
-	let short = $derived(dim.h < 480);
+	let frameW = $derived(INNER.w * k + 2 * (BEZEL + RIM));
+	let frameH = $derived(INNER.h * k + 2 * (BEZEL + RIM));
+	let inner = $derived<Lay>({ ...INNER, top: 0, start: 0, bottom: 0, short: false, k });
+	let cover = $derived<Lay>({ w: (frameW / 2 - 2 * (BEZEL + RIM)) / k, h: INNER.h, top: 0, start: 0, bottom: 0, short: false, k });
+	let phoneK = $state(1);
+	let phone = $derived<Lay>({ w: 410, h: 660, top: 0, start: 0, bottom: 0, short: false, k: phoneK });
+
+	// Fold, after the iPhone Duo model: the rear-camera half (right) stays still and the cover half (left)
+	// swings over it on the hinge. t = 1 is open and flat, 0 is closed with the outer screen facing you.
+	let t = $state(0);
+	let foldRaf = 0;
+	let playing = $state(false);
+	let bend = $derived(180 * (1 - t));
+	// Inner screens blur and darken as they turn away; the outer screen clears as it comes round to face you.
+	let innerFx = $derived(Math.min(1, bend / 90));
+	let outerFx = $derived(Math.min(1, Math.max(0, (180 - bend) / 90)));
+	function foldTo(target: number, seconds = 1.4) {
+		cancelAnimationFrame(foldRaf);
+		playing = false;
+		if (still()) {
+			t = target;
+			return;
+		}
+		const from = t;
+		const start = performance.now();
+		const step = (now: number) => {
+			const q = Math.min(1, (now - start) / 1000 / seconds);
+			t = from + (target - from) * q * q * (3 - 2 * q);
+			if (q < 1) foldRaf = requestAnimationFrame(step);
+		};
+		foldRaf = requestAnimationFrame(step);
+	}
+	// Play: hold open 1.2 s, close over 3.1 s, hold closed 1.2 s, open over 3.1 s, repeat.
+	function togglePlay() {
+		if (playing) {
+			playing = false;
+			cancelAnimationFrame(foldRaf);
+			return;
+		}
+		cancelAnimationFrame(foldRaf);
+		playing = true;
+		let phase = 1.2 + (Math.acos(2 * t - 1) / Math.PI) * 3.1;
+		let last = performance.now();
+		const step = (now: number) => {
+			phase = (phase + Math.min(0.05, (now - last) / 1000)) % 8.6;
+			last = now;
+			if (phase < 1.2) t = 1;
+			else if (phase < 4.3) t = (1 + Math.cos(((phase - 1.2) / 3.1) * Math.PI)) / 2;
+			else if (phase < 5.5) t = 0;
+			else t = (1 - Math.cos(((phase - 5.5) / 3.1) * Math.PI)) / 2;
+			if (playing) foldRaf = requestAnimationFrame(step);
+		};
+		foldRaf = requestAnimationFrame(step);
+	}
+
 
 	let tab = $state<0 | 1>(1);
 	let shownId = $state<string | null>(null);
@@ -70,7 +124,6 @@
 	let charging = $state(false);
 	let sweep = $state(1);
 	let running = $state<string | null>(null);
-	let unfolded = $state(false);
 	let done = $state<string | null>(null);
 
 	type Phase = 'idle' | 'calling' | 'ran' | 'missed';
@@ -145,12 +198,12 @@
 		vel = (e.clientX - lastX) / k / Math.max(1, e.timeStamp - lastT);
 		lastX = e.clientX;
 		lastT = e.timeStamp;
-		p = Math.min(1, Math.max(0, startP + (e.clientX - startX) / k / dim.w));
+		p = Math.min(1, Math.max(0, startP + (e.clientX - startX) / k / INNER.w));
 	}
 	function edgeUp() {
 		if (!dragging) return;
 		dragging = false;
-		const v = (vel * 1000) / dim.w;
+		const v = (vel * 1000) / INNER.w;
 		if (p > 0.4 || vel > 0.5) pop(v);
 		else animateTo(0, v);
 	}
@@ -185,6 +238,7 @@
 	function simulate() {
 		reset();
 		if (shownId) pop();
+		if (wide && t < 1) foldTo(1, 1.4);
 		tab = 1;
 		phase = 'calling';
 		const a = autos[0];
@@ -204,12 +258,18 @@
 		raf = requestAnimationFrame(tick);
 	}
 
+	let pinned = false;
 	onMount(() => {
+		const q = import.meta.env.DEV ? new URLSearchParams(location.search).get('fold') : null;
+		if (q !== null) {
+			t = Number(q);
+			pinned = true;
+		}
 		const ro = new ResizeObserver(([e]) => {
 			const w = e.contentRect.width;
-			mode = w >= 680 ? 'land' : 'port';
-			const s = SIZE[mode];
-			k = Math.min((w - 20) / s.w, mode === 'port' ? 700 / s.h : 10);
+			wide = w >= 680;
+			k = Math.min((Math.min(w, 1040) - 2 * (BEZEL + RIM)) / INNER.w, 540 / INNER.h);
+			phoneK = Math.min((w - 2 * (BEZEL + RIM)) / 410, 640 / 660);
 		});
 		ro.observe(box);
 		const iv = setInterval(() => (now = new Date()), 10_000);
@@ -221,7 +281,7 @@
 		const io = new IntersectionObserver(
 			([e]) => {
 				if (e.isIntersecting) {
-					unfolded = true;
+					if (!pinned) foldTo(1, 3.1);
 					tapBattery();
 					io.disconnect();
 				}
@@ -235,6 +295,7 @@
 			clearInterval(iv);
 			cancelAnimationFrame(raf);
 			cancelAnimationFrame(springRaf);
+			cancelAnimationFrame(foldRaf);
 		};
 	});
 
@@ -252,9 +313,9 @@
 	const C = 2 * Math.PI * R;
 </script>
 
-{#snippet rail(atRoot: boolean)}
-	<aside class="rail" style:padding-top="{(short ? 8 : 14) + inset.top}px" style:padding-bottom="{(short ? 10 : 16) + inset.bottom}px">
-		{#if !short}
+{#snippet rail(atRoot: boolean, L: Lay)}
+	<aside class="rail" style:padding-top="{(L.short ? 8 : 14) + L.top}px" style:padding-bottom="{(L.short ? 10 : 16) + L.bottom}px">
+		{#if !L.short}
 			<button type="button" class="home" class:accent={!atRoot} aria-label={atRoot ? 'Home' : 'Go to Home'} onclick={() => !atRoot && pop()}>
 				<Glyph name="home" size={17} />
 			</button>
@@ -271,7 +332,7 @@
 			<span class="pct" class:down={charging}>{Math.round(battery * sweep)}</span>
 		</button>
 		<span class="grow"></span>
-		<div class="controls" style:gap="{short ? 10 : 14}px">
+		<div class="controls" style:gap="{L.short ? 10 : 14}px">
 			{#if atRoot}
 				<span class="glass" title="Setup"><Glyph name="sliders" size={24} /></span>
 				<span class="glass" title={tab === 0 ? 'New shortcut' : 'New automation'}><Glyph name="plus" size={24} /></span>
@@ -297,15 +358,15 @@
 	</label>
 {/snippet}
 
-{#snippet deviceBody()}
-<div class="device" style:width="{dim.w * k + 20}px">
-	<div class="viewport" style:width="{dim.w * k}px" style:height="{dim.h * k}px">
-		<div class="screen" class:dimmed={phase === 'ran'} style:width="{dim.w}px" style:height="{dim.h}px" style:scale={k}>
+{#snippet deviceBody(L: Lay)}
+<div class="device">
+	<div class="viewport" style:width="{L.w * L.k}px" style:height="{L.h * L.k}px">
+		<div class="screen" class:dimmed={phase === 'ran'} style:width="{L.w}px" style:height="{L.h}px" style:scale={L.k}>
 			<div class="page home-page" style:translate={shownId && !still() ? `${-30 * (1 - p)}% 0` : null}>
 				<div class="main">
-					<div class="scroll" style:padding="{inset.top}px 4px {short ? 24 : 112}px {20 + inset.start}px">
+					<div class="scroll" style:padding="{L.top}px 4px {L.short ? 24 : 112}px {20 + L.start}px">
 						{#if tab === 1}
-							<header class="head" class:short>
+							<header class="head" class:short={L.short}>
 								<h3>Automation</h3>
 								<p>Runs shortcuts for you, even while you sleep</p>
 							</header>
@@ -323,7 +384,7 @@
 								{/each}
 							</ul>
 						{:else}
-							<header class="head" class:short>
+							<header class="head" class:short={L.short}>
 								<h3>All Shortcuts</h3>
 								<p>{shortcuts.length} shortcuts</p>
 							</header>
@@ -347,20 +408,20 @@
 
 					<div
 						class="tabs"
-						class:short
+						class:short={L.short}
 						role="tablist"
 						aria-label="Sections"
-						style:--seg-w="{short ? 108 : 124}px"
-						style:--seg-h="{short ? 40 : 48}px"
-						style:bottom={short ? 'auto' : `${16 + inset.bottom}px`}
-						style:top={short ? `${10 + inset.top}px` : 'auto'}
+						style:--seg-w="{L.short ? 108 : 124}px"
+						style:--seg-h="{L.short ? 40 : 48}px"
+						style:bottom={L.short ? 'auto' : `${16 + L.bottom}px`}
+						style:top={L.short ? `${10 + L.top}px` : 'auto'}
 					>
-						<span class="pill" style:translate="{tab * (short ? 108 : 124)}px 0"></span>
+						<span class="pill" style:translate="{tab * (L.short ? 108 : 124)}px 0"></span>
 						<button type="button" role="tab" aria-selected={tab === 0} onclick={() => (tab = 0)}>Shortcuts</button>
 						<button type="button" role="tab" aria-selected={tab === 1} onclick={() => (tab = 1)}>Automation</button>
 					</div>
 				</div>
-				{@render rail(true)}
+				{@render rail(true, L)}
 				<div class="scrim" style:opacity={shownId ? 1 - p : 0}></div>
 			</div>
 
@@ -368,7 +429,7 @@
 				{@const a = detail}
 				<div class="page detail-page" class:moving={p > 0.0005} style:translate={still() ? null : `${p * 100}% 0`} style:opacity={still() ? 1 - p : null}>
 					<div class="main">
-						<div class="scroll" style:padding="{inset.top}px 4px {32 + inset.bottom}px {18 + inset.start}px">
+						<div class="scroll" style:padding="{L.top}px 4px {32 + L.bottom}px {18 + L.start}px">
 							<div class="dhead">
 								<span class="kind">
 									<span class="tile" style:--t="var(--tint-{a.tint})" style:--s="32px"><Glyph name={a.glyph} size={21} /></span>
@@ -419,12 +480,12 @@
 						</div>
 						<div class="edge" role="presentation" onpointerdown={edgeDown} onpointermove={edgeMove} onpointerup={edgeUp} onpointercancel={edgeUp}></div>
 					</div>
-					{@render rail(false)}
+					{@render rail(false, L)}
 				</div>
 			{/if}
 
 			{#if phase !== 'idle'}
-				<div class="heads" role="status" aria-live="polite" style:top="{inset.top + 8}px">
+				<div class="heads" role="status" aria-live="polite" style:top="{L.top + 8}px">
 					{#if phase === 'ran'}
 						<span class="app-ic oc"><Glyph name="layers" size={14} /></span>
 						<span class="hb"><span class="meta">OpenShortcuts · now</span><b>Sleep Mode ran</b><span>WhatsApp call ended</span></span>
@@ -441,14 +502,41 @@
 {/snippet}
 
 <div class="demo" bind:this={box}>
-	{#if mode === 'land'}
-		<div class="fold" class:spread={unfolded} style:width="{dim.w * k + 20}px" style:height="{dim.h * k + 20}px">
-			<div class="half left">{@render deviceBody()}<span class="shade"></span></div>
-			<div class="half right" aria-hidden="true" use:untab>{@render deviceBody()}<span class="shade"></span></div>
-			<span class="crease"></span>
+	{#if wide}
+		<div class="stage" style:width="{frameW}px" style:height="{frameH}px" style:--persp="{frameW * 2.5}px">
+			<div class="scene">
+				<div class="half right" style:width="{frameW / 2}px">
+					<div class="face front" aria-hidden="true" use:untab>
+						<div class="frame" style:width="{frameW}px" style:left="{-frameW / 2}px">{@render deviceBody(inner)}</div>
+						<span class="dark" style:opacity={innerFx * 0.12}></span>
+					</div>
+				</div>
+				<div class="half left" style:width="{frameW / 2}px" style:transform="rotateY({bend}deg)">
+					<div class="face front" style:filter={innerFx > 0.01 ? `blur(${innerFx * 10}px)` : null}>
+						<div class="frame" style:width="{frameW}px">{@render deviceBody(inner)}</div>
+						<span class="dark edge-l" style:opacity={innerFx}></span>
+					</div>
+					<div class="face back cover" aria-hidden="true" use:untab style:filter={outerFx > 0.01 ? `blur(${outerFx * 10}px)` : null}>
+						<div class="frame">{@render deviceBody(cover)}</div>
+						<span class="dark edge-r" style:opacity={outerFx}></span>
+						<button type="button" class="tap-open" tabindex="-1" aria-label="Open" onclick={() => foldTo(1)}></button>
+					</div>
+				</div>
+				<span class="crease" style:opacity={0.35 + innerFx * 0.65}></span>
+			</div>
+		</div>
+		<div class="fold-controls">
+			<button type="button" class="play" onclick={togglePlay} aria-label={playing ? 'Pause folding' : 'Play folding'}>
+				<Glyph name={playing ? 'pause' : 'playFill'} size={16} />
+			</button>
+			<label class="slider">
+				<span class="sr-only">Fold</span>
+				<input type="range" min="0" max="1" step="0.001" bind:value={t} oninput={() => { playing = false; cancelAnimationFrame(foldRaf); }} style:--fill="{t * 100}%" />
+			</label>
+			<span class="slider-label">Drag to fold</span>
 		</div>
 	{:else}
-		{@render deviceBody()}
+		<div class="frame solo">{@render deviceBody(phone)}</div>
 	{/if}
 
 	<div class="below">
@@ -476,70 +564,166 @@
 		display: grid;
 		justify-items: center;
 	}
-	.fold {
+	.stage {
 		position: relative;
-		perspective: 2400px;
+		margin-block: 24px 8px;
 		max-width: 100%;
-		margin-block: 28px 44px;
+		perspective: var(--persp);
+		--r: 40px;
 	}
-	.half {
+	.scene {
 		position: absolute;
 		inset: 0;
 		transform-style: preserve-3d;
-		transition: rotate 1100ms var(--ease-out);
+	}
+	.half {
+		position: absolute;
+		top: 0;
+		height: 100%;
+		transform-style: preserve-3d;
 	}
 	.half.left {
-		clip-path: inset(-40px 50% -40px -40px);
-		transform-origin: 50% 50%;
-		rotate: y 34deg;
+		left: 0;
+		transform-origin: 100% 50%;
+		z-index: 1;
 	}
 	.half.right {
-		clip-path: inset(-40px -40px -40px 50%);
-		transform-origin: 50% 50%;
-		rotate: y -34deg;
+		left: 50%;
 	}
-	.fold.spread .half.left {
-		rotate: y 11deg;
-	}
-	.fold.spread .half.right {
-		rotate: y -11deg;
-	}
-	.shade {
+	.face {
 		position: absolute;
-		inset: 10px;
-		border-radius: 42px;
+		inset: 0;
+		overflow: hidden;
+		backface-visibility: hidden;
+		-webkit-backface-visibility: hidden;
+	}
+	.left .face.front {
+		border-radius: var(--r) 0 0 var(--r);
+	}
+	.right .face.front {
+		border-radius: 0 var(--r) var(--r) 0;
+	}
+	.face.back {
+		transform: rotateY(180deg) translateZ(1px);
+		border-radius: var(--r);
+	}
+	.frame {
+		position: absolute;
+		top: 0;
+		left: 0;
+		height: 100%;
+	}
+	.cover .frame {
+		width: 100%;
+	}
+	.frame.solo {
+		position: relative;
+		height: auto;
+		margin-top: 24px;
+	}
+	.dark {
+		position: absolute;
+		inset: 0;
 		pointer-events: none;
+		background: black;
 	}
-	.left .shade {
-		background: linear-gradient(to right, rgb(255 255 255 / 0.05), transparent 30%, transparent 42%, rgb(0 0 0 / 0.08) 50%);
+	.dark.edge-l {
+		background: linear-gradient(to left, rgb(0 0 0 / 0.1) 20%, rgb(0 0 0 / 0.75));
 	}
-	.right .shade {
-		background: linear-gradient(to right, rgb(0 0 0 / 0.1) 50%, transparent 56%, transparent 80%, rgb(0 0 0 / 0.06));
+	.dark.edge-r {
+		background: linear-gradient(to right, rgb(0 0 0 / 0.1) 20%, rgb(0 0 0 / 0.75));
 	}
 	.crease {
 		position: absolute;
 		top: 10px;
 		bottom: 10px;
-		left: calc(50% - 1px);
-		width: 2px;
-		background: linear-gradient(to bottom, transparent, rgb(0 0 0 / 0.1) 8%, rgb(0 0 0 / 0.1) 92%, transparent);
+		left: calc(50% - 6px);
+		width: 12px;
 		pointer-events: none;
+		background: linear-gradient(to right, transparent, rgb(0 0 0 / 0.07) 40%, rgb(255 255 255 / 0.06) 55%, transparent);
+		transform: translateZ(0.5px);
 	}
+	.tap-open {
+		position: absolute;
+		inset: 0;
+		cursor: pointer;
+	}
+
+	/* iPhone Duo: thin black bezel inside a polished titanium rim */
 	.device {
-		max-width: 100%;
-		padding: 10px;
-		border-radius: 52px;
-		background: #1a1a1d;
+		position: relative;
+		height: 100%;
+		border-radius: 40px;
+		background:
+			linear-gradient(#050506, #050506) padding-box,
+			linear-gradient(160deg, #e9eaee 0%, #9a9ea6 18%, #d7d9de 34%, #7d8189 52%, #c9cbd1 70%, #8b8f97 86%, #dcdee3 100%) border-box;
+		border: 3px solid transparent;
+		padding: 7px;
 		box-shadow:
-			inset 0 0 0 1.5px #3a3a40,
-			0 40px 80px -30px rgb(0 0 0 / 0.45);
+			0 0 0 0.75px rgb(0 0 0 / 0.45),
+			inset 0 0 0 0.75px rgb(255 255 255 / 0.18),
+			0 34px 60px -30px rgb(0 0 0 / 0.55);
 	}
 	.viewport {
 		position: relative;
 		overflow: hidden;
-		border-radius: 42px;
+		border-radius: 30px;
 		background: var(--bg);
 	}
+	.fold-controls {
+		display: flex;
+		align-items: center;
+		gap: 14px;
+		margin-top: 28px;
+	}
+	.play {
+		display: grid;
+		place-items: center;
+		width: 44px;
+		height: 44px;
+		border-radius: 50%;
+		background: var(--card);
+		box-shadow: var(--shadow);
+		color: var(--ink);
+		transition: scale 150ms var(--ease-out);
+	}
+	.play:active {
+		scale: 0.94;
+	}
+	.slider {
+		display: grid;
+	}
+	.slider input {
+		-webkit-appearance: none;
+		appearance: none;
+		width: min(260px, 50vw);
+		height: 6px;
+		border-radius: 3px;
+		background: linear-gradient(to right, var(--ink) var(--fill), var(--fill) var(--fill));
+		background: linear-gradient(to right, var(--ink) var(--fill), color-mix(in srgb, var(--ink3) 35%, transparent) var(--fill));
+		cursor: grab;
+	}
+	.slider input::-webkit-slider-thumb {
+		-webkit-appearance: none;
+		width: 26px;
+		height: 26px;
+		border-radius: 50%;
+		background: white;
+		box-shadow: 0 1px 4px rgb(0 0 0 / 0.3), 0 0 0 0.5px rgb(0 0 0 / 0.1);
+	}
+	.slider input::-moz-range-thumb {
+		width: 26px;
+		height: 26px;
+		border: 0;
+		border-radius: 50%;
+		background: white;
+		box-shadow: 0 1px 4px rgb(0 0 0 / 0.3);
+	}
+	.slider-label {
+		font-size: 0.875rem;
+		color: var(--ink2);
+	}
+
 	.screen {
 		position: absolute;
 		top: 0;
@@ -1247,9 +1431,6 @@
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.half {
-			transition: none;
-		}
 		.stile.running,
 		.stile.done,
 		.clock span,
