@@ -70,6 +70,7 @@
 	let charging = $state(false);
 	let sweep = $state(1);
 	let running = $state<string | null>(null);
+	let unfolded = $state(false);
 	let done = $state<string | null>(null);
 
 	type Phase = 'idle' | 'calling' | 'ran' | 'missed';
@@ -220,6 +221,7 @@
 		const io = new IntersectionObserver(
 			([e]) => {
 				if (e.isIntersecting) {
+					unfolded = true;
 					tapBattery();
 					io.disconnect();
 				}
@@ -235,6 +237,16 @@
 			cancelAnimationFrame(springRaf);
 		};
 	});
+
+	// The second copy of the folded screen is only there to be seen; keep it out of the tab order.
+	function untab(node: HTMLElement) {
+		const apply = () =>
+			node.querySelectorAll<HTMLElement>('button, input, [tabindex]').forEach((el) => el.setAttribute('tabindex', '-1'));
+		apply();
+		const mo = new MutationObserver(apply);
+		mo.observe(node, { childList: true, subtree: true });
+		return { destroy: () => mo.disconnect() };
+	}
 
 	const R = 17.5;
 	const C = 2 * Math.PI * R;
@@ -285,147 +297,159 @@
 	</label>
 {/snippet}
 
-<div class="demo" bind:this={box}>
-	<div class="device" style:width="{dim.w * k + 20}px">
-		<div class="viewport" style:width="{dim.w * k}px" style:height="{dim.h * k}px">
-			<div class="screen" class:dimmed={phase === 'ran'} style:width="{dim.w}px" style:height="{dim.h}px" style:scale={k}>
-				<div class="page home-page" style:translate={shownId && !still() ? `${-30 * (1 - p)}% 0` : null}>
-					<div class="main">
-						<div class="scroll" style:padding="{inset.top}px 4px {short ? 24 : 112}px {20 + inset.start}px">
-							{#if tab === 1}
-								<header class="head" class:short>
-									<h3>Automation</h3>
-									<p>Runs shortcuts for you, even while you sleep</p>
-								</header>
-								<ul class="autos">
-									{#each autos as a (a.id)}
-										<li class="card auto">
-											<button type="button" class="open" aria-label="Edit automation: {headline(a)}" onclick={() => push(a.id)}></button>
-											<span class="tile" style:--t="var(--tint-{a.tint})" style:--s="34px"><Glyph name={a.glyph} size={22} /></span>
-											<span class="txt">
-												<span class="hl">{headline(a)}</span>
-												<span class="sub">Run {a.run}</span>
-											</span>
-											{@render sw(a.enabled, `${a.enabled ? 'Turn off' : 'Turn on'} ${headline(a)}`, () => (a.enabled = !a.enabled))}
-										</li>
-									{/each}
-								</ul>
-							{:else}
-								<header class="head" class:short>
-									<h3>All Shortcuts</h3>
-									<p>{shortcuts.length} shortcuts</p>
-								</header>
-								<ul class="grid">
-									{#each shortcuts as s (s.id)}
-										<li>
-											<button type="button" class="stile" class:running={running === s.id} class:done={done === s.id} style:--t="var(--tint-{s.tint})" aria-label="Run {s.name}" onclick={() => runTile(s.id)}>
-												<span class="g">
-													{#key running === s.id ? 'r' : done === s.id ? 'd' : 'g'}
-														<span class="gi"><Glyph name={running === s.id ? 'timer' : done === s.id ? 'check' : s.glyph} size={26} /></span>
-													{/key}
-												</span>
-												<span class="more"><Glyph name="more" size={18} /></span>
-												<span class="nm">{s.name}</span>
-											</button>
-										</li>
-									{/each}
-								</ul>
-							{/if}
-						</div>
-
-						<div
-							class="tabs"
-							class:short
-							role="tablist"
-							aria-label="Sections"
-							style:--seg-w="{short ? 108 : 124}px"
-							style:--seg-h="{short ? 40 : 48}px"
-							style:bottom={short ? 'auto' : `${16 + inset.bottom}px`}
-							style:top={short ? `${10 + inset.top}px` : 'auto'}
-						>
-							<span class="pill" style:translate="{tab * (short ? 108 : 124)}px 0"></span>
-							<button type="button" role="tab" aria-selected={tab === 0} onclick={() => (tab = 0)}>Shortcuts</button>
-							<button type="button" role="tab" aria-selected={tab === 1} onclick={() => (tab = 1)}>Automation</button>
-						</div>
-					</div>
-					{@render rail(true)}
-					<div class="scrim" style:opacity={shownId ? 1 - p : 0}></div>
-				</div>
-
-				{#if detail}
-					{@const a = detail}
-					<div class="page detail-page" class:moving={p > 0.0005} style:translate={still() ? null : `${p * 100}% 0`} style:opacity={still() ? 1 - p : null}>
-						<div class="main">
-							<div class="scroll" style:padding="{inset.top}px 4px {32 + inset.bottom}px {18 + inset.start}px">
-								<div class="dhead">
-									<span class="kind">
-										<span class="tile" style:--t="var(--tint-{a.tint})" style:--s="32px"><Glyph name={a.glyph} size={21} /></span>
-										<span class="kt">{a.title}</span>
-										<span class="chev"><Glyph name="chevronDown" size={16} /></span>
-									</span>
-									{@render sw(a.enabled, a.enabled ? 'Turn off this automation' : 'Turn on this automation', () => (a.enabled = !a.enabled))}
-								</div>
-
-								{#if a.kind === 'call'}
-									{#snippet c1()}<span class="w">When a WhatsApp call lasts</span><button type="button" class="pill-t" onclick={() => (a.minutes = cycle([30, 45, 60, 90], a.minutes))}>{a.minutes} min</button>{/snippet}
-									{@render sentence('phone', 'green', c1)}
-									<div class="gap"></div>
-									{#snippet c2()}<span class="w">Only between</span><button type="button" class="pill-t" onclick={() => (a.from = cycle(['22:00', '23:00', '00:00'], a.from))}>{a.from}</button><span class="w">and</span><button type="button" class="pill-t" onclick={() => (a.to = cycle(['05:00', '06:00', '07:00'], a.to))}>{a.to}</button>{/snippet}
-									{@render sentence('moon', 'indigo', c2)}
-								{:else if a.kind === 'time'}
-									<div class="seg" aria-hidden="true">
-										<span class="seg-pill"></span>
-										{#each ['Time', 'Sunrise', 'Sunset', 'Interval', 'Once'] as m, i (m)}<span class="seg-o" class:on={i === 0}>{m}</span>{/each}
-									</div>
-									<div class="gap" style:height="10px"></div>
-									{#snippet c3()}<span class="w">At</span><button type="button" class="pill-t" onclick={() => (a.at = cycle(['06:30', '07:00', '07:30'], a.at))}>{a.at}</button><button type="button" class="pill-t" onclick={() => (a.days = cycle(['Weekdays', 'Daily', 'Weekends'], a.days))}>{a.days.toLowerCase()}</button>{/snippet}
-									{@render sentence('clock', 'blue', c3)}
-									<p class="note">Next run: tomorrow at {a.at}</p>
-								{:else}
-									{#snippet c4()}<span class="w">When battery</span><button type="button" class="pill-t" onclick={() => (a.below = !a.below)}>{a.below ? 'falls below' : 'rises above'}</button><button type="button" class="pill-t" onclick={() => (a.level = cycle([10, 20, 30, 50], a.level))}>{a.level}%</button>{/snippet}
-									{@render sentence('battery', 'orange', c4)}
-								{/if}
-
-								<div class="link"><span></span></div>
-								{#snippet runSeg()}<span class="w">Run</span><span class="pill-t with"><span class="tile" style:--t="var(--tint-{a.runTint})" style:--s="20px"><Glyph name={a.runGlyph} size={13} /></span>{a.run}</span>{/snippet}
-								{#snippet runTrail()}<span class="go"><Glyph name="chevronRight" size={16} /></span>{/snippet}
-								{@render sentence('layers', 'purple', runSeg, runTrail)}
-								{#if a.kind === 'battery'}<p class="note">The battery percentage goes to the shortcut as its input.</p>{/if}
-
-								<div class="gap"></div>
-								{#snippet ask()}<span class="w">Ask before running</span>{/snippet}
-								{#snippet askSw()}{@render sw(a.warnFirst, 'Ask before running', () => (a.warnFirst = !a.warnFirst))}{/snippet}
-								{@render sentence('bell', 'red', ask, askSw)}
-								<p class="note" style:margin-top="10px">
-									{#if a.kind === 'call'}
-										{a.warnFirst ? 'A notification gives you a minute to snooze or skip. If you fell asleep, the call ends by itself.' : 'Runs by itself, with no notification to approve.'}
-									{:else}
-										{a.warnFirst ? 'A notification gives you a minute to skip this run or snooze it 30 minutes.' : 'Runs by itself, with no notification to approve.'}
-									{/if}
-								</p>
-								<div class="quiet">Delete Automation</div>
-							</div>
-							<div class="edge" role="presentation" onpointerdown={edgeDown} onpointermove={edgeMove} onpointerup={edgeUp} onpointercancel={edgeUp}></div>
-						</div>
-						{@render rail(false)}
-					</div>
-				{/if}
-
-				{#if phase !== 'idle'}
-					<div class="heads" role="status" aria-live="polite" style:top="{inset.top + 8}px">
-						{#if phase === 'ran'}
-							<span class="app-ic oc"><Glyph name="layers" size={14} /></span>
-							<span class="hb"><span class="meta">OpenShortcuts · now</span><b>Sleep Mode ran</b><span>WhatsApp call ended</span></span>
+{#snippet deviceBody()}
+<div class="device" style:width="{dim.w * k + 20}px">
+	<div class="viewport" style:width="{dim.w * k}px" style:height="{dim.h * k}px">
+		<div class="screen" class:dimmed={phase === 'ran'} style:width="{dim.w}px" style:height="{dim.h}px" style:scale={k}>
+			<div class="page home-page" style:translate={shownId && !still() ? `${-30 * (1 - p)}% 0` : null}>
+				<div class="main">
+					<div class="scroll" style:padding="{inset.top}px 4px {short ? 24 : 112}px {20 + inset.start}px">
+						{#if tab === 1}
+							<header class="head" class:short>
+								<h3>Automation</h3>
+								<p>Runs shortcuts for you, even while you sleep</p>
+							</header>
+							<ul class="autos">
+								{#each autos as a (a.id)}
+									<li class="card auto">
+										<button type="button" class="open" aria-label="Edit automation: {headline(a)}" onclick={() => push(a.id)}></button>
+										<span class="tile" style:--t="var(--tint-{a.tint})" style:--s="34px"><Glyph name={a.glyph} size={22} /></span>
+										<span class="txt">
+											<span class="hl">{headline(a)}</span>
+											<span class="sub">Run {a.run}</span>
+										</span>
+										{@render sw(a.enabled, `${a.enabled ? 'Turn off' : 'Turn on'} ${headline(a)}`, () => (a.enabled = !a.enabled))}
+									</li>
+								{/each}
+							</ul>
 						{:else}
-							<span class="app-ic wa"><Glyph name="phone" size={14} /></span>
-							<span class="hb"><span class="meta">WhatsApp · Ongoing voice call</span><b>Mom</b><span class="num">{callLabel}</span></span>
-							<span class="hang"><Glyph name="phoneOff" size={16} /></span>
+							<header class="head" class:short>
+								<h3>All Shortcuts</h3>
+								<p>{shortcuts.length} shortcuts</p>
+							</header>
+							<ul class="grid">
+								{#each shortcuts as s (s.id)}
+									<li>
+										<button type="button" class="stile" class:running={running === s.id} class:done={done === s.id} style:--t="var(--tint-{s.tint})" aria-label="Run {s.name}" onclick={() => runTile(s.id)}>
+											<span class="g">
+												{#key running === s.id ? 'r' : done === s.id ? 'd' : 'g'}
+													<span class="gi"><Glyph name={running === s.id ? 'timer' : done === s.id ? 'check' : s.glyph} size={26} /></span>
+												{/key}
+											</span>
+											<span class="more"><Glyph name="more" size={18} /></span>
+											<span class="nm">{s.name}</span>
+										</button>
+									</li>
+								{/each}
+							</ul>
 						{/if}
 					</div>
-				{/if}
+
+					<div
+						class="tabs"
+						class:short
+						role="tablist"
+						aria-label="Sections"
+						style:--seg-w="{short ? 108 : 124}px"
+						style:--seg-h="{short ? 40 : 48}px"
+						style:bottom={short ? 'auto' : `${16 + inset.bottom}px`}
+						style:top={short ? `${10 + inset.top}px` : 'auto'}
+					>
+						<span class="pill" style:translate="{tab * (short ? 108 : 124)}px 0"></span>
+						<button type="button" role="tab" aria-selected={tab === 0} onclick={() => (tab = 0)}>Shortcuts</button>
+						<button type="button" role="tab" aria-selected={tab === 1} onclick={() => (tab = 1)}>Automation</button>
+					</div>
+				</div>
+				{@render rail(true)}
+				<div class="scrim" style:opacity={shownId ? 1 - p : 0}></div>
 			</div>
+
+			{#if detail}
+				{@const a = detail}
+				<div class="page detail-page" class:moving={p > 0.0005} style:translate={still() ? null : `${p * 100}% 0`} style:opacity={still() ? 1 - p : null}>
+					<div class="main">
+						<div class="scroll" style:padding="{inset.top}px 4px {32 + inset.bottom}px {18 + inset.start}px">
+							<div class="dhead">
+								<span class="kind">
+									<span class="tile" style:--t="var(--tint-{a.tint})" style:--s="32px"><Glyph name={a.glyph} size={21} /></span>
+									<span class="kt">{a.title}</span>
+									<span class="chev"><Glyph name="chevronDown" size={16} /></span>
+								</span>
+								{@render sw(a.enabled, a.enabled ? 'Turn off this automation' : 'Turn on this automation', () => (a.enabled = !a.enabled))}
+							</div>
+
+							{#if a.kind === 'call'}
+								{#snippet c1()}<span class="w">When a WhatsApp call lasts</span><button type="button" class="pill-t" onclick={() => (a.minutes = cycle([30, 45, 60, 90], a.minutes))}>{a.minutes} min</button>{/snippet}
+								{@render sentence('phone', 'green', c1)}
+								<div class="gap"></div>
+								{#snippet c2()}<span class="w">Only between</span><button type="button" class="pill-t" onclick={() => (a.from = cycle(['22:00', '23:00', '00:00'], a.from))}>{a.from}</button><span class="w">and</span><button type="button" class="pill-t" onclick={() => (a.to = cycle(['05:00', '06:00', '07:00'], a.to))}>{a.to}</button>{/snippet}
+								{@render sentence('moon', 'indigo', c2)}
+							{:else if a.kind === 'time'}
+								<div class="seg" aria-hidden="true">
+									<span class="seg-pill"></span>
+									{#each ['Time', 'Sunrise', 'Sunset', 'Interval', 'Once'] as m, i (m)}<span class="seg-o" class:on={i === 0}>{m}</span>{/each}
+								</div>
+								<div class="gap" style:height="10px"></div>
+								{#snippet c3()}<span class="w">At</span><button type="button" class="pill-t" onclick={() => (a.at = cycle(['06:30', '07:00', '07:30'], a.at))}>{a.at}</button><button type="button" class="pill-t" onclick={() => (a.days = cycle(['Weekdays', 'Daily', 'Weekends'], a.days))}>{a.days.toLowerCase()}</button>{/snippet}
+								{@render sentence('clock', 'blue', c3)}
+								<p class="note">Next run: tomorrow at {a.at}</p>
+							{:else}
+								{#snippet c4()}<span class="w">When battery</span><button type="button" class="pill-t" onclick={() => (a.below = !a.below)}>{a.below ? 'falls below' : 'rises above'}</button><button type="button" class="pill-t" onclick={() => (a.level = cycle([10, 20, 30, 50], a.level))}>{a.level}%</button>{/snippet}
+								{@render sentence('battery', 'orange', c4)}
+							{/if}
+
+							<div class="link"><span></span></div>
+							{#snippet runSeg()}<span class="w">Run</span><span class="pill-t with"><span class="tile" style:--t="var(--tint-{a.runTint})" style:--s="20px"><Glyph name={a.runGlyph} size={13} /></span>{a.run}</span>{/snippet}
+							{#snippet runTrail()}<span class="go"><Glyph name="chevronRight" size={16} /></span>{/snippet}
+							{@render sentence('layers', 'purple', runSeg, runTrail)}
+							{#if a.kind === 'battery'}<p class="note">The battery percentage goes to the shortcut as its input.</p>{/if}
+
+							<div class="gap"></div>
+							{#snippet ask()}<span class="w">Ask before running</span>{/snippet}
+							{#snippet askSw()}{@render sw(a.warnFirst, 'Ask before running', () => (a.warnFirst = !a.warnFirst))}{/snippet}
+							{@render sentence('bell', 'red', ask, askSw)}
+							<p class="note" style:margin-top="10px">
+								{#if a.kind === 'call'}
+									{a.warnFirst ? 'A notification gives you a minute to snooze or skip. If you fell asleep, the call ends by itself.' : 'Runs by itself, with no notification to approve.'}
+								{:else}
+									{a.warnFirst ? 'A notification gives you a minute to skip this run or snooze it 30 minutes.' : 'Runs by itself, with no notification to approve.'}
+								{/if}
+							</p>
+							<div class="quiet">Delete Automation</div>
+						</div>
+						<div class="edge" role="presentation" onpointerdown={edgeDown} onpointermove={edgeMove} onpointerup={edgeUp} onpointercancel={edgeUp}></div>
+					</div>
+					{@render rail(false)}
+				</div>
+			{/if}
+
+			{#if phase !== 'idle'}
+				<div class="heads" role="status" aria-live="polite" style:top="{inset.top + 8}px">
+					{#if phase === 'ran'}
+						<span class="app-ic oc"><Glyph name="layers" size={14} /></span>
+						<span class="hb"><span class="meta">OpenShortcuts · now</span><b>Sleep Mode ran</b><span>WhatsApp call ended</span></span>
+					{:else}
+						<span class="app-ic wa"><Glyph name="phone" size={14} /></span>
+						<span class="hb"><span class="meta">WhatsApp · Ongoing voice call</span><b>Mom</b><span class="num">{callLabel}</span></span>
+						<span class="hang"><Glyph name="phoneOff" size={16} /></span>
+					{/if}
+				</div>
+			{/if}
 		</div>
 	</div>
+</div>
+{/snippet}
+
+<div class="demo" bind:this={box}>
+	{#if mode === 'land'}
+		<div class="fold" class:spread={unfolded} style:width="{dim.w * k + 20}px" style:height="{dim.h * k + 20}px">
+			<div class="half left">{@render deviceBody()}<span class="shade"></span></div>
+			<div class="half right" aria-hidden="true" use:untab>{@render deviceBody()}<span class="shade"></span></div>
+			<span class="crease"></span>
+		</div>
+	{:else}
+		{@render deviceBody()}
+	{/if}
 
 	<div class="below">
 		<button type="button" class="sim" onclick={phase === 'idle' ? simulate : reset}>
@@ -451,6 +475,55 @@
 		margin-top: 40px;
 		display: grid;
 		justify-items: center;
+	}
+	.fold {
+		position: relative;
+		perspective: 2400px;
+		max-width: 100%;
+		margin-block: 28px 44px;
+	}
+	.half {
+		position: absolute;
+		inset: 0;
+		transform-style: preserve-3d;
+		transition: rotate 1100ms var(--ease-out);
+	}
+	.half.left {
+		clip-path: inset(-40px 50% -40px -40px);
+		transform-origin: 50% 50%;
+		rotate: y 34deg;
+	}
+	.half.right {
+		clip-path: inset(-40px -40px -40px 50%);
+		transform-origin: 50% 50%;
+		rotate: y -34deg;
+	}
+	.fold.spread .half.left {
+		rotate: y 11deg;
+	}
+	.fold.spread .half.right {
+		rotate: y -11deg;
+	}
+	.shade {
+		position: absolute;
+		inset: 10px;
+		border-radius: 42px;
+		pointer-events: none;
+	}
+	.left .shade {
+		background: linear-gradient(to right, rgb(255 255 255 / 0.05), transparent 30%, transparent 42%, rgb(0 0 0 / 0.08) 50%);
+	}
+	.right .shade {
+		background: linear-gradient(to right, rgb(0 0 0 / 0.1) 50%, transparent 56%, transparent 80%, rgb(0 0 0 / 0.06));
+	}
+	.crease {
+		position: absolute;
+		top: 10px;
+		bottom: 10px;
+		left: calc(50% - 1px);
+		width: 2px;
+		background: linear-gradient(to bottom, transparent, rgb(0 0 0 / 0.1) 8%, rgb(0 0 0 / 0.1) 92%, transparent);
+		pointer-events: none;
 	}
 	.device {
 		max-width: 100%;
@@ -1174,6 +1247,9 @@
 	}
 
 	@media (prefers-reduced-motion: reduce) {
+		.half {
+			transition: none;
+		}
 		.stile.running,
 		.stile.done,
 		.clock span,
