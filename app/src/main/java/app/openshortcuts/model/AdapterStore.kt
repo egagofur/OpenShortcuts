@@ -102,6 +102,30 @@ object AdapterStore {
             .onFailure { importError.value = it.message ?: "Couldn't read adapter file." }
     }
 
+    /**
+     * A workspace pasted as text, usually an AI's reply: the JSON is taken from between the first "{" and
+     * the last "}", so code fences and chatter around it don't matter. A pasted workspace never replaces
+     * one you have; it gets its own id.
+     */
+    fun receiveText(text: String) {
+        runCatching { parseText(text, state.value.map { it.id }.toSet()) }
+            .onSuccess { incoming.value = it; importError.value = null }
+            .onFailure { importError.value = it.message ?: "That doesn't look like a workspace." }
+    }
+
+    fun parseText(text: String, takenIds: Set<String>): WorkspaceAdapter {
+        val start = text.indexOf('{')
+        val end = text.lastIndexOf('}')
+        if (start < 0 || end <= start) error("Copy the whole JSON from the AI's reply, then try again.")
+        val body = text.substring(start, end + 1)
+        if (body.length > MAX_BYTES) error("That workspace is too large.")
+        val json = runCatching { JSONObject(body) }.getOrElse { error("The JSON isn't complete. Ask the AI to send the whole file again.") }
+        if (!json.has("format")) json.put("format", WorkspaceAdapter.FORMAT)
+        val adapter = WorkspaceAdapter.fromJson(json)
+        if (adapter.baseUrl.isBlank()) error("The workspace has no baseUrl. Ask the AI to add the API address.")
+        return adapter.copy(id = WorkspaceTemplates.uniqueId(adapter.id.ifBlank { adapter.name }, takenIds))
+    }
+
     fun read(ctx: Context, uri: Uri): WorkspaceAdapter {
         val bytes = ctx.contentResolver.openInputStream(uri)?.use { input ->
             val out = java.io.ByteArrayOutputStream()

@@ -187,6 +187,13 @@ private fun App() {
     if (newWorkspace) app.openshortcuts.ui.NewWorkspaceDialog(
         onDismiss = { newWorkspace = false },
         onImport = { newWorkspace = false; pickFile.launch(arrayOf("*/*")) },
+        onPaste = {
+            val clip = ctx.getSystemService(android.content.ClipboardManager::class.java).primaryClip
+            val text = clip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(ctx)?.toString().orEmpty()
+            newWorkspace = false
+            if (text.isBlank()) app.openshortcuts.model.AdapterStore.importError.value = "Copy the workspace JSON first, then tap Paste."
+            else app.openshortcuts.model.AdapterStore.receiveText(text)
+        },
         onCreated = { newWorkspace = false; push(Route.Workspace(it.id)) },
     )
     if (newShortcut) app.openshortcuts.ui.NewShortcutDialog(

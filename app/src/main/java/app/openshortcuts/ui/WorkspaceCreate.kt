@@ -19,12 +19,13 @@ import app.openshortcuts.model.AuthKind
 import app.openshortcuts.model.Tint
 import app.openshortcuts.model.WorkspaceAdapter
 import app.openshortcuts.model.WorkspaceTemplates
+import app.openshortcuts.model.WorkspacePrompt
 
-private enum class CreateStep { Pick, Blank, GitLab }
+private enum class CreateStep { Pick, Blank, GitLab, Ai }
 
 /** Start a workspace: blank for your own API, a template (GitHub, GitLab, Demo), or an .osadapter file. */
 @Composable
-fun NewWorkspaceDialog(onDismiss: () -> Unit, onImport: () -> Unit, onCreated: (WorkspaceAdapter) -> Unit) {
+fun NewWorkspaceDialog(onDismiss: () -> Unit, onImport: () -> Unit, onPaste: () -> Unit, onCreated: (WorkspaceAdapter) -> Unit) {
     val c = Theme.c
     val ctx = LocalContext.current
     var step by remember { mutableStateOf(CreateStep.Pick) }
@@ -42,13 +43,16 @@ fun NewWorkspaceDialog(onDismiss: () -> Unit, onImport: () -> Unit, onCreated: (
             CreateStep.Pick -> {
                 DialogTitle("New Workspace", "A dashboard for an API you use. Your token stays on this phone.")
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ChoiceRow("Build with AI", false, "quote", Tint.Purple.color()) { step = CreateStep.Ai }
                     ChoiceRow("Start blank, for your own API", false, "plus", Tint.Blue.color()) { step = CreateStep.Blank }
                     ChoiceRow("GitHub", false, "braces", Tint.Gray.color()) { fromTemplate("github") }
                     ChoiceRow("GitLab", false, "braces", Tint.Orange.color()) { step = CreateStep.GitLab }
                     ChoiceRow("Demo with sample data", false, "layers", Tint.Indigo.color()) { fromTemplate("demo") }
+                    ChoiceRow("Paste a workspace", false, "copy", Tint.Gray.color(), onPaste)
                     ChoiceRow("Import an .osadapter file", false, "down", Tint.Gray.color(), onImport)
                 }
             }
+            CreateStep.Ai -> AiStep(onPaste = onPaste, onBack = { step = CreateStep.Pick })
             CreateStep.GitLab -> {
                 var host by remember { mutableStateOf("https://gitlab.com") }
                 val base = host.trim().trimEnd('/').removeSuffix("/api/v4") + "/api/v4"
@@ -106,4 +110,63 @@ fun NewWorkspaceDialog(onDismiss: () -> Unit, onImport: () -> Unit, onCreated: (
             }
         }
     }
+}
+
+/**
+ * An AI interviews you about your API and writes the workspace file. A chat gets a prompt that asks for
+ * docs and sample responses; an agent gets one that lets it explore the API itself. Either way the
+ * token stays out of the conversation, and the JSON comes back through "Paste a workspace".
+ */
+@Composable
+private fun AiStep(onPaste: () -> Unit, onBack: () -> Unit) {
+    val c = Theme.c
+    val ctx = LocalContext.current
+    var copied by remember { mutableStateOf<String?>(null) }
+    fun copy(text: String, label: String) {
+        val cm = ctx.getSystemService(android.content.ClipboardManager::class.java)
+        cm.setPrimaryClip(android.content.ClipData.newPlainText("Workspace prompt", text))
+        copied = label
+    }
+    fun open(url: String) {
+        runCatching {
+            ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
+    }
+    DialogTitle("Build with AI", "An AI asks you about your API, one question at a time, then writes the workspace for you.")
+    Text("1. Start the interview", style = Theme.t.label, color = c.ink)
+    Spacer(Modifier.height(8.dp))
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        ChoiceRow("Open ChatGPT", false, "link", Tint.Green.color()) {
+            val prompt = WorkspacePrompt.chat()
+            copy(prompt, "ChatGPT")
+            open("https://chatgpt.com/?q=" + java.net.URLEncoder.encode(prompt, "UTF-8").replace("+", "%20"))
+        }
+        ChoiceRow("Open Gemini", false, "link", Tint.Blue.color()) {
+            copy(WorkspacePrompt.chat(), "Gemini")
+            open("https://gemini.google.com/app")
+        }
+        ChoiceRow("Copy prompt for any AI chat", false, "copy", Tint.Gray.color()) { copy(WorkspacePrompt.chat(), "chat") }
+        ChoiceRow("Copy prompt for an AI agent", false, "braces", Tint.Indigo.color()) { copy(WorkspacePrompt.agent(), "agent") }
+    }
+    copied?.let { which ->
+        Spacer(Modifier.height(8.dp))
+        Text(
+            when (which) {
+                "ChatGPT" -> "The prompt is also copied. If ChatGPT opens empty, paste it and send."
+                "Gemini" -> "The prompt is copied. Paste it into Gemini and send."
+                "agent" -> "Copied. Paste it into Claude Code, Codex, Cursor or another agent. It may read your API docs and test GET requests; give it the token through an environment variable, not the chat."
+                else -> "Copied. Paste it into any AI chat and send."
+            },
+            style = Theme.t.small,
+            color = c.ink2,
+        )
+    }
+    Spacer(Modifier.height(14.dp))
+    Text("2. Bring the workspace back", style = Theme.t.label, color = c.ink)
+    Spacer(Modifier.height(4.dp))
+    Text("When the AI sends the JSON, copy it, come back here and paste it. Never give the AI your token; you add it in the app.", style = Theme.t.small, color = c.ink2)
+    Spacer(Modifier.height(12.dp))
+    PrimaryButton("Paste a workspace", Modifier.fillMaxWidth(), onClick = onPaste)
+    Spacer(Modifier.height(8.dp))
+    QuietButton("Back", Modifier.fillMaxWidth(), onClick = onBack)
 }
