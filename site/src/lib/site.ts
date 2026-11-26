@@ -2,7 +2,7 @@ export const REPO = 'https://github.com/egagofur/OpenShortcuts';
 export const APK = `${REPO}/releases/latest/download/OpenShortcuts.apk`;
 export const RELEASES = `${REPO}/releases`;
 export const ISSUES = `${REPO}/issues`;
-export const SITE = 'https://egagofur.github.io/OpenShortcuts/';
+export const SITE = 'https://openshortcuts.egagofur.studio/';
 
 export const TITLE = 'OpenShortcuts: the Shortcuts app Android was missing';
 export const DESCRIPTION =

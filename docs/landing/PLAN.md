@@ -77,7 +77,7 @@ The live sentence card in section 3. It is the app's core idea (sentences with b
 - Components: `Nav`, `Hero`, `PhonePair`, `SentenceCard`, `Section`, `TriggerGrid`, `LockedCards`, `ActionChips`, `PrivacyCards`, `Faq`, `Footer`.
 - Images: copy the `docs/screenshots/v2` PNGs into `site/static`, converted to WebP and sized for the page. No screens with personal contact names.
 - SEO: title, description and Open Graph image (reusing `docs/images/hero.png`), plus `SoftwareApplication` JSON-LD for Google.
-- Hosting: a GitHub Actions workflow builds `site/` and publishes it to GitHub Pages at `egagofur.github.io/OpenShortcuts`.
+- Hosting: a GitHub Actions workflow builds `site/` and publishes it to GitHub Pages at `openshortcuts.egagofur.studio`.
 - Checks: renders at 375px, 768px and 1440px in light and dark; keyboard focus is visible; Lighthouse is above 95 for performance and accessibility.
 
 ## Not decided yet

@@ -11,7 +11,7 @@ Free, open-source automation for Android, inspired by iOS Shortcuts: build routi
   <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-8a8a90"></a>
 </p>
 
-<p align="center"><a href="https://github.com/egagofur/OpenShortcuts/releases/latest/download/OpenShortcuts.apk"><b>Download the APK</b></a> · <a href="https://egagofur.github.io/OpenShortcuts/">Website</a> · <a href="../../releases">All releases</a></p>
+<p align="center"><a href="https://github.com/egagofur/OpenShortcuts/releases/latest/download/OpenShortcuts.apk"><b>Download the APK</b></a> · <a href="https://openshortcuts.egagofur.studio/">Website</a> · <a href="../../releases">All releases</a></p>
 
 <p align="center"><img src="docs/images/hero.png" alt="OpenShortcuts: shortcut library, the Sleep Mode editor and a WhatsApp call automation on Android phones" width="100%"></p>
 
