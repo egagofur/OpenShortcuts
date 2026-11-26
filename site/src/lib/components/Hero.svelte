@@ -52,26 +52,26 @@
 	}
 	.phones {
 		position: relative;
-		width: min(520px, 92%);
-		height: clamp(420px, 62vw, 620px);
-		margin: 48px auto 0;
+		width: min(600px, 100%);
+		height: clamp(440px, 64vw, 640px);
+		margin: 40px auto 0;
 		overflow: hidden;
 		mask-image: linear-gradient(to bottom, black 78%, transparent);
 		-webkit-mask-image: linear-gradient(to bottom, black 78%, transparent);
 	}
 	.phones > div {
 		position: absolute;
-		top: 0;
-		width: 56%;
+		width: 46%;
 	}
 	.back {
-		left: 4%;
-		top: 40px !important;
+		left: 9%;
+		top: 72px;
 		rotate: -7deg;
 		opacity: 0.92;
 	}
 	.front {
-		right: 4%;
+		right: 9%;
+		top: 32px;
 		rotate: 5deg;
 	}
 </style>
