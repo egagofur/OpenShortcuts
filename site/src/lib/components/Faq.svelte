@@ -1,17 +1,10 @@
 <script lang="ts">
 	import Glyph from './Glyph.svelte';
-
-	const faqs = [
-		{ q: 'Does it need root?', a: 'No. Everything uses standard Android permissions and WhatsApp’s own notification buttons.' },
-		{ q: 'Does it work with the screen off?', a: 'Yes. Ending a WhatsApp call and replying to a chat use the buttons on WhatsApp’s notification, so they work while the phone is locked. Settings like Do Not Disturb and brightness work too.' },
-		{ q: 'Why does it ask for so many permissions?', a: 'It doesn’t ask for them all at once. Each permission is asked for only when one of your shortcuts needs it, with a short explanation of what it does and doesn’t do.' },
-		{ q: 'Does it work on Xiaomi, Oppo, Vivo and Samsung phones?', a: 'Yes, with one setting. These phones stop apps that run in the background. Turn on Auto launch (or Autostart) for OpenShortcuts; the app shows you where.' },
-		{ q: 'Is it on Google Play?', a: 'Not yet. Download the APK from GitHub Releases, or build it yourself from the source.' }
-	];
+	import { FAQS } from '#lib/site.ts';
 </script>
 
 <div class="faq card">
-	{#each faqs as f (f.q)}
+	{#each FAQS as f (f.q)}
 		<details>
 			<summary>{f.q}<span class="chev"><Glyph name="chevronDown" size={20} /></span></summary>
 			<p>{f.a}</p>

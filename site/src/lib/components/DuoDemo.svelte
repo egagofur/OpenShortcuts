@@ -46,7 +46,7 @@
 	];
 
 	function headline(a: Auto) {
-		if (a.kind === 'call') return `WhatsApp call over ${a.minutes} min, ${a.from}⁠–⁠${a.to}`;
+		if (a.kind === 'call') return `WhatsApp call over ${a.minutes} min, ${a.from}-${a.to}`;
 		if (a.kind === 'time') return `At ${a.at}, ${a.days.toLowerCase()}`;
 		return `Battery ${a.below ? 'falls below' : 'rises above'} ${a.level}%`;
 	}
@@ -300,6 +300,7 @@
 	}
 
 	let pinned = false;
+	let mounted = $state(false);
 	$effect(() => {
 		if (!canvas) return;
 		let alive = true;
@@ -331,6 +332,7 @@
 		};
 	});
 	onMount(() => {
+		mounted = true;
 		const q = import.meta.env.DEV ? new URLSearchParams(location.search).get('fold') : null;
 		if (q !== null) {
 			t = Number(q);
@@ -583,7 +585,9 @@
 				{@render deviceBody(inner)}
 			</div>
 			{#if t < 1}<button type="button" class="tap-open" aria-label="Open the phone" onclick={() => foldTo(1)}></button>{/if}
-			<div class="cover-src" bind:this={coverEl} aria-hidden="true" inert>{@render deviceBody(coverLay)}</div>
+			{#if mounted}
+				<div class="cover-src" bind:this={coverEl} aria-hidden="true" inert>{@render deviceBody(coverLay)}</div>
+			{/if}
 		</div>
 		<div class="fold-controls">
 			<button type="button" class="play" onclick={togglePlay} aria-label={playing ? 'Pause folding' : 'Play folding'}>
