@@ -15,6 +15,7 @@
 				name: 'OpenShortcuts',
 				operatingSystem: 'Android 10+',
 				applicationCategory: 'UtilitiesApplication',
+				softwareVersion: '0.2.0',
 				description: DESCRIPTION,
 				url: SITE,
 				downloadUrl: `${REPO}/releases/latest`,
@@ -28,7 +29,7 @@
 				},
 				offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
 				image: `${SITE}og.png`,
-				screenshot: [`${SITE}shots/editor.webp`, `${SITE}shots/gallery.webp`, `${SITE}shots/triggers.webp`]
+				screenshot: [`${SITE}shots/editor.webp`, `${SITE}shots/gallery.webp`, `${SITE}shots/triggers.webp`, `${SITE}shots/workspace.webp`]
 			},
 			{
 				'@type': 'FAQPage',

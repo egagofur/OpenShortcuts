@@ -156,7 +156,7 @@ fun WorkspaceHub(
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         Text("New Workspace", style = Theme.t.label, color = c.ink)
-                        Text("Start blank, from GitHub, GitLab or the demo, or import a file.", style = Theme.t.small, color = c.ink2)
+                        Text("Build with AI, start blank, or use GitHub, GitLab or the demo.", style = Theme.t.small, color = c.ink2)
                     }
                     Glyph("chevronRight", c.ink3, size = 18.dp)
                 }

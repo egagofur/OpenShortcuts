@@ -83,6 +83,24 @@
 		<ActionChips />
 	</section>
 
+	<Split
+		id="workspaces"
+		eyebrow="Workspaces"
+		title="The APIs you use, as a dashboard."
+		shot="workspace"
+		alt="A workspace with a weekly target, hours per day against an 8-hour goal, and hours by client"
+		flip
+	>
+		<p class="lede">
+			Turn GitHub, GitLab or your team’s own API into numbers, charts and lists you can tap. Start from a template, a demo
+			that works offline or a blank page, or let ChatGPT or Gemini interview you and build it. Then hold and drag to arrange it.
+		</p>
+		<p class="lede">
+			A shortcut can run a workspace action too, like starting your work timer when you reach the office. Your token stays on
+			the phone, and a workspace is one file you can share with your team without sharing access.
+		</p>
+	</Split>
+
 	<section class="section wrap design">
 		<div use:reveal>
 			<p class="eyebrow">Designed like a phone’s own app</p>
@@ -116,7 +134,7 @@
 		<Cards
 			items={[
 				{ glyph: 'person', tint: 'gray', title: 'No account', body: 'Install it and start. No sign-up, no email, no tracking.' },
-				{ glyph: 'lock', tint: 'indigo', title: 'Runs on the phone', body: 'Shortcuts are stored on your phone. The network is used only for map tiles, and for Describe a shortcut if you add your own Claude key.' },
+				{ glyph: 'lock', tint: 'indigo', title: 'Runs on the phone', body: 'Shortcuts are stored on your phone. The network is used only for map tiles, the workspaces you add, and Describe a shortcut if you add your own Claude key.' },
 				{ glyph: 'braces', tint: 'orange', title: 'Open source', body: 'MIT licensed. Read every line, build it yourself, or help improve it.' }
 			]}
 		/>

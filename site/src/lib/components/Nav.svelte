@@ -18,6 +18,7 @@
 		<ul>
 			<li class="hide-sm"><a href="#features">Features</a></li>
 			<li class="hide-sm"><a href="#triggers">Triggers</a></li>
+			<li class="hide-sm"><a href="#workspaces">Workspaces</a></li>
 			<li class="hide-sm"><a href="#privacy">Privacy</a></li>
 			<li>
 				<a class="gh" href={REPO} rel="noopener" aria-label="OpenShortcuts on GitHub">

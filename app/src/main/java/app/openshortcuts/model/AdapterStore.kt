@@ -121,7 +121,8 @@ object AdapterStore {
         if (body.length > MAX_BYTES) error("That workspace is too large.")
         val json = runCatching { JSONObject(body) }.getOrElse { error("The JSON isn't complete. Ask the AI to send the whole file again.") }
         if (!json.has("format")) json.put("format", WorkspaceAdapter.FORMAT)
-        val adapter = WorkspaceAdapter.fromJson(json)
+        val adapter = runCatching { WorkspaceAdapter.fromJson(json) }
+            .getOrElse { error("That isn't a workspace the app can read. Ask the AI to send only the final workspace JSON.") }
         if (adapter.baseUrl.isBlank()) error("The workspace has no baseUrl. Ask the AI to add the API address.")
         return adapter.copy(id = WorkspaceTemplates.uniqueId(adapter.id.ifBlank { adapter.name }, takenIds))
     }

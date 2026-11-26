@@ -13,8 +13,8 @@ android {
         applicationId = "app.openshortcuts"
         minSdk = 29
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
     }
 
     val keystore = rootProject.file("keystore.properties").takeIf { it.exists() }?.let { f ->

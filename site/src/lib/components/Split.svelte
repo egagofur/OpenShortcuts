@@ -11,7 +11,7 @@
 		alt,
 		flip = false,
 		children
-	}: { id?: string; eyebrow: string; title: string; shot: 'editor' | 'gallery' | 'sunset' | 'triggers' | 'catalog' | 'welcome'; alt: string; flip?: boolean; children: Snippet } =
+	}: { id?: string; eyebrow: string; title: string; shot: 'editor' | 'gallery' | 'sunset' | 'triggers' | 'catalog' | 'welcome' | 'workspace'; alt: string; flip?: boolean; children: Snippet } =
 		$props();
 </script>
 

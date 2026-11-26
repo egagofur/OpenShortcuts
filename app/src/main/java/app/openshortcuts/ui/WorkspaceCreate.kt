@@ -44,7 +44,7 @@ fun NewWorkspaceDialog(onDismiss: () -> Unit, onImport: () -> Unit, onPaste: () 
                 DialogTitle("New Workspace", "A dashboard for an API you use. Your token stays on this phone.")
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     ChoiceRow("Build with AI", false, "quote", Tint.Purple.color()) { step = CreateStep.Ai }
-                    ChoiceRow("Start blank, for your own API", false, "plus", Tint.Blue.color()) { step = CreateStep.Blank }
+                    ChoiceRow("Start blank", false, "plus", Tint.Blue.color()) { step = CreateStep.Blank }
                     ChoiceRow("GitHub", false, "braces", Tint.Gray.color()) { fromTemplate("github") }
                     ChoiceRow("GitLab", false, "braces", Tint.Orange.color()) { step = CreateStep.GitLab }
                     ChoiceRow("Demo with sample data", false, "layers", Tint.Indigo.color()) { fromTemplate("demo") }
@@ -145,8 +145,8 @@ private fun AiStep(onPaste: () -> Unit, onBack: () -> Unit) {
             copy(WorkspacePrompt.chat(), "Gemini")
             open("https://gemini.google.com/app")
         }
-        ChoiceRow("Copy prompt for any AI chat", false, "copy", Tint.Gray.color()) { copy(WorkspacePrompt.chat(), "chat") }
-        ChoiceRow("Copy prompt for an AI agent", false, "braces", Tint.Indigo.color()) { copy(WorkspacePrompt.agent(), "agent") }
+        ChoiceRow("Copy prompt for AI chat", false, "copy", Tint.Gray.color()) { copy(WorkspacePrompt.chat(), "chat") }
+        ChoiceRow("Copy prompt for AI agent", false, "braces", Tint.Indigo.color()) { copy(WorkspacePrompt.agent(), "agent") }
     }
     copied?.let { which ->
         Spacer(Modifier.height(8.dp))

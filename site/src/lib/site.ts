@@ -26,6 +26,10 @@ export const FAQS = [
 		a: 'Yes, with one setting. These phones stop apps that run in the background. Turn on Auto launch (or Autostart) for OpenShortcuts; the app shows you where.'
 	},
 	{
+		q: 'What does a workspace send, and where?',
+		a: 'Only requests to the API you added, signed with a token you paste on the phone. The token is kept on the device, left out of backups and never written to exported files. The Demo workspace sends nothing at all.'
+	},
+	{
 		q: 'Is it on Google Play?',
 		a: 'Not yet. Download the APK from GitHub Releases, or build it yourself from the source.'
 	}

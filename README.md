@@ -61,6 +61,21 @@ Pick contacts, apps, times and dates from real pickers: a contact list with What
 - A **Gallery** of 12 ready-made shortcuts: Sleep Mode, Hang Up Late Calls, Asleep Auto-Reply, Urgent Alert, Pomodoro, Low Battery Saver…
 - Share any shortcut as an `.openshortcut` file; whoever opens it sees every action before adding it
 
+## Workspaces: dashboards for the APIs you use
+
+A workspace turns an API you already use into a small app inside OpenShortcuts: numbers, charts, lists and one-tap actions, laid out in tabs.
+
+- **Start in seconds.** Pick **GitHub**, **GitLab** (gitlab.com or your company's own), a **Demo** with sample data that works offline, or start **blank** with your own API address.
+- **Or let an AI build it.** Tap **Build with AI**: ChatGPT, Gemini or any AI chat interviews you about your API one question at a time and writes the workspace, which you paste back into the app. There's a separate prompt for coding agents that can read your API docs and test it themselves. You never give the AI your token.
+- **Build it your way.** Add widgets: metric cards, a target bar, bar charts by day or week with a goal line, a breakdown by project or client, a contribution heatmap, live status, action tiles, and lists you can search, group by week and open for details. Hold and drag to reorder tabs and widgets.
+- **Run actions from automations.** The **Run Workspace Action** step calls a workspace action from any shortcut, like starting a timer when you reach the office. If the workspace shows it's already running, it's skipped.
+- **Your token stays on the phone.** It's stored on the device, left out of backups and exports, and only sent to the workspace's own server.
+- **Share with your team, not the world.** A workspace is one `.osadapter` file. Export it (without your token) and send it to a colleague; it never has to be public.
+
+<p align="center"><img src="docs/images/workspaces.png" alt="The Demo workspace: a weekly target bar, hours per day against a goal, a breakdown by client, and the time log grouped by week" width="100%"></p>
+
+The file format and every widget are described in [docs/workspaces.md](docs/workspaces.md).
+
 ## Designed like a phone's own app
 
 <p align="center"><img src="docs/images/design.png" alt="The cover-screen layout in landscape, the first-launch welcome screen, and a tip from the tour" width="100%"></p>

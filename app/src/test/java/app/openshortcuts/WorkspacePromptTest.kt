@@ -44,6 +44,8 @@ class WorkspacePromptTest {
     fun pasteExplainsWhatIsWrong() {
         val noJson = runCatching { AdapterStore.parseText("hello", emptySet()) }.exceptionOrNull()?.message.orEmpty()
         assertTrue(noJson.startsWith("Copy the whole JSON"))
+        val prompt = runCatching { AdapterStore.parseText(WorkspacePrompt.chat(), emptySet()) }.exceptionOrNull()?.message.orEmpty()
+        assertTrue(prompt, prompt.startsWith("That isn't a workspace") || prompt.startsWith("The JSON isn't complete"))
         val cut = runCatching { AdapterStore.parseText("{\"id\": \"x\", \"name\": {", emptySet()) }.exceptionOrNull()?.message.orEmpty()
         assertFalse(cut.isBlank())
         val noUrl = runCatching { AdapterStore.parseText("{\"id\":\"x\",\"name\":\"X\",\"baseUrl\":\"\"}", emptySet()) }.exceptionOrNull()?.message.orEmpty()
