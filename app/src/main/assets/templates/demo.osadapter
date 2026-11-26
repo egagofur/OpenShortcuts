@@ -24,6 +24,9 @@
           "endpoint": "/timer",
           "activePath": "data.running",
           "activeTitlePath": "data.title",
+          "subtitlePath": "data.client",
+          "startedAtPath": "data.started_at",
+          "holdToStop": true,
           "inactiveText": "No timer running",
           "activeActionId": "stop_timer",
           "inactiveActionId": "start_timer"
@@ -97,6 +100,20 @@
           "tint": "Gray",
           "glyph": "info",
           "body": "Everything here is sample data made on your phone. Tap Edit to rearrange widgets, or add a workspace for your own API."
+        },
+        {
+          "id": "ship",
+          "type": "share_card",
+          "title": "Ship Card",
+          "tint": "Green",
+          "glyph": "send",
+          "endpoint": "/me",
+          "titlePath": "username",
+          "itemsEndpoint": "/commits",
+          "itemsPath": "",
+          "metaPath": "at",
+          "messagePath": "message",
+          "groupPath": "repo"
         }
       ]
     },

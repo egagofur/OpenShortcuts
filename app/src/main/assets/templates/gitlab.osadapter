@@ -48,6 +48,21 @@
           "itemsPath": "",
           "metaPath": "created_at",
           "range": "thisWeek"
+        },
+        {
+          "id": "ship",
+          "type": "share_card",
+          "title": "Ship Card",
+          "tint": "Green",
+          "glyph": "send",
+          "endpoint": "/user",
+          "titlePath": "username",
+          "itemsEndpoint": "/users/{{id}}/events?action=pushed&after={{since_7d}}&per_page=100",
+          "itemsPath": "",
+          "metaPath": "created_at",
+          "messagePath": "push_data.commit_title",
+          "groupPath": "project_id",
+          "valuePath": "push_data.commit_count"
         }
       ]
     },

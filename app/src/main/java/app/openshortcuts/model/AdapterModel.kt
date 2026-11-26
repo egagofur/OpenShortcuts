@@ -26,7 +26,8 @@ enum class WidgetType(val key: String, val label: String, val summary: String) {
     PROFILE_CARD("profile_card", "Profile Card", "User identity card from API"),
     BAR_CHART("bar_chart", "Bar Chart", "Daily or weekly totals, counted or summed"),
     HEATMAP_CHART("heatmap_chart", "Contribution Heatmap", "GitLab-style weekly contribution grid"),
-    BREAKDOWN("breakdown", "Breakdown", "Totals per group as ranked bars");
+    BREAKDOWN("breakdown", "Breakdown", "Totals per group as ranked bars"),
+    SHARE_CARD("share_card", "Ship Card", "Your commits as a shareable photo card");
 
     companion object {
         fun from(key: String): WidgetType = entries.firstOrNull { it.key == key } ?: LIST
@@ -150,6 +151,14 @@ data class DashboardWidget(
     val inactiveText: String = "Idle",
     val activeActionId: String? = null,
     val inactiveActionId: String? = null,
+    /** When the running thing started (ISO date); live_status then counts up from it. */
+    val startedAtPath: String = "",
+    /** live_status: the stop button needs a press-and-hold instead of a tap. */
+    val holdToStop: Boolean = false,
+    /** share_card: commits to read, filled from the profile at [endpoint] (e.g. "/users/{{login}}/events"). */
+    val itemsEndpoint: String = "",
+    /** share_card: the commit message, where AI co-author trailers are found. */
+    val messagePath: String = "",
     // action_grid
     val actionRefs: List<DashboardActionRef> = emptyList(),
     // sentence_bar
@@ -302,6 +311,10 @@ data class WorkspaceAdapter(
             if (w.inactiveText != "Idle") put("inactiveText", w.inactiveText)
             w.activeActionId?.let { put("activeActionId", it) }
             w.inactiveActionId?.let { put("inactiveActionId", it) }
+            if (w.startedAtPath.isNotEmpty()) put("startedAtPath", w.startedAtPath)
+            if (w.holdToStop) put("holdToStop", true)
+            if (w.itemsEndpoint.isNotEmpty()) put("itemsEndpoint", w.itemsEndpoint)
+            if (w.messagePath.isNotEmpty()) put("messagePath", w.messagePath)
             if (w.actionRefs.isNotEmpty()) put("actionRefs", JSONArray(w.actionRefs.map { r ->
                 JSONObject().apply {
                     put("title", r.title); put("glyph", r.glyph); put("tint", r.tint.name)
@@ -460,6 +473,10 @@ data class WorkspaceAdapter(
                 inactiveText = o.optString("inactiveText", "Idle"),
                 activeActionId = if (o.has("activeActionId") && !o.isNull("activeActionId")) o.getString("activeActionId") else null,
                 inactiveActionId = if (o.has("inactiveActionId") && !o.isNull("inactiveActionId")) o.getString("inactiveActionId") else null,
+                startedAtPath = o.optString("startedAtPath", ""),
+                holdToStop = o.optBoolean("holdToStop", false),
+                itemsEndpoint = o.optString("itemsEndpoint", ""),
+                messagePath = o.optString("messagePath", ""),
                 actionRefs = refs,
                 prefix = o.optString("prefix", "Show"),
                 paramKey = o.optString("paramKey", "filter"),

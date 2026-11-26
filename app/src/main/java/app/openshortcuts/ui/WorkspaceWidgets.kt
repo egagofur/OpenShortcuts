@@ -317,63 +317,6 @@ private fun BreakdownRow(label: String, value: String, valueColor: Color) {
 }
 
 @Composable
-fun LiveStatusWidget(
-    widget: DashboardWidget,
-    adapter: WorkspaceAdapter,
-    payload: Any?,
-    onRunAction: (AdapterAction) -> Unit,
-) {
-    val c = Theme.c
-    val reduced = Theme.reduced
-    val active = AdapterEngine.extractBool(payload, widget.activePath)
-    val activeTitle = AdapterEngine.extractString(payload, widget.activeTitlePath).ifBlank { "Active" }
-    val pulse = if (active && !reduced) {
-        rememberInfiniteTransition(label = "liveDot").animateFloat(
-            0.35f, 1f,
-            infiniteRepeatable(tween(900, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-            label = "alpha",
-        ).value
-    } else 1f
-
-    val actionId = if (active) widget.activeActionId else widget.inactiveActionId
-    val action = adapter.actionById(actionId)
-
-    Card(Modifier.fillMaxWidth()) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier
-                    .size(10.dp)
-                    .graphicsLayer { alpha = pulse }
-                    .clip(CircleShape)
-                    .background(if (active) c.positive else c.ink3),
-            )
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    if (active) widget.title.ifBlank { "Running" } else widget.inactiveText,
-                    style = Theme.t.label,
-                    color = c.ink,
-                )
-                if (active) {
-                    Text(activeTitle, style = Theme.t.small, color = c.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-            }
-            if (action != null) {
-                Box(
-                    Modifier
-                        .pressable(scale = 0.95f, label = action.title) { onRunAction(action) }
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(action.tint.color())
-                        .padding(horizontal = 14.dp, vertical = 8.dp),
-                ) {
-                    Text(action.title, style = Theme.t.small, color = Color.White)
-                }
-            }
-        }
-    }
-}
-
-@Composable
 fun ActionGridWidget(
     widget: DashboardWidget,
     adapter: WorkspaceAdapter,

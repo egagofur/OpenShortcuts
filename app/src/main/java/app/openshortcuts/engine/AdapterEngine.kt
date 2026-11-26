@@ -282,6 +282,8 @@ object AdapterEngine {
             "today" to now.format(DateTimeFormatter.ISO_LOCAL_DATE),
             "month" to now.format(DateTimeFormatter.ofPattern("yyyy-MM")),
             "now_utc" to Instant.now().toString(),
+            // A week back plus a day, so "this week" and a 72h hackathon are always covered.
+            "since_7d" to now.minusDays(7).format(DateTimeFormatter.ISO_LOCAL_DATE),
         )
         return placeholder.replace(template) { m ->
             val key = m.groupValues[1].trim()

@@ -397,7 +397,10 @@ fun Rail(vararg controls: @Composable () -> Unit) {
     }
 }
 
-/** Portrait phones give the rail's width back to content: its buttons move to a floating bar at the bottom. */
+/**
+ * Portrait phones give the rail's width back to content: its buttons move to a floating Liquid Glass
+ * bar at the bottom. Put it in a [GlassStage]'s chrome so it has something to blur.
+ */
 val useBottomBar: Boolean
     @Composable get() {
         val cfg = androidx.compose.ui.platform.LocalConfiguration.current
@@ -414,7 +417,6 @@ fun bottomBarSpace(): Dp =
 
 @Composable
 fun BottomBar(controls: List<@Composable () -> Unit>, modifier: Modifier = Modifier) {
-    val c = Theme.c
     Box(
         modifier
             .fillMaxWidth()
@@ -425,10 +427,7 @@ fun BottomBar(controls: List<@Composable () -> Unit>, modifier: Modifier = Modif
         Row(
             Modifier
                 .height(BAR_HEIGHT)
-                .shadow(18.dp, RoundedCornerShape(BAR_HEIGHT / 2), ambientColor = Color.Black.copy(alpha = 0.25f), spotColor = Color.Black.copy(alpha = 0.25f))
-                .clip(RoundedCornerShape(BAR_HEIGHT / 2))
-                .background(c.card)
-                .border(1.dp, c.hairline, RoundedCornerShape(BAR_HEIGHT / 2))
+                .glass()
                 .padding(horizontal = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -459,6 +458,7 @@ fun DuoDialog(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit
             launch { scale.animateTo(1f, tween(250, easing = Motion.easeOut)) }
             alpha.animateTo(1f, tween(200, easing = Motion.easeOut))
         }
+        val frosted = rememberBlurBehind { alpha.value }
         Column(
             Modifier
                 .windowInsetsPadding(WindowInsets.ime)
@@ -467,7 +467,8 @@ fun DuoDialog(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit
                 .fillMaxWidth()
                 .graphicsLayer { scaleX = scale.value; scaleY = scale.value; this.alpha = alpha.value }
                 .clip(RoundedCornerShape(30.dp))
-                .background(Theme.c.card)
+                .background(if (frosted) Theme.c.card.copy(alpha = 0.82f) else Theme.c.card)
+                .border(0.75.dp, Color.White.copy(alpha = if (Theme.c.dark) 0.12f else 0.5f), RoundedCornerShape(30.dp))
                 .verticalScroll(rememberScrollState())
                 .padding(20.dp),
             content = content,
@@ -516,4 +517,28 @@ fun IosSliderThumb() {
         Modifier.size(26.dp).shadow(4.dp, CircleShape, ambientColor = Color.Black.copy(alpha = 0.3f), spotColor = Color.Black.copy(alpha = 0.3f))
             .clip(CircleShape).background(Color.White),
     )
+}
+
+/**
+ * Liquid Glass for a dialog: the screen behind it is frosted by the system (cross-window blur,
+ * Android 12+), fading in with [progress] so it doesn't pop. Returns false where the device or a
+ * power saver turns blur off; the dialog then keeps its solid card and the usual dim.
+ */
+@Composable
+fun rememberBlurBehind(progress: () -> Float): Boolean {
+    val window = (androidx.compose.ui.platform.LocalView.current.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window
+    val radius = with(androidx.compose.ui.platform.LocalDensity.current) { 28.dp.toPx() }
+    val on = remember(window) {
+        window != null && android.os.Build.VERSION.SDK_INT >= 31 && window.windowManager.isCrossWindowBlurEnabled
+    }
+    if (on && window != null && android.os.Build.VERSION.SDK_INT >= 31) {
+        LaunchedEffect(window) {
+            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+            window.setDimAmount(0.25f)
+            androidx.compose.runtime.snapshotFlow { progress() }.collect { p ->
+                window.attributes = window.attributes.apply { blurBehindRadius = (radius * p).toInt() }
+            }
+        }
+    }
+    return on
 }

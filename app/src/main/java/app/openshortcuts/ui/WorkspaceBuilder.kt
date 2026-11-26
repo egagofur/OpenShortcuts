@@ -167,6 +167,7 @@ fun AddWidgetDialog(
                         id = id, type = type, title = title.trim(), tint = selectedTint, endpoint = endpoint.trim(),
                         activePath = pathA.trim().ifEmpty { "data.is_start_timer" },
                     )
+                    WidgetType.SHARE_CARD -> DashboardWidget(id = id, type = type, title = title.trim().ifEmpty { "Ship Card" }, tint = selectedTint, glyph = "send")
                     WidgetType.ACTION_GRID -> DashboardWidget(
                         id = id, type = type, title = title.trim(), tint = selectedTint,
                         actionRefs = listOf(DashboardActionRef(title.trim().ifEmpty { "Run" }, "bolt", selectedTint)),

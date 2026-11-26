@@ -48,6 +48,8 @@ import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -94,9 +96,33 @@ fun HomeScreen(
     var removedShortcut by remember { mutableStateOf<Triple<Shortcut, Int, List<Automation>>?>(null) }
     LaunchedEffect(removedShortcut) { if (removedShortcut != null) { kotlinx.coroutines.delay(5000); removedShortcut = null } }
     Row(Modifier.fillMaxSize().background(c.bg)) {
-        Box(Modifier.weight(1f).fillMaxSize()) {
-            val short = isShort
-            val bottomPad = if (short) 24.dp else 112.dp
+        val short = isShort
+        val bottomPad = if (short) 24.dp else 112.dp
+        GlassStage(Modifier.weight(1f).fillMaxSize(), chrome = {
+            TabBar(
+                tab = tab, onTab = onTab, compact = short, showWorkspaces = true,
+                modifier = if (short) Modifier
+                    .align(Alignment.TopEnd)
+                    .windowInsetsPadding(WindowInsets.topBar.only(WindowInsetsSides.Top))
+                    .padding(top = 10.dp, end = 4.dp)
+                else Modifier
+                    .align(Alignment.BottomCenter)
+                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Start))
+                    // The rail's circles already sit 12dp inside it; nudging right leaves an 8dp gap to them.
+                    .padding(start = 8.dp, bottom = 16.dp)
+                    .offset(x = 4.dp),
+            )
+            Box(Modifier.fillMaxSize().padding(bottom = if (short) 0.dp else 72.dp)) {
+                UndoBar(removed?.let { "Automation deleted" }, "Undo") {
+                    removed?.let { (a, i) -> app.openshortcuts.model.Store.restore(a, i) }
+                    removed = null
+                }
+                UndoBar(removedShortcut?.let { "“${it.first.name}” deleted" }, "Undo") {
+                    removedShortcut?.let { (s, i, autos) -> app.openshortcuts.model.Store.restoreShortcut(s, i, autos) }
+                    removedShortcut = null
+                }
+            }
+        }) {
             AnimatedContent(
                 targetState = tab,
                 transitionSpec = { fadeIn(tween(160)) togetherWith fadeOut(tween(100)) },
@@ -112,27 +138,6 @@ fun HomeScreen(
                         app.openshortcuts.model.Store.deleteAutomation(a.id)
                     }
                     else -> WorkspaceHub(adapters, bottomPad, onOpen = onOpenWorkspace, onImport = onImportAdapter)
-                }
-            }
-            TabBar(
-                tab = tab, onTab = onTab, compact = short, showWorkspaces = true,
-                modifier = if (short) Modifier
-                    .align(Alignment.TopEnd)
-                    .windowInsetsPadding(WindowInsets.topBar.only(WindowInsetsSides.Top))
-                    .padding(top = 10.dp, end = 4.dp)
-                else Modifier
-                    .align(Alignment.BottomCenter)
-                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Start))
-                    .padding(start = 12.dp, end = 4.dp, bottom = 16.dp),
-            )
-            Box(Modifier.fillMaxSize().padding(bottom = if (short) 0.dp else 72.dp)) {
-                UndoBar(removed?.let { "Automation deleted" }, "Undo") {
-                    removed?.let { (a, i) -> app.openshortcuts.model.Store.restore(a, i) }
-                    removed = null
-                }
-                UndoBar(removedShortcut?.let { "“${it.first.name}” deleted" }, "Undo") {
-                    removedShortcut?.let { (s, i, autos) -> app.openshortcuts.model.Store.restoreShortcut(s, i, autos) }
-                    removedShortcut = null
                 }
             }
         }
@@ -367,27 +372,96 @@ fun TriggerKind.tint(): app.openshortcuts.model.Tint = when (this) {
     TriggerKind.Location -> app.openshortcuts.model.Tint.Blue
 }
 
+/**
+ * The floating tab switcher, in Liquid Glass. Tap a tab, or press and hold (or just drag) to lift
+ * the selection and slide it across the tabs; it ticks on each tab and lands where you let go.
+ */
 @Composable
 private fun TabBar(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Modifier, compact: Boolean = false, showWorkspaces: Boolean = false) {
-    val segH = if (compact) 40.dp else 48.dp
+    // With its 5dp inset the bar is exactly as tall as the rail's glass circles beside it.
+    val segH = if (compact) 40.dp else Dimens.glass - 10.dp
     val c = Theme.c
+    val reduced = Theme.reduced
+    val view = androidx.compose.ui.platform.LocalView.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     val labels = if (showWorkspaces) listOf("Shortcuts", "Automation", "Workspaces") else listOf("Shortcuts", "Automation")
     val maxSeg = if (compact) 108.dp else 124.dp
     androidx.compose.foundation.layout.BoxWithConstraints(modifier) {
-        val avail = if (compact) (maxWidth - 10.dp).coerceAtMost(maxSeg * labels.size) else (maxWidth - 10.dp).coerceAtMost(maxSeg * labels.size)
+        val avail = (maxWidth - 10.dp).coerceAtMost(maxSeg * labels.size)
         val segDp = (avail / labels.size).coerceAtLeast(72.dp)
-        val x by animateDpAsState(segDp * tab.coerceIn(0, labels.lastIndex), Motion.settle(), label = "seg")
+        val seg = with(LocalDensity.current) { segDp.toPx() }
+        val last = labels.lastIndex
+        val selected = tab.coerceIn(0, last)
+        // The gesture below outlives recompositions; read the current tab and callback through these.
+        val current by androidx.compose.runtime.rememberUpdatedState(selected)
+        val select by androidx.compose.runtime.rememberUpdatedState(onTab)
+        val pill = remember { androidx.compose.animation.core.Animatable(seg * selected) }
+        var lifted by remember { mutableStateOf(false) }
+        var pressed by remember { mutableStateOf(false) }
+        var hover by remember { mutableStateOf(selected) }
+        LaunchedEffect(selected, seg) { if (!lifted) pill.animateTo(seg * selected, Motion.settle()) }
+        val lift by androidx.compose.animation.core.animateFloatAsState(
+            if (lifted && !reduced) 1f else 0f, Motion.fling(), label = "pillLift",
+        )
         val labelStyle = if (segDp < 104.dp) Theme.t.label.copy(fontSize = 13.sp) else Theme.t.label
+        val shown = if (lifted) hover else selected
         Box(
             Modifier
-                .shadow(if (c.dark) 0.dp else 18.dp, RoundedCornerShape(30.dp), ambientColor = c.shadow, spotColor = c.shadow)
-                .clip(RoundedCornerShape(30.dp))
-                .background(c.raised)
-                .padding(5.dp),
+                .glass(com.kyant.shapes.RoundedRectangle(30.dp), pressed = pressed)
+                .padding(5.dp)
+                .pointerInput(seg, last) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown()
+                        down.consume()
+                        pressed = true
+                        fun at(x: Float) = (x / seg).toInt().coerceIn(0, last)
+                        fun follow(x: Float) {
+                            val to = (x - seg / 2).coerceIn(0f, seg * last)
+                            scope.launch { pill.snapTo(to) }
+                            val h = ((to + seg / 2) / seg).toInt().coerceIn(0, last)
+                            if (h != hover) { hover = h; view.tick() }
+                        }
+                        fun liftAt(x: Float) {
+                            if (lifted) return
+                            hover = at(x)
+                            lifted = true
+                            view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+                            scope.launch { pill.animateTo((x - seg / 2).coerceIn(0f, seg * last), Motion.fling()) }
+                        }
+                        val hold = scope.launch { kotlinx.coroutines.delay(220); liftAt(down.position.x) }
+                        var x = down.position.x
+                        var cancelled = false
+                        while (true) {
+                            val e = awaitPointerEvent()
+                            val ch = e.changes.firstOrNull { it.id == down.id } ?: break
+                            if (!ch.pressed) { x = ch.position.x; ch.consume(); break }
+                            x = ch.position.x
+                            if (!lifted && kotlin.math.abs(x - down.position.x) > viewConfiguration.touchSlop) { hold.cancel(); liftAt(x) }
+                            if (lifted) { ch.consume(); follow(x) }
+                            if (!lifted && kotlin.math.abs(ch.position.y - down.position.y) > viewConfiguration.touchSlop * 3) { cancelled = true; break }
+                        }
+                        hold.cancel()
+                        pressed = false
+                        val pick = if (lifted) hover else at(x)
+                        lifted = false
+                        if (!cancelled) {
+                            if (pick != current) { view.tick(); select(pick) }
+                            scope.launch { pill.animateTo(seg * pick, Motion.fling()) }
+                        }
+                    }
+                },
         ) {
             Box(
-                Modifier.offset(x = x).width(segDp).height(segH)
-                    .clip(RoundedCornerShape(segH / 2)).background(c.fill),
+                Modifier
+                    .graphicsLayer {
+                        translationX = pill.value
+                        val k = 1f + 0.12f * lift
+                        scaleX = k; scaleY = k
+                    }
+                    .width(segDp).height(segH)
+                    .shadow((10 * lift).dp, RoundedCornerShape(segH / 2), clip = false, ambientColor = c.shadow, spotColor = c.shadow)
+                    .clip(RoundedCornerShape(segH / 2))
+                    .background(if (lift > 0f) androidx.compose.ui.graphics.lerp(c.fill, c.raised, lift) else c.fill),
             )
             Row {
                 labels.forEachIndexed { i, l ->
@@ -396,10 +470,14 @@ private fun TabBar(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Modifier
                             .height(segH)
                             .width(segDp)
                             .then(if (i == 1) Modifier.tipAnchor("tabAutomation") else Modifier)
-                            .pressable(scale = 0.96f, label = l, role = androidx.compose.ui.semantics.Role.Tab) { onTab(i) },
+                            .semantics(mergeDescendants = true) {
+                                role = androidx.compose.ui.semantics.Role.Tab
+                                this.selected = i == selected
+                                onClick(l) { onTab(i); true }
+                            },
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(l, style = labelStyle, color = if (tab == i) c.ink else c.ink2, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
+                        Text(l, style = labelStyle, color = if (shown == i) c.ink else c.ink2, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }

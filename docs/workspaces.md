@@ -53,7 +53,8 @@ Every widget has `id`, `type`, `title`, `tint` and usually an `endpoint`.
 | `bar_chart` | Bars per day or week; counts items or sums a field | `itemsPath`, `metaPath` (date), `valuePath`, `bucket` (`day`/`week`), `range` (`rolling`/`thisWeek`), `count`, `target`, `unit` |
 | `breakdown` | Totals per group, largest first, with an Other row | `itemsPath`, `groupPath`, `valuePath`, `unit`, `count` |
 | `heatmap_chart` | A year of activity, one square per day | `itemsPath`, `metaPath` |
-| `live_status` | Whether something is running, with a start or stop button | `activePath`, `activeTitlePath`, `activeActionId`, `inactiveActionId` |
+| `live_status` | Whether something is running, with a start or stop button. Running, it counts up from `startedAtPath` (or from when it started, if the API has no start time); `holdToStop: true` makes the stop button press-and-hold | `activePath`, `activeTitlePath`, `subtitlePath`, `startedAtPath`, `holdToStop`, `activeActionId`, `inactiveActionId` |
+| `share_card` | Ship Card: a photo card of your recent commits to share, with a route line of your day and the AIs credited in `Co-Authored-By` trailers. Reads a profile at `endpoint`, then commits at `itemsEndpoint` with the profile's fields filled in (`{{login}}`) | `endpoint`, `titlePath` (your handle), `itemsEndpoint`, `itemsPath`, `metaPath` (commit time), `messagePath`, `groupPath` (repo), `valuePath` (commits per item, e.g. a push) |
 | `action_grid` | Colored tiles that run actions or your shortcuts | `actionRefs[]` |
 | `profile_card` | The signed-in user | `titlePath`, `subtitlePath`, `metaPath`, `badgePath` |
 | `note_card` | A short note | `body` |

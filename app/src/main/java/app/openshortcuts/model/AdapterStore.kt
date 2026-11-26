@@ -36,6 +36,10 @@ object AdapterStore {
         state.value = (0 until arr.length()).mapNotNull { i ->
             runCatching { WorkspaceAdapter.fromJson(arr.getJSONObject(i)) }.getOrNull()
         }
+        // Read saved responses off the main thread now, so even the first open of a workspace
+        // has its data on the first frame instead of loading it mid-slide.
+        val ids = state.value.map { it.id }
+        Thread({ ids.forEach { runCatching { loadCache(it) } } }, "workspace-cache").apply { isDaemon = true; start() }
     }
 
     fun get(id: String): WorkspaceAdapter? = state.value.firstOrNull { it.id == id }
@@ -51,10 +55,17 @@ object AdapterStore {
         state.value = next
         save(next)
         secrets.edit().remove("token_$id").remove("url_$id").apply()
+        memCache.remove(id)
         if (::file.isInitialized) File(cacheDir, "adapter_cache_$id.json").delete()
     }
 
+    /** Responses already read this session, so reopening a workspace shows its data on the first frame. */
+    private val memCache = java.util.concurrent.ConcurrentHashMap<String, Map<String, Result<Any?>>>()
+
+    fun cachedInMemory(id: String): Map<String, Result<Any?>> = memCache[id].orEmpty()
+
     fun loadCache(id: String): Map<String, Result<Any?>> {
+        memCache[id]?.let { return it }
         if (!::file.isInitialized) return emptyMap()
         val f = File(cacheDir, "adapter_cache_$id.json")
         val obj = runCatching { JSONObject(f.readText()) }.getOrNull() ?: return emptyMap()
@@ -63,10 +74,12 @@ object AdapterStore {
             val v = obj.opt(ep)
             if (v != null && v != JSONObject.NULL) out[ep] = Result.success(v)
         }
+        memCache[id] = out
         return out
     }
 
     fun saveCache(id: String, cache: Map<String, Result<Any?>>) {
+        memCache[id] = cache.filterValues { it.isSuccess }
         if (!::file.isInitialized) return
         val obj = JSONObject()
         cache.forEach { (ep, res) ->

@@ -17,6 +17,7 @@ object DemoApi {
 
     @Volatile private var running = false
     @Volatile private var runningTitle = ""
+    @Volatile private var runningSince: String? = null
 
     private val clients = listOf("Northwind", "Bluebird Studio", "Acme Labs", "Internal")
     private val tasks = listOf(
@@ -40,7 +41,9 @@ object DemoApi {
                 .put("name", "Alex Rivera").put("username", "alex").put("email", "alex@example.com").put("state", "active")
             path == "/timer" -> JSONObject().put(
                 "data",
-                JSONObject().put("running", running).put("title", runningTitle.ifBlank { JSONObject.NULL }),
+                JSONObject().put("running", running).put("title", runningTitle.ifBlank { JSONObject.NULL })
+                    .put("client", if (running) "Bluebird Studio" else JSONObject.NULL)
+                    .put("started_at", runningSince ?: JSONObject.NULL),
             )
             path == "/summary" -> summary(today)
             path == "/entries" -> JSONObject().put("data", JSONArray(entries(today)))
@@ -48,6 +51,7 @@ object DemoApi {
                 ?: return AdapterResult(false, 404, "Not found")
             path == "/tasks" -> JSONArray(taskList(today))
             path == "/activity" -> JSONArray(activity(today))
+            path == "/commits" -> JSONArray(commits(today))
             else -> return AdapterResult(false, 404, "The demo has no $path.")
         }
         return AdapterResult(true, 200, "OK", json)
@@ -56,12 +60,14 @@ object DemoApi {
     private fun act(path: String, body: String?): AdapterResult = when (path) {
         "/timer/start" -> {
             running = true
+            runningSince = java.time.Instant.now().toString()
             runningTitle = runCatching { JSONObject(body.orEmpty()).optString("description") }.getOrNull().orEmpty().ifBlank { "Demo task" }
             AdapterResult(true, 200, "Timer started (demo)")
         }
         "/timer/stop" -> {
             running = false
             runningTitle = ""
+            runningSince = null
             AdapterResult(true, 200, "Timer stopped (demo)")
         }
         else -> AdapterResult(true, 200, "Demo: nothing was sent.")
@@ -133,6 +139,38 @@ object DemoApi {
             val weekend = d.dayOfWeek == DayOfWeek.SATURDAY || d.dayOfWeek == DayOfWeek.SUNDAY
             val n = if (weekend) rnd.nextInt(0, 2) else rnd.nextInt(0, 7)
             repeat(n) { out += JSONObject().put("created_at", d.atTime(9 + it, 0).atOffset(ZoneOffset.UTC).format(java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME)) }
+            d = d.plusDays(1)
+        }
+        return out
+    }
+
+    /**
+     * A week of commits with real-looking times, some crediting an AI pair in a Co-Authored-By
+     * trailer, the way Claude Code, Copilot and friends sign theirs.
+     */
+    fun commits(today: LocalDate, now: java.time.LocalTime = java.time.LocalTime.now()): List<JSONObject> {
+        val repos = listOf("alex/openboard", "alex/portfolio", "northwind/checkout")
+        val ais = listOf(
+            "Claude <noreply@anthropic.com>", "Claude <noreply@anthropic.com>", "Copilot <copilot@github.com>",
+            "Gemini <gemini@google.com>", null, null, null,
+        )
+        val out = ArrayList<JSONObject>()
+        var d = today.minusDays(7)
+        while (!d.isAfter(today)) {
+            val rnd = Random(d.toEpochDay() * 17)
+            val n = if (d.dayOfWeek == DayOfWeek.SATURDAY || d.dayOfWeek == DayOfWeek.SUNDAY) rnd.nextInt(0, 3) else rnd.nextInt(3, 9)
+            repeat(n) { i ->
+                val hour = 9 + (i * 11 / n.coerceAtLeast(1)) + rnd.nextInt(0, 2)
+                val minute = rnd.nextInt(0, 60)
+                val at = d.atTime(hour.coerceAtMost(23), minute)
+                if (d == today && at.toLocalTime().isAfter(now)) return@repeat
+                val ai = ais[rnd.nextInt(ais.size)]
+                out += JSONObject()
+                    .put("sha", "%07x".format(rnd.nextInt(0x1000000, 0xFFFFFFF)))
+                    .put("message", tasks[rnd.nextInt(tasks.size)] + (if (ai != null) "\n\nCo-Authored-By: $ai" else ""))
+                    .put("repo", repos[rnd.nextInt(repos.size)])
+                    .put("at", at.atZone(java.time.ZoneId.systemDefault()).toOffsetDateTime().format(java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+            }
             d = d.plusDays(1)
         }
         return out

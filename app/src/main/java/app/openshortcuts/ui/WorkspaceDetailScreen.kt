@@ -183,7 +183,9 @@ fun WorkspaceDetailScreen(
         }
     }
     val bottomBar = useBottomBar
-    Box(Modifier.fillMaxSize().background(c.bg)) {
+    GlassStage(Modifier.fillMaxSize().background(c.bg), chrome = {
+        if (bottomBar) BottomBar(rail, Modifier.align(Alignment.BottomCenter))
+    }) {
     Row(Modifier.fillMaxSize().padding(end = if (bottomBar) Dimens.gutter - 4.dp else 0.dp)) {
         LazyColumn(
             modifier = Modifier
@@ -412,7 +414,6 @@ fun WorkspaceDetailScreen(
 
         if (!bottomBar) Rail(*rail.toTypedArray())
     }
-    if (bottomBar) BottomBar(rail, Modifier.align(Alignment.BottomCenter))
     }
 
     if (showQuickActions) {

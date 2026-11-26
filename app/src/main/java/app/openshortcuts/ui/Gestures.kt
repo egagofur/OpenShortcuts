@@ -150,11 +150,11 @@ fun BoxScope.UndoBar(text: String?, action: String, onAction: () -> Unit) {
         Row(
             Modifier.windowInsetsPadding(WindowInsets.topBar.only(WindowInsetsSides.Bottom)).padding(16.dp)
                 .widthIn(max = 420.dp)
-                .clip(RoundedCornerShape(24.dp)).background(c.ink)
+                .glass(com.kyant.shapes.RoundedRectangle(24.dp))
                 .padding(start = 18.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(last, style = Theme.t.label, color = c.bg, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+            Text(last, style = Theme.t.label, color = c.ink, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
             Spacer(Modifier.width(10.dp))
             Box(
                 Modifier.heightIn(min = 40.dp).pressable(label = action, onClick = onAction)

@@ -43,6 +43,12 @@ android {
             signingConfig = signingConfigs.getByName("debug")
             matchingFallbacks += "release"
         }
+        // Release speed, debug key: installs over a debug build and keeps its data, for measuring smoothness.
+        create("profile") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += "release"
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -61,6 +67,9 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
     implementation("org.osmdroid:osmdroid-android:6.1.20")
+    // Liquid Glass (blur, lens refraction, rim highlight) for the floating tab bar. Apache-2.0.
+    implementation("io.github.kyant0:backdrop:2.0.1")
+    implementation("io.github.kyant0:shapes:1.2.1")
 
     testImplementation("junit:junit:4.13.2")
     // Android's org.json is a stub on the JVM; tests need the real one.

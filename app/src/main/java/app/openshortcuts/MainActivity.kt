@@ -42,6 +42,7 @@ sealed interface Route {
     data object Gallery : Route
     data class Workspace(val id: String) : Route
     data class WorkspaceItem(val adapterId: String, val widgetId: String, val itemJson: String) : Route
+    data class ShipCard(val adapterId: String, val widgetId: String) : Route
 }
 
 class MainActivity : ComponentActivity() {
@@ -118,6 +119,7 @@ private fun App() {
 
     androidx.compose.runtime.CompositionLocalProvider(
         app.openshortcuts.ui.LocalGoHome provides if (nav.stack.size > 1) ({ nav.popToRoot() }) else null,
+        app.openshortcuts.ui.LocalOpenShipCard provides { a, w -> push(Route.ShipCard(a, w)) },
     ) {
     app.openshortcuts.ui.NavHost(nav) { route ->
         when (val r = route) {
@@ -167,6 +169,7 @@ private fun App() {
                 onOpenDetail = { widgetId, itemJson -> push(Route.WorkspaceItem(r.id, widgetId, itemJson)) },
                 onBack = ::pop,
             )
+            is Route.ShipCard -> app.openshortcuts.ui.ShipStudioScreen(r.adapterId, r.widgetId, onBack = ::pop)
             is Route.WorkspaceItem -> app.openshortcuts.ui.WorkspaceDetailScreen(
                 adapterId = r.adapterId,
                 widgetId = r.widgetId,

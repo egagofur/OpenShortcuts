@@ -30,6 +30,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 @Stable
@@ -45,8 +46,16 @@ class NavState<R : Any>(initial: R, private val scope: CoroutineScope) {
 
     private fun settle() { job?.cancel(); job = null; complete() }
 
+    /**
+     * Slides like an iPhone push: a critically damped spring that eases all the way in. The stop
+     * threshold is a fraction of a pixel; Compose's default (1% of the width, about 10 px) ended the
+     * spring early and the last step snapped into place.
+     */
     private suspend fun go(target: Float, velocity: Float = 0f) =
-        animate(p, target, velocity, if (reduced) tween(200) else spring(dampingRatio = 1f, stiffness = 300f)) { v, _ -> p = v }
+        animate(
+            p, target, velocity,
+            if (reduced) tween(200) else spring(dampingRatio = 1f, stiffness = 260f, visibilityThreshold = 0.0002f),
+        ) { v, _ -> p = v }
 
     val top: R get() = stack.last()
 
@@ -91,12 +100,25 @@ class NavState<R : Any>(initial: R, private val scope: CoroutineScope) {
     }
 }
 
+/**
+ * True once no screen is sliding. Screens that load data on open wait for it before showing what
+ * arrived, so a big recomposition doesn't land in the middle of the slide and stutter it.
+ */
+val LocalNavIdle = androidx.compose.runtime.staticCompositionLocalOf<() -> Boolean> { { true } }
+
+/** Suspends until the screen transition (if any) has finished. */
+suspend fun awaitNavIdle(idle: () -> Boolean) {
+    androidx.compose.runtime.snapshotFlow { idle() }.first { it }
+}
+
 @Composable
 fun <R : Any> NavHost(nav: NavState<R>, content: @Composable (R) -> Unit) {
     val holder = rememberSaveableStateHolder()
     val reduced = Theme.reduced
     nav.reduced = reduced
     val c = Theme.c
+    val idle = remember(nav) { { nav.p == 0f } }
+    androidx.compose.runtime.CompositionLocalProvider(LocalNavIdle provides idle) {
     BoxWithConstraints(Modifier.fillMaxSize().background(c.bg)) {
         val w = constraints.maxWidth.toFloat()
         val moving by remember { derivedStateOf { nav.p > 0.0005f } }
@@ -136,4 +158,5 @@ fun <R : Any> NavHost(nav: NavState<R>, content: @Composable (R) -> Unit) {
             }
         }
     }
+}
 }

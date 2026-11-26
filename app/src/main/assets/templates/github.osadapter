@@ -46,6 +46,20 @@
               "tint": "Indigo"
             }
           ]
+        },
+        {
+          "id": "ship",
+          "type": "share_card",
+          "title": "Ship Card",
+          "tint": "Green",
+          "glyph": "send",
+          "endpoint": "/user",
+          "titlePath": "login",
+          "itemsEndpoint": "/search/commits?q=author:{{login}}+author-date:%3E%3D{{since_7d}}&sort=author-date&order=desc&per_page=100",
+          "itemsPath": "items",
+          "metaPath": "commit.author.date",
+          "messagePath": "commit.message",
+          "groupPath": "repository.full_name"
         }
       ]
     },

@@ -212,7 +212,9 @@ fun WorkspaceScreen(
         if (tabs.isNotEmpty()) tabsListState.animateScrollToItem(pagerState.currentPage)
     }
 
-    var endpointCache by remember(adapterId) { mutableStateOf<Map<String, Result<Any?>>>(emptyMap()) }
+    // Data from earlier this session is there on the first frame, before the screen slides in.
+    var endpointCache by remember(adapterId) { mutableStateOf(AdapterStore.cachedInMemory(adapterId)) }
+    val navIdle = LocalNavIdle.current
     var cacheReady by remember(adapterId) { mutableStateOf(false) }
     var loading by remember(adapterId) { mutableStateOf(false) }
     // When each endpoint was last fetched; swiping back to a tab within FRESH_MS reuses what's there.
@@ -223,7 +225,10 @@ fun WorkspaceScreen(
     // The cache can be a megabyte of JSON: read it off the main thread so opening the workspace stays smooth.
     LaunchedEffect(adapterId) {
         val cached = withContext(Dispatchers.IO) { AdapterStore.loadCache(adapterId) }
-        endpointCache = cached + endpointCache
+        if (cached !== endpointCache) {
+            awaitNavIdle(navIdle)
+            endpointCache = cached + endpointCache
+        }
         cacheReady = true
     }
 
@@ -244,6 +249,7 @@ fun WorkspaceScreen(
         loading = true
         try {
             val fetched = AdapterEngine.fetchEndpoints(curAdapter, eps, pageCounts)
+            awaitNavIdle(navIdle)
             // Keep the last good data for endpoints that failed this time; show the error only if there's nothing.
             val merged = endpointCache.toMutableMap()
             val keptOld = fetched.filter { (ep, res) -> res.isFailure && merged[ep]?.isSuccess == true }
@@ -300,7 +306,9 @@ fun WorkspaceScreen(
         }
     }
     val bottomBar = useBottomBar
-    Box(Modifier.fillMaxSize().background(c.bg)) {
+    GlassStage(Modifier.fillMaxSize().background(c.bg), chrome = {
+        if (bottomBar) BottomBar(railActions, Modifier.align(Alignment.BottomCenter))
+    }) {
     Row(Modifier.fillMaxSize().padding(end = if (bottomBar) Dimens.gutter - 4.dp else 0.dp)) {
         Column(
             Modifier
@@ -484,6 +492,17 @@ fun WorkspaceScreen(
                         onRetry = { view.tick(); refreshTick++ },
                         onOpenSettings = { showSettings = true },
                         onRunAction = { act -> activeAction = act to null },
+                        onLiveResult = { act, res ->
+                            if (res.ok) {
+                                LiveOverrides.note(curAdapter, act) { w -> endpointCache[w.endpoint.orEmpty()]?.getOrNull() }
+                                refreshTick++
+                            } else {
+                                view.performHapticFeedback(
+                                    if (android.os.Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.REJECT else HapticFeedbackConstants.LONG_PRESS,
+                                )
+                                toast = res
+                            }
+                        },
                         onSwipeRow = { act, raw ->
                             view.tick()
                             pendingRowAction = act to raw
@@ -521,7 +540,6 @@ fun WorkspaceScreen(
 
         if (!bottomBar) Rail(*railActions.toTypedArray())
     }
-    if (bottomBar) BottomBar(railActions, Modifier.align(Alignment.BottomCenter))
     }
 
     if (showQuickJump) {
@@ -605,8 +623,10 @@ fun WorkspaceScreen(
             onDismiss = { activeAction = null },
             onResult = { res ->
                 activeAction = null
+                // A start/stop card shows the result itself; other actions get the "Done" dialog.
+                val shownOnCard = res.ok && LiveOverrides.note(curAdapter, act) { w -> endpointCache[w.endpoint.orEmpty()]?.getOrNull() }
                 if (res.ok) { view.confirm(); refreshTick++ }
-                toast = res
+                if (!shownOnCard) toast = res
             },
         )
     }
@@ -710,6 +730,7 @@ private fun TabDashboardPage(
     onRetry: () -> Unit,
     onOpenSettings: () -> Unit,
     onRunAction: (AdapterAction) -> Unit,
+    onLiveResult: (AdapterAction, AdapterResult) -> Unit,
     onSwipeRow: (app.openshortcuts.model.AdapterRowAction, JSONObject) -> Unit,
     onOpenDetail: (widgetId: String, item: WorkspaceItem) -> Unit,
     tabs: List<AdapterTab>,
@@ -810,7 +831,8 @@ private fun TabDashboardPage(
                     WidgetType.STAT_GRID -> item(key = w.id) { StaggeredBlock(wIdx) { StatGridWidget(w, payload) } }
                     WidgetType.PROGRESS_RING -> item(key = w.id) { StaggeredBlock(wIdx) { ProgressRingWidget(w, payload) } }
                     WidgetType.TARGET_BAR -> item(key = w.id) { StaggeredBlock(wIdx) { TargetBarWidget(w, payload) } }
-                    WidgetType.LIVE_STATUS -> item(key = w.id) { StaggeredBlock(wIdx) { LiveStatusWidget(w, adapter, payload, onRunAction) } }
+                    WidgetType.LIVE_STATUS -> item(key = w.id) { StaggeredBlock(wIdx) { LiveStatusWidget(w, adapter, payload, onRunAction, onLiveResult) } }
+                    WidgetType.SHARE_CARD -> item(key = w.id) { StaggeredBlock(wIdx) { ShipCardTile(w, adapter.id) } }
                     WidgetType.ACTION_GRID -> item(key = w.id) { StaggeredBlock(wIdx) { ActionGridWidget(w, adapter, runs, onRunAction) } }
                     WidgetType.SENTENCE_BAR -> item(key = w.id) {
                         StaggeredBlock(wIdx) {
