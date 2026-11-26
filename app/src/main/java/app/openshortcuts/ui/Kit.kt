@@ -304,13 +304,20 @@ private val TALL = 640.dp
 @Composable
 fun Rail(vararg controls: @Composable () -> Unit) {
     val c = Theme.c
-    BoxWithConstraints(Modifier.width(Dimens.rail).fillMaxHeight()) {
+    // The camera cutout and navigation bar sit on the rail's side when the phone is turned the other way.
+    // Pad outside the rail's width so the rail grows by the inset instead of squeezing its buttons.
+    BoxWithConstraints(
+        Modifier
+            .windowInsetsPadding(WindowInsets.topBar.only(WindowInsetsSides.End))
+            .width(Dimens.rail)
+            .fillMaxHeight(),
+    ) {
         val tall = maxHeight >= TALL
         val short = maxHeight < 480.dp
         Column(
             Modifier
                 .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.topBar.only(WindowInsetsSides.Top + WindowInsetsSides.End + WindowInsetsSides.Bottom))
+                .windowInsetsPadding(WindowInsets.topBar.only(WindowInsetsSides.Top + WindowInsetsSides.Bottom))
                 .padding(top = if (short) 8.dp else 14.dp, bottom = if (short) 10.dp else 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
