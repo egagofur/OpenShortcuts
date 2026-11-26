@@ -37,7 +37,8 @@
           "endpoint": "/events?per_page=100",
           "pages": 10,
           "itemsPath": "",
-          "metaPath": "created_at"
+          "metaPath": "created_at",
+          "unit": "Pushes, MRs & comments"
         },
         {
           "id": "week",

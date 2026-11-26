@@ -59,6 +59,11 @@ object AdapterStore {
         )
     }
 
+    private val fetched = java.util.concurrent.ConcurrentHashMap<String, MutableMap<String, Long>>()
+
+    /** When each of a workspace's endpoints last loaded, for this run of the app. */
+    fun fetchedAt(id: String): MutableMap<String, Long> = fetched.getOrPut(id) { java.util.concurrent.ConcurrentHashMap() }
+
     fun get(id: String): WorkspaceAdapter? = state.value.firstOrNull { it.id == id }
 
     fun upsert(adapter: WorkspaceAdapter) {
@@ -75,6 +80,7 @@ object AdapterStore {
             secrets.all.keys.filter { it.startsWith("input_${id}_") }.forEach { remove(it) }
         }.apply()
         memCache.remove(id)
+        fetched.remove(id)
         if (::file.isInitialized) File(cacheDir, "adapter_cache_$id.json").delete()
     }
 

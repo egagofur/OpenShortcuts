@@ -87,7 +87,8 @@
           "endpoint": "/users/{{input.username}}/events/public?per_page=100",
           "pages": 3,
           "itemsPath": "",
-          "metaPath": "created_at"
+          "metaPath": "created_at",
+          "unit": "Pushes, PRs, reviews & stars"
         },
         {
           "id": "week",

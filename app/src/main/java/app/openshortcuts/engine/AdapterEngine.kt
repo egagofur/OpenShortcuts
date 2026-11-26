@@ -208,6 +208,14 @@ object AdapterEngine {
             URLEncoder.encode(AdapterStore.getInput(adapter.id, m.groupValues[1]), "UTF-8").replace("+", "%20")
         }
 
+    /**
+     * The last body and ETag per URL. A GET sends If-None-Match; a 304 reuses the body here, so an
+     * unchanged response costs no download (and, when signed in, no GitHub rate limit).
+     */
+    private val etags = object : LinkedHashMap<String, Pair<String, Any?>>(64, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Pair<String, Any?>>?) = size > 96
+    }
+
     private fun send(
         adapter: WorkspaceAdapter,
         method: String,
@@ -234,6 +242,7 @@ object AdapterEngine {
             readTimeout = 20_000
             setRequestProperty("Accept", "application/json")
             setRequestProperty("User-Agent", "OpenShortcuts-Workspace/2.0")
+            if (method.uppercase() == "GET") synchronized(etags) { etags[fullUrl] }?.let { setRequestProperty("If-None-Match", it.first) }
             if (adapter.authKind != AuthKind.NONE && trusted) {
                 val token = AdapterStore.getToken(adapter.id)
                 if (token.isNotBlank()) {
@@ -252,14 +261,32 @@ object AdapterEngine {
 
         val code: Int
         val text: String
+        val etag: String?
+        val limitLeft: String?
+        val limitReset: String?
         try {
             code = conn.responseCode
+            etag = conn.getHeaderField("ETag")
+            limitLeft = conn.getHeaderField("X-RateLimit-Remaining")
+            limitReset = conn.getHeaderField("X-RateLimit-Reset")
             val stream = if (code in 200..299) conn.inputStream else conn.errorStream
-            text = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+            text = if (code == 304) "" else stream?.bufferedReader()?.use { it.readText() }.orEmpty()
         } finally {
             conn.disconnect()
         }
+        if (code == 304) synchronized(etags) { etags[fullUrl] }?.let { return AdapterResult(true, 200, "Not modified", it.second) }
         val parsed = runCatching { if (text.isNotBlank()) JSONTokener(text).nextValue() else null }.getOrNull()
+        if (code in 200..299 && method.uppercase() == "GET" && !etag.isNullOrBlank()) synchronized(etags) { etags[fullUrl] = etag to parsed }
+
+        // Out of requests for now: say when they come back, and that a token raises the limit.
+        if ((code == 403 || code == 429) && limitLeft == "0") {
+            val at = limitReset?.toLongOrNull()?.let {
+                java.time.format.DateTimeFormatter.ofPattern("HH:mm").format(Instant.ofEpochSecond(it).atZone(java.time.ZoneId.systemDefault()))
+            }
+            val noToken = adapter.authKind == AuthKind.NONE || AdapterStore.getToken(adapter.id).isBlank()
+            return AdapterResult(false, code,
+                "Hit the API's hourly limit" + (at?.let { ". It resets at $it" } ?: "") + "." + if (noToken) " Adding a token in settings raises it." else "", parsed)
+        }
 
         if (code !in 200..299) {
             val errMsg = (parsed as? JSONObject)?.optString("message")?.takeIf { it.isNotBlank() }

@@ -231,8 +231,10 @@ fun WorkspaceScreen(
     val navIdle = LocalNavIdle.current
     var cacheReady by remember(adapterId) { mutableStateOf(false) }
     var loading by remember(adapterId) { mutableStateOf(false) }
-    // When each endpoint was last fetched; swiping back to a tab within FRESH_MS reuses what's there.
-    val fetchedAt = remember(adapterId) { HashMap<String, Long>() }
+    // When each endpoint was last fetched (kept for the app's lifetime, so leaving and reopening a
+    // workspace doesn't refetch). Without a token, public APIs allow few requests an hour: wait longer.
+    val fetchedAt = remember(adapterId) { AdapterStore.fetchedAt(adapterId) }
+    val freshMs = if (curAdapter.tokenOptional && AdapterStore.getToken(curAdapter.id).isBlank()) 5 * FRESH_MS else FRESH_MS
     var lastRefresh by remember(adapterId) { mutableIntStateOf(0) }
     var staleNote by remember(adapterId) { mutableStateOf<String?>(null) }
 
@@ -254,7 +256,7 @@ fun WorkspaceScreen(
         val eps = buildSet {
             if (currentTab.endpoint.isNotBlank()) add(currentTab.endpoint)
             currentTab.widgets.mapNotNull { it.endpoint?.takeIf { e -> e.isNotBlank() } }.forEach { add(it) }
-        }.filterTo(LinkedHashSet()) { forced || now - (fetchedAt[it] ?: 0L) > FRESH_MS }
+        }.filterTo(LinkedHashSet()) { forced || endpointCache[it]?.isSuccess != true || now - (fetchedAt[it] ?: 0L) > freshMs }
         if (eps.isEmpty()) return@LaunchedEffect
         val pageCounts = currentTab.widgets
             .mapNotNull { w -> w.endpoint?.takeIf { it.isNotBlank() }?.let { it to w.pages } }
@@ -775,6 +777,13 @@ private fun TabDashboardPage(
             }
         }
     }
+    // Pull down to refresh, the way every feed works; edit mode keeps the drag for reordering.
+    @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+    androidx.compose.material3.pulltorefresh.PullToRefreshBox(
+        isRefreshing = loading && !editMode,
+        onRefresh = { if (!editMode) onRetry() },
+        modifier = Modifier.fillMaxSize(),
+    ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = Dimens.gutter, end = 4.dp, bottom = bottomPad),
@@ -834,6 +843,11 @@ private fun TabDashboardPage(
                         else -> 82
                     }
                     SkeletonCard(h)
+                }
+            } else if (result == null && needsFetch) {
+                // Not fetched (yet): say so and offer a refresh, instead of an empty-looking widget.
+                item(key = "none_${w.id}") {
+                    EmptyWidgetCard("${w.title.ifBlank { tab.label }} hasn't loaded yet.", "Refresh", onRetry)
                 }
             } else if (err != null && needsFetch) {
                 item(key = "err_${w.id}") {
@@ -958,6 +972,7 @@ private fun TabDashboardPage(
                 }
             }
         }
+    }
     }
 }
 

@@ -31,6 +31,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -438,8 +440,9 @@ fun NoteCardWidget(widget: DashboardWidget) {
 fun ProfileCardWidget(widget: DashboardWidget, payload: Any?) {
     val c = Theme.c
     val view = LocalView.current
-    val name = AdapterEngine.extractString(payload, widget.titlePath.ifBlank { "name" }).ifBlank { widget.title.ifBlank { "Profile" } }
     val handle = AdapterEngine.extractString(payload, widget.subtitlePath.ifBlank { "username" })
+    // No display name set (common on GitHub): the handle stands in, shown once.
+    val name = AdapterEngine.extractString(payload, widget.titlePath.ifBlank { "name" }).ifBlank { handle.ifBlank { widget.title.ifBlank { "Profile" } } }
     val email = AdapterEngine.extractString(payload, widget.metaPath.ifBlank { "email" })
     val state = AdapterEngine.extractString(payload, widget.badgePath.ifBlank { "state" })
     val initials = name.split(" ").filter { it.isNotBlank() }.take(2).joinToString("") { it.first().uppercase() }.ifBlank { "U" }
@@ -460,6 +463,8 @@ fun ProfileCardWidget(widget: DashboardWidget, payload: Any?) {
                 },
             ),
     ) {
+        // Name, handle and a line of detail take the full width; the badge (a location, a role) sits
+        // under them, so a long one never squeezes the name to "eg…".
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
                 Modifier.size(46.dp).clip(CircleShape).background(widget.tint.color()),
@@ -470,22 +475,22 @@ fun ProfileCardWidget(widget: DashboardWidget, payload: Any?) {
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
                 Text(name, style = Theme.t.label.copy(fontSize = 16.sp), color = c.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (handle.isNotBlank()) {
+                if (handle.isNotBlank() && handle != name) {
                     Text("@$handle", style = Theme.t.small, color = c.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 if (email.isNotBlank()) {
-                    Text(email, style = Theme.t.small, color = c.ink3, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(email, style = Theme.t.small, color = c.ink3, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
-            }
-            if (state.isNotBlank()) {
-                Spacer(Modifier.width(8.dp))
-                Box(
-                    Modifier
-                        .clip(RoundedCornerShape(9.dp))
-                        .background(c.positive.copy(alpha = 0.14f))
-                        .padding(horizontal = 8.dp, vertical = 3.dp),
-                ) {
-                    Text(state, style = Theme.t.small, color = c.positive, maxLines = 1, softWrap = false)
+                if (state.isNotBlank()) {
+                    Spacer(Modifier.height(8.dp))
+                    Box(
+                        Modifier
+                            .clip(RoundedCornerShape(9.dp))
+                            .background(c.positive.copy(alpha = 0.14f))
+                            .padding(horizontal = 8.dp, vertical = 3.dp),
+                    ) {
+                        Text(state, style = Theme.t.small, color = c.positive, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
                 }
             }
         }
@@ -616,14 +621,20 @@ fun HeatmapChartWidget(widget: DashboardWidget, payload: Any?) {
                             .weight(1f)
                             .horizontalScroll(androidx.compose.foundation.rememberScrollState()),
                     ) {
-                        Row(Modifier.width(totalWidthDp).height(16.dp)) {
+                        // Month names are placed at their week but drawn at their own width, so "Sep" is
+                        // never cut to "Se"; one that would crowd the previous label is skipped.
+                        Box(Modifier.width(totalWidthDp).height(16.dp)) {
+                            var lastAt = -99
                             weeks.forEachIndexed { wIdx, week ->
                                 val prevMonth = if (wIdx > 0) weeks[wIdx - 1].first().month else null
-                                val showMonth = wIdx == 0 || (week.first().month != prevMonth && wIdx > 1)
-                                val monthLbl = if (showMonth) week.first().month.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.getDefault()) else ""
-                                Box(Modifier.width(15.dp), contentAlignment = Alignment.CenterStart) {
-                                    if (monthLbl.isNotEmpty()) {
-                                        Text(monthLbl, style = Theme.t.small.copy(fontSize = 10.sp), color = c.ink3, maxLines = 1, softWrap = false)
+                                if ((wIdx == 0 && week.first().dayOfMonth <= 14) || (wIdx > 0 && week.first().month != prevMonth)) {
+                                    if (wIdx - lastAt >= 3) {
+                                        lastAt = wIdx
+                                        Text(
+                                            week.first().month.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.getDefault()),
+                                            style = Theme.t.small.copy(fontSize = 11.sp), color = c.ink3, maxLines = 1, softWrap = false,
+                                            modifier = Modifier.offset(x = 15.dp * wIdx).wrapContentWidth(unbounded = true),
+                                        )
                                     }
                                 }
                             }
@@ -692,7 +703,8 @@ fun HeatmapChartWidget(widget: DashboardWidget, payload: Any?) {
                         Spacer(Modifier.width(2.dp))
                         Text("More", style = Theme.t.small.copy(fontSize = 10.sp), color = c.ink3)
                     }
-                    Text("Pushes, MRs & comments", style = Theme.t.small.copy(fontSize = 10.sp), color = c.ink3)
+                    // What a square counts, as the workspace names it ("unit"), e.g. "Pushes, PRs & reviews".
+                    if (widget.unit.isNotBlank()) Text(widget.unit, style = Theme.t.small.copy(fontSize = 11.sp), color = c.ink3, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 8.dp))
                 }
             }
         }
