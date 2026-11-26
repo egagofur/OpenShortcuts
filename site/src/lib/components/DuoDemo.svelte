@@ -69,6 +69,7 @@
 	let liveEl = $state<HTMLElement | undefined>();
 	let coverEl = $state<HTMLElement | undefined>();
 	let duo: import('#lib/duo3d.ts').Duo | null = null;
+	let ready = $state(false);
 
 	// Fold, after the iPhone Duo model: the rear-camera half (right) stays still and the cover half (left)
 	// swings over it on the hinge. t = 1 is open and flat, 0 is closed with the outer screen facing you.
@@ -77,7 +78,9 @@
 	let live = $derived(t >= 1 && home);
 	let playing = $state(false);
 	$effect(() => {
-		duo?.setFold(t);
+		// Read t first: with duo still loading, `duo?.setFold(t)` would never subscribe to t.
+		const fold = t;
+		if (ready) duo?.setFold(fold);
 	});
 
 	// Photograph the live screens so the 3D model shows exactly what the UI shows right now.
@@ -130,7 +133,7 @@
 		let phase = 1.2 + (Math.acos(2 * t - 1) / Math.PI) * 3.1;
 		let last = performance.now();
 		const step = (now: number) => {
-			phase = (phase + Math.min(0.05, (now - last) / 1000)) % 8.6;
+			phase = (phase + Math.min(0.25, (now - last) / 1000)) % 8.6;
 			last = now;
 			if (phase < 1.2) t = 1;
 			else if (phase < 4.3) t = (1 + Math.cos(((phase - 1.2) / 3.1) * Math.PI)) / 2;
@@ -297,6 +300,7 @@
 			if (!alive || !canvas) return;
 			duo = createDuo(canvas);
 			duo.setFold(t);
+			ready = true;
 			duo.onFrame(() => {
 				const r = duo!.innerRect();
 				if (Math.abs(r.w - rect.w) > 0.5 || Math.abs(r.x - rect.x) > 0.5 || Math.abs(r.y - rect.y) > 0.5) rect = r;
@@ -313,6 +317,7 @@
 		ro.observe(canvas);
 		return () => {
 			alive = false;
+			ready = false;
 			ro.disconnect();
 			duo?.dispose();
 			duo = null;
