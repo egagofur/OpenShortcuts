@@ -55,36 +55,51 @@ fun NewWorkspaceDialog(onDismiss: () -> Unit, onImport: () -> Unit, onPaste: () 
                 var name by remember { mutableStateOf("") }
                 var url by remember { mutableStateOf("https://") }
                 var auth by remember { mutableStateOf(AuthKind.BEARER) }
+                var header by remember { mutableStateOf("") }
+                var prefix by remember { mutableStateOf("") }
                 var tried by remember { mutableStateOf(false) }
-                val urlOk = WorkspaceTemplates.isValidBaseUrl(url)
+                val nameFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+                val urlFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+                val headerFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+                // Checked when you press Create; each problem shows on its own field.
+                val nameError = if (tried && name.isBlank()) "Give the workspace a name." else null
+                val urlError = if (tried && !WorkspaceTemplates.isValidBaseUrl(url)) "Use an address that starts with https:// and has a host." else null
+                val headerError = if (tried && auth == AuthKind.CUSTOM && !header.trim().matches(Regex("[A-Za-z0-9-]+"))) "Enter a header name, like X-API-Key (letters, numbers and dashes)." else null
                 DialogTitle("Blank Workspace", "Name it and point it at your API. You'll add tabs and widgets next.")
-                Text("Name", style = Theme.t.small, color = c.ink2)
-                Spacer(Modifier.height(4.dp))
-                Field(name, { name = it }, "Team tracker", autofocus = false)
+                FormField("Name", name, { name = it }, "Team tracker", error = nameError, focus = nameFocus)
                 Spacer(Modifier.height(12.dp))
-                Text("API address", style = Theme.t.small, color = c.ink2)
-                Spacer(Modifier.height(4.dp))
-                Field(url, { url = it }, "https://api.example.com/v1", autofocus = false)
-                if (tried && !urlOk) {
-                    Spacer(Modifier.height(6.dp))
-                    Text("Use an address that starts with https:// and has a host.", style = Theme.t.small, color = c.danger)
-                }
+                FormField("API address", url, { url = it }, "https://api.example.com/v1", error = urlError, focus = urlFocus,
+                    keyboard = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Uri))
                 Spacer(Modifier.height(12.dp))
                 Text("Sign-in", style = Theme.t.small, color = c.ink2)
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(6.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     ChoiceRow("Bearer token", auth == AuthKind.BEARER) { auth = AuthKind.BEARER }
                     ChoiceRow("PRIVATE-TOKEN header", auth == AuthKind.PRIVATE_TOKEN) { auth = AuthKind.PRIVATE_TOKEN }
+                    ChoiceRow("Custom header", auth == AuthKind.CUSTOM) { auth = AuthKind.CUSTOM }
                     ChoiceRow("No sign-in", auth == AuthKind.NONE) { auth = AuthKind.NONE }
+                }
+                if (auth == AuthKind.CUSTOM) {
+                    Spacer(Modifier.height(12.dp))
+                    FormField("Header name", header, { header = it.take(60) }, "X-API-Key", error = headerError, focus = headerFocus,
+                        hint = "Your token is sent in this header.")
+                    Spacer(Modifier.height(12.dp))
+                    FormField("Before the token (optional)", prefix, { prefix = it.take(30) }, "e.g. Token  or  Api-Key ",
+                        hint = if (header.isNotBlank()) "Sent as: ${header.trim()}: ${prefix}••••" else null)
                 }
                 Spacer(Modifier.height(16.dp))
                 PrimaryButton("Create Workspace", Modifier.fillMaxWidth()) {
                     tried = true
-                    if (name.isNotBlank() && urlOk) create(WorkspaceTemplates.blank(name, url, auth, AdapterStore.adapters.value))
-                }
-                if (tried && name.isBlank()) {
-                    Spacer(Modifier.height(6.dp))
-                    Text("Give the workspace a name.", style = Theme.t.small, color = c.danger)
+                    val badName = name.isBlank()
+                    val badUrl = !WorkspaceTemplates.isValidBaseUrl(url)
+                    val badHeader = auth == AuthKind.CUSTOM && !header.trim().matches(Regex("[A-Za-z0-9-]+"))
+                    // Take the person to the first thing to fix.
+                    when {
+                        badName -> runCatching { nameFocus.requestFocus() }
+                        badUrl -> runCatching { urlFocus.requestFocus() }
+                        badHeader -> runCatching { headerFocus.requestFocus() }
+                        else -> create(WorkspaceTemplates.blank(name, url, auth, AdapterStore.adapters.value, header, prefix))
+                    }
                 }
                 Spacer(Modifier.height(8.dp))
                 QuietButton("Back", Modifier.fillMaxWidth()) { step = CreateStep.Pick }

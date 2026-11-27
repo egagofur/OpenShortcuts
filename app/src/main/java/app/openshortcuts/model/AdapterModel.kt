@@ -6,6 +6,8 @@ import org.json.JSONObject
 enum class AuthKind(val key: String) {
     BEARER("bearer"),
     PRIVATE_TOKEN("private_token"),
+    /** The token in a header you name, like X-API-Key, with an optional prefix. */
+    CUSTOM("custom"),
     NONE("none");
 
     companion object {
@@ -627,7 +629,7 @@ object WorkspaceTemplates {
         )
     }
 
-    fun blank(name: String, baseUrl: String, auth: AuthKind, existing: List<WorkspaceAdapter>): WorkspaceAdapter = WorkspaceAdapter(
+    fun blank(name: String, baseUrl: String, auth: AuthKind, existing: List<WorkspaceAdapter>, header: String = "", prefix: String = ""): WorkspaceAdapter = WorkspaceAdapter(
         id = uniqueId(name, existing.map { it.id }.toSet()),
         name = name.trim(),
         subtitle = "",
@@ -636,8 +638,8 @@ object WorkspaceTemplates {
         baseUrl = baseUrl.trim().trimEnd('/'),
         allowedDomains = emptyList(),
         authKind = auth,
-        authHeader = if (auth == AuthKind.PRIVATE_TOKEN) "PRIVATE-TOKEN" else "Authorization",
-        authPrefix = if (auth == AuthKind.BEARER) "Bearer " else "",
+        authHeader = when (auth) { AuthKind.PRIVATE_TOKEN -> "PRIVATE-TOKEN"; AuthKind.CUSTOM -> header.trim(); else -> "Authorization" },
+        authPrefix = when (auth) { AuthKind.BEARER -> "Bearer "; AuthKind.CUSTOM -> prefix; else -> "" },
         tabs = listOf(AdapterTab(id = "overview", label = "Overview")),
     )
 

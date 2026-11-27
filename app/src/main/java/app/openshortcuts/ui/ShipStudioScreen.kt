@@ -1,5 +1,17 @@
 package app.openshortcuts.ui
 
+import androidx.compose.ui.semantics.onClick
+
+import androidx.compose.ui.semantics.contentDescription
+
+import androidx.compose.ui.semantics.semantics
+
+import androidx.compose.ui.graphics.graphicsLayer
+
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+
+import androidx.compose.foundation.gestures.draggable
+
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
@@ -285,7 +297,7 @@ fun ShipStudioScreen(adapterId: String, widgetId: String, onBack: () -> Unit) {
     val zone = remember { ZoneId.systemDefault() }
     fun stats(): ShipStats {
         val (from, to) = ShipStats.window(spec.period, Instant.now(), zone, hackHours)
-        return ShipStats.from(data?.commits.orEmpty(), from, to, zone)
+        return ShipStats.from(data?.commits.orEmpty(), from, to, zone, data?.complete ?: true)
     }
 
     // The photo is decoded once at story size for the live preview; export decodes again at full size.
@@ -446,9 +458,10 @@ fun ShipStudioScreen(adapterId: String, widgetId: String, onBack: () -> Unit) {
                 }
             }
             AnimatedContent(tool, transitionSpec = { fadeIn(tween(160)) togetherWith fadeOut(tween(100)) }, label = "panel") { t ->
-                if (t != null) Panel(if (typing) 0.26f else 0.42f) {
+                if (t != null) Panel(if (typing) 0.26f else 0.42f, onDismiss = { tool = null; selected = null }) {
                     when (t) {
-                        Tool.Style -> StylePanel(spec, hackHours, data, error, adapter?.name.orEmpty(), stats(), { spec = it }) { hackHours = it }
+                        Tool.Style -> StylePanel(spec, hackHours, data, error, adapter?.name.orEmpty(), stats(), { spec = it }, onHours = { hackHours = it },
+                            sourceKind = adapter?.let { a -> app.openshortcuts.model.AdapterStore.getEffectiveBaseUrl(a) }.orEmpty())
                         Tool.Text -> TextPanel(
                             spec, stats(), zone, selected, fontsVersion, onChange = { spec = it },
                             onSelect = { selected = it },
@@ -575,16 +588,68 @@ private fun ToolBar(open: Tool?, onTool: (Tool) -> Unit) {
 }
 
 @Composable
-private fun Panel(heightFrac: Float, content: @Composable ColumnScope.() -> Unit) {
+private fun Panel(heightFrac: Float, onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     val maxH = (LocalConfiguration.current.screenHeightDp * heightFrac).dp
+    val scope = rememberCoroutineScope()
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    // How far the sheet has been pulled down. Past ~120dp, or flicked, it closes; otherwise it springs back.
+    val drag = remember { androidx.compose.animation.core.Animatable(0f) }
+    val closeAt = with(density) { 120.dp.toPx() }
+    fun settle(velocity: Float) {
+        scope.launch {
+            if (drag.value > closeAt || (velocity > 1400f && drag.value > 0f)) {
+                drag.animateTo(drag.value + with(density) { 400.dp.toPx() }, androidx.compose.animation.core.tween(180, easing = Motion.easeOut))
+                onDismiss()
+            } else drag.animateTo(0f, androidx.compose.animation.core.spring(dampingRatio = 1f, stiffness = 600f))
+        }
+    }
+    // Pulling down once the panel is scrolled to the top moves the sheet, like any bottom sheet.
+    val connection = remember {
+        object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: androidx.compose.ui.input.nestedscroll.NestedScrollSource): Offset {
+                if (drag.value > 0f && available.y < 0f) {
+                    val use = maxOf(available.y, -drag.value)
+                    scope.launch { drag.snapTo(drag.value + use) }
+                    return Offset(0f, use)
+                }
+                return Offset.Zero
+            }
+            override fun onPostScroll(consumed: Offset, available: Offset, source: androidx.compose.ui.input.nestedscroll.NestedScrollSource): Offset {
+                if (available.y > 0f && source == androidx.compose.ui.input.nestedscroll.NestedScrollSource.UserInput) {
+                    scope.launch { drag.snapTo(drag.value + available.y) }
+                    return Offset(0f, available.y)
+                }
+                return Offset.Zero
+            }
+            override suspend fun onPreFling(available: androidx.compose.ui.unit.Velocity): androidx.compose.ui.unit.Velocity {
+                if (drag.value > 0f) { settle(available.y); return available }
+                return androidx.compose.ui.unit.Velocity.Zero
+            }
+        }
+    }
     Column(
         Modifier.fillMaxWidth().heightIn(max = maxH)
+            .graphicsLayer { translationY = drag.value }
             .clip(RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp))
-            .background(Theme.c.card)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 18.dp, vertical = 14.dp),
-        content = content,
-    )
+            .background(Theme.c.card),
+    ) {
+        // The grab handle: drag it down to close.
+        Box(
+            Modifier.fillMaxWidth().height(22.dp)
+                .draggable(
+                    orientation = androidx.compose.foundation.gestures.Orientation.Vertical,
+                    state = androidx.compose.foundation.gestures.rememberDraggableState { d -> scope.launch { drag.snapTo((drag.value + d).coerceAtLeast(0f)) } },
+                    onDragStopped = { v -> settle(v) },
+                )
+                .semantics { contentDescription = "Drag down to close"; onClick(label = "Close") { onDismiss(); true } },
+            contentAlignment = Alignment.Center,
+        ) { Box(Modifier.size(width = 36.dp, height = 4.dp).clip(CircleShape).background(Theme.c.hairline)) }
+        Column(
+            Modifier.fillMaxWidth().nestedScroll(connection).verticalScroll(rememberScrollState())
+                .padding(start = 18.dp, end = 18.dp, bottom = 14.dp),
+            content = content,
+        )
+    }
 }
 
 // ---- panels ----
@@ -592,11 +657,16 @@ private fun Panel(heightFrac: Float, content: @Composable ColumnScope.() -> Unit
 @Composable
 private fun StylePanel(
     spec: ShipSpec, hackHours: Int, data: ShipData?, error: String?, source: String, stats: ShipStats,
-    onChange: (ShipSpec) -> Unit, onHours: (Int) -> Unit,
+    onChange: (ShipSpec) -> Unit, onHours: (Int) -> Unit, sourceKind: String = "",
 ) {
     val c = Theme.c
+    var showHow by remember { mutableStateOf(false) }
+    if (showHow) HowCountedDialog(sourceKind, stats, data?.complete ?: true) { showHow = false }
     if (data == null && error == null) SkeletonLine(0.45f)
-    else Text(error ?: "$source · ${stats.commits} commits", style = Theme.t.small, color = if (error != null) c.danger else c.ink2)
+    else Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(error ?: "$source · ${stats.commits}${if (stats.partial) "+" else ""} commits", style = Theme.t.small, color = if (error != null) c.danger else c.ink2, modifier = Modifier.weight(1f))
+        Text("How it's counted", style = Theme.t.small, color = c.accent, modifier = Modifier.pressable(label = "How the numbers are counted") { showHow = true }.padding(6.dp))
+    }
     Section("Style")
     Chips(ShipPersona.entries.map { it.label }, spec.persona.ordinal) {
         val p = ShipPersona.entries[it]
@@ -668,6 +738,54 @@ private fun StylePanel(
             dim = d.dim, stamp = d.stamp, stampText = d.stampText, tagStyle = d.tagStyle,
             limitStyle = d.limitStyle, limitTop = d.limitTop, limitAction = d.limitAction, resetAt = d.resetAt, limitDark = null,
         ))
+    }
+}
+
+/**
+ * Where the numbers come from and what each one means, so a card can be stood behind: the source and
+ * its limits, then a plain definition of every stat. No number is estimated.
+ */
+@Composable
+private fun HowCountedDialog(baseUrl: String, stats: ShipStats, complete: Boolean, onDismiss: () -> Unit) {
+    val c = Theme.c
+    val source = when {
+        baseUrl.startsWith("demo://") -> "Sample commits made on this phone for the demo. Nothing is fetched."
+        "api.github.com" in baseUrl -> "GitHub's commit search: commits you authored, by author date, in public repositories (with a token, also the private ones it can see). GitHub only searches each repository's default branch, so commits that live only on other branches aren't counted. The newest 500 are read."
+        "/api/v4" in baseUrl -> "Your GitLab push events: each push counts the commits it carried, on any branch. Pushing the same commits to two branches counts them twice. The newest 500 events are read."
+        else -> "The items this workspace's endpoint returns, by the date field it points to."
+    }
+    DuoDialog(onDismiss) {
+        DialogTitle("How it's counted", "Every number is counted from your commits; nothing is estimated.")
+        Text("Source", style = Theme.t.label, color = c.ink)
+        Spacer(Modifier.height(4.dp))
+        Text(source, style = Theme.t.small, color = c.ink2)
+        if (!complete) {
+            Spacer(Modifier.height(10.dp))
+            Text(
+                "You have more commits than the source hands out, so periods that reach past the oldest one read are shown as \"at least\", with a +." +
+                    if (stats.partial) " This card's period is one of them." else "",
+                style = Theme.t.small, color = c.danger,
+            )
+        }
+        Spacer(Modifier.height(14.dp))
+        Text("What each number means", style = Theme.t.label, color = c.ink)
+        Spacer(Modifier.height(6.dp))
+        listOf(
+            "Commits" to "Commits in the period, each counted once even if it appears twice.",
+            "Active days" to "Days in the period with at least one commit, in your phone's time zone.",
+            "Commit window" to "Time from the first to the last commit of the period (for a week, averaged per active day). It isn't time worked.",
+            "AI co-authored" to "Share of commits with an AI in a Co-Authored-By line (Claude, Copilot, Gemini…). AIs that don't sign commits aren't seen.",
+            "Repos" to "Different repositories the commits are in.",
+            "Best streak · Best day" to "Most days in a row with a commit; most commits on one day.",
+            "Last commit" to "Time of the newest commit in the period.",
+        ).forEach { (k, v) ->
+            Text(k, style = Theme.t.small.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold), color = c.ink)
+            Text(v, style = Theme.t.small, color = c.ink2)
+            Spacer(Modifier.height(8.dp))
+        }
+        Text("Only reads (GET). Nothing about you is sent anywhere else.", style = Theme.t.small, color = c.ink3)
+        Spacer(Modifier.height(12.dp))
+        PrimaryButton("Got it", Modifier.fillMaxWidth(), onClick = onDismiss)
     }
 }
 

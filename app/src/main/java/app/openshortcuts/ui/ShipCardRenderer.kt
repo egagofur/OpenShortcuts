@@ -405,7 +405,7 @@ object ShipCardRenderer {
         // Without AI numbers (none found, or hidden) an AI row shows a stat the card isn't already showing.
         val noAiShare = !spec.showAi || stats.aiShare <= 0f
         val used = p.rows.map { it.second }.toMutableSet()
-        val spare = listOf("Active days" to "{days}", "Repos" to "{repos}", "Last commit" to "{last}", "Span" to "{span}")
+        val spare = listOf("Active days" to "{days}", "Repos" to "{repos}", "Last commit" to "{last}", "Commit window" to "{span}")
         val rows = p.rows.map { (k, v) ->
             if (noAiShare && v.contains("{ai}")) {
                 val alt = spare.first { it.second !in used }

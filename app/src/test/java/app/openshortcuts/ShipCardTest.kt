@@ -60,4 +60,17 @@ class ShipCardTest {
         assertEquals("Last commit at 22:30", app.openshortcuts.model.ShipPersona.fill("Last commit at {last}", s, "ega", utc))
         assertEquals("Rested 21h 0m, {unknown} stays", app.openshortcuts.model.ShipPersona.fill("Rested {rest}, {unknown} stays", s, "ega", utc))
     }
+
+    @Test
+    fun sameCommitCountsOnceAndCappedSourcesSayAtLeast() {
+        val t = Instant.parse("2026-11-26T09:00:00Z")
+        val dup = listOf(ShipCommit(t, "a", "me/app", id = "abc"), ShipCommit(t, "a", "fork/app", id = "abc"), ShipCommit(t.plusSeconds(60), "b", "me/app", id = "def"))
+        assertEquals(2, ShipStats.from(dup, t.minusSeconds(60), t.plusSeconds(120), utc).commits)
+        // The source stopped at its newest items; a window reaching further back is "at least".
+        val s = ShipStats.from(dup, t.minus(Duration.ofDays(30)), t.plusSeconds(120), utc, complete = false)
+        assertTrue(s.partial)
+        assertEquals("2+", app.openshortcuts.model.ShipPersona.fill("{commits}", s, "ega", utc))
+        // A window fully inside what was read is exact.
+        assertTrue(!ShipStats.from(dup, t.plusSeconds(30), t.plusSeconds(120), utc, complete = false).partial)
+    }
 }

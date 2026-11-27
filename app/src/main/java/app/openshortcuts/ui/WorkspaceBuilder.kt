@@ -1,5 +1,7 @@
 package app.openshortcuts.ui
 
+import androidx.compose.foundation.border
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -146,29 +148,28 @@ fun AddWidgetDialog(
             Spacer(Modifier.height(12.dp))
 
             if (slots.isNotEmpty()) {
-                Text("API endpoint (GET)", style = Theme.t.small, color = c.ink2)
-                Spacer(Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.weight(1f)) { BuilderInput(endpoint, { endpoint = it }, "/endpoint") }
+                val err = response?.exceptionOrNull()?.message
+                Row(verticalAlignment = Alignment.Top) {
+                    FormField("API endpoint (GET)", endpoint, { endpoint = it }, "/endpoint", Modifier.weight(1f),
+                        error = err?.let { "Couldn't load: $it" })
                     Spacer(Modifier.width(8.dp))
                     Box(
-                        Modifier.clip(RoundedCornerShape(14.dp)).background(c.ink)
-                            .pressable(scale = 0.96f, label = "Load") { load() }
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                    ) { Text(if (loadingData) "…" else "Load", style = Theme.t.label, color = c.bg) }
+                        Modifier.padding(top = 26.dp).height(52.dp).clip(RoundedCornerShape(16.dp)).background(c.accent)
+                            .pressable(scale = 0.96f, label = "Load endpoint") { load() }
+                            .padding(horizontal = 18.dp),
+                        contentAlignment = Alignment.Center,
+                    ) { Text(if (loadingData) "…" else "Load", style = Theme.t.label, color = androidx.compose.ui.graphics.Color.White) }
                 }
                 Spacer(Modifier.height(8.dp))
                 EndpointPicker(adapter) { picked -> endpoint = picked; load() }
                 Spacer(Modifier.height(6.dp))
-                val err = response?.exceptionOrNull()?.message
-                Text(
+                if (err == null) Text(
                     when {
                         loadingData -> "Loading ${endpoint.trim()}"
-                        err != null -> "Couldn't load: $err"
                         payload != null -> "Loaded. Tap a field below to use it."
                         else -> "Tap Load to see what this endpoint returns."
                     },
-                    style = Theme.t.small, color = if (err != null) c.danger else c.ink3,
+                    style = Theme.t.small, color = c.ink3,
                 )
 
                 if (loadingData && payload == null) {
@@ -272,34 +273,63 @@ fun AddWidgetDialog(
 @Composable
 private fun EndpointPicker(adapter: app.openshortcuts.model.WorkspaceAdapter, onPick: (String) -> Unit) {
     val c = Theme.c
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     var list by remember(adapter.id) { mutableStateOf(app.openshortcuts.model.OpenApi.cached(adapter.id)) }
     var open by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var linkOpen by remember { mutableStateOf(false) }
     var docsUrl by remember { mutableStateOf("") }
     var query by remember { mutableStateOf("") }
     fun fetch(url: String? = null) {
         loading = true; error = null
         scope.launch {
-            app.openshortcuts.model.OpenApi.load(adapter, url).onSuccess { list = it; open = true }.onFailure { error = it.message }
+            app.openshortcuts.model.OpenApi.load(adapter, url).onSuccess { list = it; open = true; linkOpen = false }.onFailure { error = it.message; if (url == null) linkOpen = true }
+            loading = false
+        }
+    }
+    // An API description saved on the phone (openapi.json / swagger.json).
+    val upload = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch {
+            loading = true; error = null
+            val text = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching { ctx.contentResolver.openInputStream(uri)?.use { it.readNBytes(8_000_000).toString(Charsets.UTF_8) } }.getOrNull()
+            }
+            if (text == null) error = "Couldn't read that file."
+            else app.openshortcuts.model.OpenApi.fromText(adapter.id, text).onSuccess { list = it; open = true; linkOpen = false }.onFailure { error = it.message }
             loading = false
         }
     }
     val l = list
     if (!open) {
-        Text(
-            if (l != null) "Browse ${l.size} endpoints" else if (loading) "Looking for API docs…" else "Browse endpoints from the API docs",
-            style = Theme.t.small, color = c.accent,
-            modifier = Modifier.pressable(label = "Browse endpoints") { if (l != null) open = true else fetch() }.padding(vertical = 6.dp),
-        )
-        error?.let { e ->
-            Text(e, style = Theme.t.small, color = c.ink3)
-            Spacer(Modifier.height(6.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.weight(1f)) { BuilderInput(docsUrl, { docsUrl = it }, "https://…/openapi.json or /docs.json") }
-                Spacer(Modifier.width(8.dp))
-                QuietButton("Load", onClick = { fetch(docsUrl) })
+        // Where the endpoints can come from: the API's own docs, a file on the phone, or a link.
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(c.fill).padding(14.dp)) {
+            Text(if (l != null) "${l.size} endpoints from the API docs" else "Pick from the API docs", style = Theme.t.label, color = c.ink)
+            Text(
+                if (loading) "Reading the API description…" else "Optional. An OpenAPI or Swagger JSON lists every endpoint, so you don't have to type one.",
+                style = Theme.t.small, color = c.ink2,
+            )
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (l != null) SmallButton("Browse", "search", Modifier.weight(1f)) { open = true }
+                else SmallButton("Find on server", "search", Modifier.weight(1f)) { fetch() }
+                SmallButton("Upload file", "down", Modifier.weight(1f)) { upload.launch(arrayOf("application/json", "text/plain", "*/*")) }
+            }
+            if (!linkOpen) {
+                Text("Or paste a link", style = Theme.t.small, color = c.accent,
+                    modifier = Modifier.pressable(label = "Paste a link to the API docs") { linkOpen = true }.padding(top = 10.dp, bottom = 2.dp))
+                error?.let { e ->
+                    Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.Top) {
+                        Glyph("info", c.danger, 15.dp); Spacer(Modifier.width(6.dp)); Text(e, style = Theme.t.small, color = c.danger)
+                    }
+                }
+            } else {
+                Spacer(Modifier.height(10.dp))
+                FormField("Link to the API docs", docsUrl, { docsUrl = it }, "https://…/openapi.json", error = error,
+                    keyboard = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Uri))
+                Spacer(Modifier.height(8.dp))
+                SmallButton("Load link", "link", Modifier.fillMaxWidth()) { fetch(docsUrl) }
             }
         }
         return
@@ -332,6 +362,23 @@ private fun EndpointPicker(adapter: app.openshortcuts.model.WorkspaceAdapter, on
         }
         if (shown.isEmpty()) Text("No endpoint matches “$q”. You can still type it above.", style = Theme.t.small, color = c.ink3, modifier = Modifier.padding(14.dp))
         if (shown.size > 8) Text("${shown.size - 8} more: keep typing to narrow it down", style = Theme.t.small, color = c.ink3, modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp))
+    }
+}
+
+/** A compact secondary button with an icon, sized for rows of choices inside a form. */
+@Composable
+private fun SmallButton(text: String, glyph: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val c = Theme.c
+    Row(
+        modifier.heightIn(min = 44.dp).clip(RoundedCornerShape(14.dp)).background(c.card)
+            .border(1.dp, c.hairline, RoundedCornerShape(14.dp))
+            .pressable(scale = 0.96f, label = text, onClick = onClick).padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        Glyph(glyph, c.accent, 17.dp)
+        Spacer(Modifier.width(8.dp))
+        Text(text, style = Theme.t.label, color = c.ink, maxLines = 1)
     }
 }
 

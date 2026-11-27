@@ -89,7 +89,8 @@ private fun App() {
     val lib by Store.library.collectAsStateWithLifecycle()
     val navScope = androidx.compose.runtime.rememberCoroutineScope()
     val nav = remember { app.openshortcuts.ui.NavState<Route>(Route.Home, navScope) }
-    var tab by remember { mutableIntStateOf(0) }
+    // Workspaces first: it's where most days start now.
+    var tab by remember { mutableIntStateOf(2) }
     var resumeTick by remember { mutableIntStateOf(0) }
     var newAuto by remember { mutableStateOf(false) }
     var newWorkspace by remember { mutableStateOf(false) }

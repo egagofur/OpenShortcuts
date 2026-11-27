@@ -6,7 +6,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 
 /** One commit as the Ship Card sees it. */
-data class ShipCommit(val at: Instant, val message: String = "", val repo: String = "", val count: Int = 1)
+data class ShipCommit(val at: Instant, val message: String = "", val repo: String = "", val count: Int = 1, val id: String = "")
 
 /** An AI that a commit credits as co-author ("Co-Authored-By: Claude <…>"). */
 enum class AiAgent(val label: String, private val match: List<String>) {
@@ -55,6 +55,8 @@ data class ShipStats(
     val to: Instant,
     /** Commits per local day in the window: the heatmap. */
     val perDay: Map<LocalDate, Int> = emptyMap(),
+    /** The source stopped before the start of the window (it only returns so many), so counts are "at least". */
+    val partial: Boolean = false,
 ) {
     /** Longest run of days in a row with at least one commit. */
     val streak: Int get() {
@@ -79,8 +81,15 @@ data class ShipStats(
             }
         }
 
-        fun from(commits: List<ShipCommit>, from: Instant, to: Instant, zone: ZoneId): ShipStats {
-            val inWindow = commits.filter { !it.at.isBefore(from) && !it.at.isAfter(to) }.sortedBy { it.at }
+        /**
+         * [complete] is false when the source returned only the newest commits it allows; then any window
+         * reaching back past the oldest commit we got is marked [ShipStats.partial].
+         */
+        fun from(commits: List<ShipCommit>, from: Instant, to: Instant, zone: ZoneId, complete: Boolean = true): ShipStats {
+            // The same commit can come back twice (a fork, a mirror, a second page): count it once.
+            val unique = commits.distinctBy { c -> c.id.ifBlank { "${c.at}|${c.repo}|${c.message.hashCode()}" } }
+            val inWindow = unique.filter { !it.at.isBefore(from) && !it.at.isAfter(to) }.sortedBy { it.at }
+            val oldest = unique.minOfOrNull { it.at }
             val total = inWindow.sumOf { it.count }
             val credited = inWindow.map { it to AiAgent.creditedIn(it.message) }
             val agents = AiAgent.entries
@@ -102,6 +111,7 @@ data class ShipStats(
                 from = from,
                 to = to,
                 perDay = inWindow.groupBy { LocalDate.ofInstant(it.at, zone) }.mapValues { (_, l) -> l.sumOf { it.count } },
+                partial = !complete && oldest != null && oldest.isAfter(from),
             )
         }
 
@@ -138,28 +148,28 @@ enum class ShipPersona(
     val rows: List<Pair<String, String>>,
 ) {
     Classic("Classic", ShipLayout.Stack, "", listOf("Shipped {date}", "Code. Commit. Repeat.", "Hari ini ship {commits} commit", "Another day, another deploy"),
-        "@{handle}  with {agents}", listOf("COMMITS" to "{commits}", "FOCUS SPAN" to "{span}", "AI PAIR" to "{ai}")),
+        "@{handle}  with {agents}", listOf("COMMITS" to "{commits}", "COMMIT WINDOW" to "{span}", "AI CO-AUTHORED" to "{ai}")),
     VibeCoder("Vibe Coder", ShipLayout.Stack, "VIBE CODING SESSION",
         listOf("AI wrote {ai}. I brought the vibes.", "{agents} typed. I vibed.", "Ngoding pakai feeling", "Prompt engineer, technically."),
-        "Team @{handle} + {agents}", listOf("AI PAIR" to "{ai}", "COMMITS" to "{commits}", "VIBE TIME" to "{span}")),
+        "Team @{handle} + {agents}", listOf("AI CO-AUTHORED" to "{ai}", "COMMITS" to "{commits}", "COMMIT WINDOW" to "{span}")),
     ReluctantPro("Reluctant Pro", ShipLayout.Recap, "TECHNICALLY A PROGRAMMER",
         listOf("{commits} commits. Zero keyboard injuries.", "I don't code. I ship.", "Jago, tapi males ngetik.", "Technically, this counts."),
-        "@{handle}", listOf("Commits" to "{commits}", "Repos" to "{repos}", "Hands on keys" to "{span}", "AI pair" to "{ai}")),
+        "@{handle}", listOf("Commits" to "{commits}", "Repos" to "{repos}", "Commit window" to "{span}", "AI co-authored" to "{ai}")),
     LazyGenius("Lazy Genius", ShipLayout.Stack, "MINIMUM EFFORT. MAXIMUM SHIP.",
         listOf("Shipped in {span}. Rested the rest.", "Males ngoding, tetap ship.", "Work smart, nap hard.", "Minimum effort, maximum merge."),
-        "@{handle}", listOf("COMMITS" to "{commits}", "EFFORT" to "{span}", "REST" to "{rest}")),
+        "@{handle}", listOf("COMMITS" to "{commits}", "COMMIT WINDOW" to "{span}", "REPOS" to "{repos}")),
     NightOwl("Night Owl", ShipLayout.Recap, "NIGHT SHIFT",
         listOf("Last commit at {last}", "Ngoding pas orang tidur", "Bugs fear the dark.", "{night} commits after 10pm"),
-        "@{handle}", listOf("Commits" to "{commits}", "Last commit" to "{last}", "Span" to "{span}", "Repos" to "{repos}")),
+        "@{handle}", listOf("Commits" to "{commits}", "Last commit" to "{last}", "Commit window" to "{span}", "Repos" to "{repos}")),
     Grindset("Grindset", ShipLayout.Recap, "GRINDSET",
         listOf("{days}-day streak. {commits} commits.", "No days off.", "Gas terus sampai deploy", "Consistency is a feature."),
-        "@{handle}  ·  week {week}", listOf("Commits" to "{commits}", "Active days" to "{days}", "Repos" to "{repos}", "Span" to "{span}")),
+        "@{handle}  ·  week {week}", listOf("Commits" to "{commits}", "Active days" to "{days}", "Repos" to "{repos}", "Commit window" to "{span}")),
     SeniorDev("Senior Dev", ShipLayout.Stack, "SENIOR DEV ENERGY",
         listOf("Few commits. Big impact.", "Review > rewrite.", "Senior itu yang hapus kode", "It works on prod."),
-        "@{handle}", listOf("COMMITS" to "{commits}", "REPOS" to "{repos}", "SPAN" to "{span}")),
+        "@{handle}", listOf("COMMITS" to "{commits}", "REPOS" to "{repos}", "COMMIT WINDOW" to "{span}")),
     Hackathon("Hackathon", ShipLayout.Hackathon, "HACKATHON",
         listOf("Hack Night", "Built it in {hours}h", "Nggak tidur demi demo", "Demo day survivor"),
-        "Built in {hours}h", listOf("Commits" to "{commits}", "Repos" to "{repos}", "AI pair" to "{ai}")),
+        "Built in {hours}h", listOf("Commits" to "{commits}", "Repos" to "{repos}", "AI co-authored" to "{ai}")),
     RateLimited("AI Limit", ShipLayout.Limit, "", listOf("Usage limit reached."), "", emptyList()),
     Heatmap("Heatmap", ShipLayout.Heatmap, "CONTRIBUTIONS",
         listOf("{commits} commits in 16 weeks", "Green squares only.", "Kotak hijau, hati senang", "Consistency, visualized."),
@@ -180,7 +190,7 @@ enum class ShipPersona(
                 val local = s.to.atZone(zone)
                 val names = agents ?: s.agents.map { it.first.label }
                 when (m.groupValues[1]) {
-                    "commits" -> s.commits.toString()
+                    "commits" -> if (s.partial) "${s.commits}+" else s.commits.toString()
                     "span" -> if (perDay && s.activeDays > 1) ShipStats.spanLabel(s.daySpan) + "/day" else ShipStats.spanLabel(s.span)
                     "repos" -> s.repos.toString()
                     "days" -> s.activeDays.toString()

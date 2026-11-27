@@ -1,5 +1,15 @@
 package app.openshortcuts.ui
 
+import androidx.compose.ui.semantics.LiveRegionMode
+
+import androidx.compose.ui.semantics.liveRegion
+
+import androidx.compose.ui.semantics.error
+
+import androidx.compose.ui.semantics.contentDescription
+
+import androidx.compose.ui.semantics.semantics
+
 import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.background
@@ -178,6 +188,56 @@ fun SearchField(value: String, onChange: (String) -> Unit, placeholder: String, 
             Box(Modifier.size(40.dp).pressable(scale = 0.9f, label = "Clear search") { onChange("") }, contentAlignment = Alignment.Center) {
                 Glyph("x", c.ink3, 18.dp)
             }
+        }
+    }
+}
+
+/**
+ * A labeled text field that shows its own error: a red edge on the field, the message right under it
+ * with an icon (not color alone), and the error announced with the field (WCAG 3.3.1, 1.4.1). [focus]
+ * lets a form move focus to the first field that needs fixing.
+ */
+@Composable
+fun FormField(
+    label: String,
+    value: String,
+    onChange: (String) -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+    error: String? = null,
+    hint: String? = null,
+    focus: FocusRequester? = null,
+    keyboard: KeyboardOptions = KeyboardOptions.Default,
+) {
+    val c = Theme.c
+    Column(modifier.fillMaxWidth()) {
+        Text(label, style = Theme.t.small, color = if (error != null) c.danger else c.ink2)
+        Spacer(Modifier.height(6.dp))
+        Box(
+            Modifier.fillMaxWidth().heightIn(min = 52.dp).clip(RoundedCornerShape(16.dp)).background(c.bg)
+                .border(if (error != null) 1.5.dp else 1.dp, if (error != null) c.danger else c.hairline, RoundedCornerShape(16.dp))
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            if (value.isEmpty()) Text(placeholder, style = Theme.t.body, color = c.ink3, maxLines = 1)
+            BasicTextField(
+                value = value, onValueChange = onChange, singleLine = true,
+                textStyle = Theme.t.body.copy(color = c.ink), cursorBrush = SolidColor(if (error != null) c.danger else c.accent),
+                keyboardOptions = keyboard,
+                modifier = Modifier.fillMaxWidth().then(if (focus != null) Modifier.focusRequester(focus) else Modifier)
+                    .semantics {
+                        contentDescription = label
+                        if (error != null) error(error)
+                    },
+            )
+        }
+        when {
+            error != null -> Row(Modifier.padding(top = 6.dp).semantics { liveRegion = LiveRegionMode.Polite }, verticalAlignment = Alignment.Top) {
+                Glyph("info", c.danger, 15.dp)
+                Spacer(Modifier.width(6.dp))
+                Text(error, style = Theme.t.small, color = c.danger)
+            }
+            hint != null -> Text(hint, style = Theme.t.small, color = c.ink3, modifier = Modifier.padding(top = 6.dp))
         }
     }
 }

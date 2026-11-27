@@ -34,6 +34,16 @@ object OpenApi {
         }.sortedWith(compareBy({ it.tag.lowercase() }, { it.path })).toList()
     }
 
+    /** Endpoints from an API description file on the phone (JSON). Remembered for the workspace. */
+    fun fromText(adapterId: String, text: String): Result<List<ApiEndpoint>> = runCatching {
+        val t = text.trimStart()
+        if (!t.startsWith("{")) error("That file isn't JSON. If it's YAML, export it as openapi.json first.")
+        val list = parse(JSONObject(t))
+        if (list.isEmpty()) error("No GET endpoints in that file.")
+        cache[adapterId] = list
+        list
+    }
+
     /**
      * Loads endpoints from [url] (or the workspace's own, or the usual paths). The request goes through
      * the workspace, so a token is only sent when the docs are on its own server.

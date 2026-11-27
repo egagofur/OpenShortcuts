@@ -231,6 +231,8 @@ fun WorkspaceScreen(
     val navIdle = LocalNavIdle.current
     var cacheReady by remember(adapterId) { mutableStateOf(false) }
     var loading by remember(adapterId) { mutableStateOf(false) }
+    // The pull spinner only answers a pull. Background loads stay quiet: skeletons when there's nothing yet.
+    var pulled by remember(adapterId) { mutableStateOf(false) }
     // When each endpoint was last fetched (kept for the app's lifetime, so leaving and reopening a
     // workspace doesn't refetch). Without a token, public APIs allow few requests an hour: wait longer.
     val fetchedAt = remember(adapterId) { AdapterStore.fetchedAt(adapterId) }
@@ -249,7 +251,7 @@ fun WorkspaceScreen(
     }
 
     LaunchedEffect(adapterId, pagerState.currentPage, refreshTick, tabs, cacheReady) {
-        if (!cacheReady || currentTab == null || !AdapterStore.hasToken(curAdapter)) return@LaunchedEffect
+        if (!cacheReady || currentTab == null || !AdapterStore.hasToken(curAdapter)) { pulled = false; return@LaunchedEffect }
         val forced = refreshTick != lastRefresh
         lastRefresh = refreshTick
         val now = System.currentTimeMillis()
@@ -257,7 +259,7 @@ fun WorkspaceScreen(
             if (currentTab.endpoint.isNotBlank()) add(currentTab.endpoint)
             currentTab.widgets.mapNotNull { it.endpoint?.takeIf { e -> e.isNotBlank() } }.forEach { add(it) }
         }.filterTo(LinkedHashSet()) { forced || endpointCache[it]?.isSuccess != true || now - (fetchedAt[it] ?: 0L) > freshMs }
-        if (eps.isEmpty()) return@LaunchedEffect
+        if (eps.isEmpty()) { pulled = false; return@LaunchedEffect }
         val pageCounts = currentTab.widgets
             .mapNotNull { w -> w.endpoint?.takeIf { it.isNotBlank() }?.let { it to w.pages } }
             .groupBy({ it.first }, { it.second })
@@ -280,6 +282,7 @@ fun WorkspaceScreen(
             withContext(Dispatchers.IO) { AdapterStore.saveCache(adapterId, merged) }
         } finally {
             loading = false
+            pulled = false
         }
     }
 
@@ -349,8 +352,6 @@ fun WorkspaceScreen(
                                 .background(c.accentWash)
                                 .padding(horizontal = 8.dp, vertical = 3.dp),
                         ) { Text("Editing", style = Theme.t.small, color = c.accent) }
-                    } else if (loading) {
-                        Text("Syncing…", style = Theme.t.small, color = c.ink3)
                     }
                 }
                 if (!short) {
@@ -504,12 +505,14 @@ fun WorkspaceScreen(
                         tab = tab,
                         cache = endpointCache,
                         loading = loading,
+                        refreshing = pulled,
                         editMode = editMode,
                         bottomPad = bottomPad,
                         runs = runs,
                         sentenceFilters = sentenceFilters,
                         onFilterChange = { k, v -> sentenceFilters = sentenceFilters + (k to v) },
                         onRetry = { view.tick(); refreshTick++ },
+                        onPull = { view.tick(); pulled = true; refreshTick++ },
                         onOpenSettings = { showSettings = true },
                         onRunAction = { act -> activeAction = act to null },
                         onEditAction = { act, item -> activeAction = act to item },
@@ -744,12 +747,14 @@ private fun TabDashboardPage(
     tab: AdapterTab,
     cache: Map<String, Result<Any?>>,
     loading: Boolean,
+    refreshing: Boolean,
     editMode: Boolean,
     bottomPad: Dp,
     runs: RunController,
     sentenceFilters: Map<String, String>,
     onFilterChange: (String, String) -> Unit,
     onRetry: () -> Unit,
+    onPull: () -> Unit,
     onOpenSettings: () -> Unit,
     onRunAction: (AdapterAction) -> Unit,
     onEditAction: (AdapterAction, JSONObject?) -> Unit,
@@ -783,8 +788,8 @@ private fun TabDashboardPage(
     // Pull down to refresh, the way every feed works; edit mode keeps the drag for reordering.
     @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
     androidx.compose.material3.pulltorefresh.PullToRefreshBox(
-        isRefreshing = loading && !editMode,
-        onRefresh = { if (!editMode) onRetry() },
+        isRefreshing = refreshing && !editMode,
+        onRefresh = { if (!editMode) onPull() },
         modifier = Modifier.fillMaxSize(),
     ) {
     LazyColumn(
