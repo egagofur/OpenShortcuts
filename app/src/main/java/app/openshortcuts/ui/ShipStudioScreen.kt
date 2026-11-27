@@ -124,6 +124,7 @@ private fun specToMap(s: ShipSpec): Map<String, Any?> = mapOf(
     "agents" to s.agents?.let { ArrayList(it) }, "showAi" to s.showAi, "stamp" to s.stamp.ordinal, "sticker" to s.sticker,
     "dim" to s.dim, "logoCorner" to s.logoCorner.ordinal, "font" to s.font, "texts" to textsToJson(s.texts),
     "limitStyle" to s.limitStyle.ordinal, "limitTop" to s.limitTop, "limitAction" to s.limitAction, "resetAt" to s.resetAt,
+    "limitDark" to s.limitDark,
     "stampText" to s.stampText,
 )
 
@@ -147,6 +148,7 @@ private fun specFromMap(m: Map<String, Any?>): ShipSpec {
         font = str("font") ?: ShipFonts.SYSTEM, texts = textsFromJson(str("texts")),
         limitStyle = pick("limitStyle", app.openshortcuts.model.ShipLimitStyle.entries, d.limitStyle),
         limitTop = m["limitTop"] as? Boolean ?: false, limitAction = str("limitAction"), resetAt = str("resetAt").orEmpty(),
+        limitDark = m["limitDark"] as? Boolean,
         stampText = str("stampText") ?: d.stampText,
     )
 }
@@ -339,25 +341,33 @@ fun ShipStudioScreen(adapterId: String, widgetId: String, onBack: () -> Unit) {
 
     fun updateText(id: Long, f: (ShipText) -> ShipText) { spec = spec.copy(texts = spec.texts.map { if (it.id == id) f(it) else it }) }
 
-    fun export(share: Boolean) {
+    fun export(share: Boolean, story: Boolean = false) {
         if (busy != null) return
-        busy = if (share) "Preparing…" else "Saving…"
+        busy = if (story) "Story…" else if (share) "Preparing…" else "Saving…"
         scope.launch {
             val full = spec.copy(zoom = frame.zoom, panX = frame.panX, panY = frame.panY)
             val result = runCatching {
                 withContext(Dispatchers.Default) {
                     val w = (full.aspect.w * EXPORT_SCALE).toInt(); val h = (full.aspect.h * EXPORT_SCALE).toInt()
-                    // Decode enough pixels for the zoomed-in framing, never more than the original has.
                     // Enough pixels for the zoomed framing, capped near 24 MP so a 50 MP photo can't run the phone out of memory.
                     val z = full.zoom.coerceAtMost(kotlin.math.sqrt(24_000_000f / (w * h)).coerceAtLeast(1f))
                     val src = if (full.sticker) null else photoUri?.let { ShipCardRenderer.loadPhoto(ctx, it, (w * z).toInt(), (h * z).toInt()) }
                     val bmp = ShipCardRenderer.render(full, stats(), src, EXPORT_SCALE, zone)
-                    withContext(Dispatchers.IO) { if (share) shareImage(ctx, bmp, full.sticker) else saveImage(ctx, bmp, full.sticker) }
+                    withContext(Dispatchers.IO) {
+                        when {
+                            story -> instagramStory(ctx, bmp, full.sticker)
+                            share -> shareImage(ctx, bmp, full.sticker)
+                            else -> saveImage(ctx, bmp, full.sticker)
+                        }
+                    }
                 }
             }
             busy = null
-            result.onSuccess { view.confirm(); if (!share) note = "Saved to Photos › Pictures/OpenShortcuts" }
-                .onFailure { note = "Couldn't ${if (share) "share" else "save"}: ${it.message}" }
+            result.onSuccess { opened ->
+                view.confirm()
+                if (!share && !story) note = "Saved to Photos › Pictures/OpenShortcuts"
+                if (story && opened == false) note = "Saved to Photos. Instagram's story camera is open: pick it from the gallery."
+            }.onFailure { note = "Couldn't ${if (story) "open Instagram" else if (share) "share" else "save"}: ${it.message}" }
         }
     }
 
@@ -486,6 +496,8 @@ fun ShipStudioScreen(adapterId: String, widgetId: String, onBack: () -> Unit) {
             }
             TopPill(if (busy == "Saving…") "Saving…" else "Save", filled = false) { export(share = false) }
             Spacer(Modifier.width(8.dp))
+            TopPill(if (busy == "Story…") "Opening…" else "Story", filled = false) { export(share = true, story = true) }
+            Spacer(Modifier.width(8.dp))
             TopPill(if (busy == "Preparing…") "Preparing…" else "Share", filled = true) { export(share = true) }
         }
     }
@@ -606,6 +618,11 @@ private fun StylePanel(
             onChange(spec.copy(limitStyle = app.openshortcuts.model.ShipLimitStyle.entries[it], limitAction = null))
         }
         Spacer(Modifier.height(8.dp))
+        val dark = spec.limitDark ?: (spec.limitStyle != app.openshortcuts.model.ShipLimitStyle.Card)
+        if (spec.limitStyle != app.openshortcuts.model.ShipLimitStyle.Text) {
+            Chips(listOf("Light", "Dark"), if (dark) 1 else 0) { onChange(spec.copy(limitDark = it == 1)) }
+            Spacer(Modifier.height(8.dp))
+        }
         Chips(listOf("Bottom", "Top"), if (spec.limitTop) 1 else 0) { onChange(spec.copy(limitTop = it == 1)) }
         Spacer(Modifier.height(6.dp))
         Text("Button, reset time and wording are in Text.", style = Theme.t.small, color = c.ink3)
@@ -649,7 +666,7 @@ private fun StylePanel(
         onChange(spec.copy(
             kicker = null, headline = null, sub = null, headlineIdx = 0, font = d.font, filter = d.filter, accent = d.accent,
             dim = d.dim, stamp = d.stamp, stampText = d.stampText, tagStyle = d.tagStyle,
-            limitStyle = d.limitStyle, limitTop = d.limitTop, limitAction = d.limitAction, resetAt = d.resetAt,
+            limitStyle = d.limitStyle, limitTop = d.limitTop, limitAction = d.limitAction, resetAt = d.resetAt, limitDark = null,
         ))
     }
 }
@@ -881,7 +898,7 @@ private fun SearchPicker(selected: List<String>, all: List<String>, hint: String
         }
         Spacer(Modifier.height(10.dp))
     }
-    Field(query, { query = it.take(30) }, hint, autofocus = false)
+    SearchField(query, { query = it.take(30) }, hint, surface = c.fill)
     Spacer(Modifier.height(8.dp))
     val q = query.trim()
     val matches = all.filter { it !in selected && (q.isEmpty() || it.contains(q, ignoreCase = true)) }.take(if (q.isEmpty()) 10 else 12)
@@ -963,6 +980,44 @@ private fun saveImage(ctx: Context, bmp: Bitmap, sticker: Boolean) {
     resolver.openOutputStream(uri)?.use { encode(bmp, sticker, it) } ?: error("can't write")
     values.clear(); values.put(MediaStore.Images.Media.IS_PENDING, 0)
     resolver.update(uri, values, null, null)
+}
+
+private const val INSTAGRAM = "com.instagram.android"
+
+/**
+ * Straight into an Instagram story. The card is also saved to Photos first. Instagram's "add to story"
+ * hand-off puts the card in the story editor (a sticker card goes on as a sticker); when Instagram
+ * won't take it (no Facebook app id, or not installed), its story camera opens instead and the card is
+ * the newest photo in the gallery. Returns true when the hand-off was used.
+ */
+private suspend fun instagramStory(ctx: Context, bmp: Bitmap, sticker: Boolean): Boolean {
+    saveImage(ctx, bmp, sticker)
+    val dir = File(ctx.cacheDir, "shared").apply { mkdirs() }
+    // A new name each time, so Instagram never shows a cached earlier card.
+    dir.listFiles { f -> f.name.startsWith("story_") }?.forEach { it.delete() }
+    val f = File(dir, "story_${System.currentTimeMillis()}.${if (sticker) "png" else "jpg"}")
+    f.outputStream().use { encode(bmp, sticker, it) }
+    val uri = FileProvider.getUriForFile(ctx, ctx.packageName + ".files", f)
+    val mime = if (sticker) "image/png" else "image/jpeg"
+    ctx.grantUriPermission(INSTAGRAM, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    val add = Intent("com.instagram.share.ADD_TO_STORY").apply {
+        setPackage(INSTAGRAM)
+        if (sticker) { type = mime; putExtra("interactive_asset_uri", uri); putExtra("top_background_color", "#0E1116"); putExtra("bottom_background_color", "#1D2433") }
+        else setDataAndType(uri, mime)
+        putExtra("source_application", ctx.packageName)
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+    val pm = ctx.packageManager
+    return withContext(Dispatchers.Main) {
+        if (add.resolveActivity(pm) != null && runCatching { ctx.startActivity(add) }.isSuccess) return@withContext true
+        val camera = Intent(Intent.ACTION_VIEW, Uri.parse("instagram://story-camera")).setPackage(INSTAGRAM).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val open = pm.getLaunchIntentForPackage(INSTAGRAM)?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        when {
+            runCatching { ctx.startActivity(camera) }.isSuccess -> false
+            open != null && runCatching { ctx.startActivity(open) }.isSuccess -> false
+            else -> error("Instagram isn't installed. The card is saved to Photos.")
+        }
+    }
 }
 
 private suspend fun shareImage(ctx: Context, bmp: Bitmap, sticker: Boolean) {

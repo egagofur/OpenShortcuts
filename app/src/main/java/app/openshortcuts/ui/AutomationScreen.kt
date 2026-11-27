@@ -1,5 +1,7 @@
 package app.openshortcuts.ui
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
 import app.openshortcuts.model.minuteOfDay
 import java.time.LocalTime
 import app.openshortcuts.model.TimeMode
@@ -234,6 +236,27 @@ fun AutomationScreen(
                         Glyph("chevronRight", c.ink3, size = 18.dp)
                     }
                 }
+            }
+
+            // The last runs of this automation, like executions in n8n.
+            val allRuns by app.openshortcuts.model.RunLog.records.collectAsStateWithLifecycle()
+            val runs = remember(allRuns, a.id) { allRuns.filter { it.automationId == a.id } }
+            val openActivity = LocalOpenActivity.current
+            var openRun by remember { mutableStateOf<app.openshortcuts.model.RunRecord?>(null) }
+            Spacer(Modifier.height(24.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Recent runs", style = Theme.t.label, color = c.ink2, modifier = Modifier.weight(1f).padding(start = 4.dp))
+                if (runs.isNotEmpty()) Text("See all", style = Theme.t.small, color = c.accent,
+                    modifier = Modifier.pressable(label = "See all runs") { openActivity(a.id) }.padding(8.dp))
+            }
+            Spacer(Modifier.height(6.dp))
+            if (runs.isEmpty()) Text("It hasn't run yet. Each run shows up here, with every step.", style = Theme.t.small, color = c.ink3, modifier = Modifier.padding(start = 4.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { runs.take(3).forEach { r -> RunRow(r) { openRun = r } } }
+            openRun?.let { r ->
+                RunDetailDialog(r, onDismiss = { openRun = null }, onRunAgain = {
+                    openRun = null
+                    lib.shortcuts.firstOrNull { it.id == r.shortcutId }?.let { s -> app.openshortcuts.engine.Scheduler.runNow(ctx, a) }
+                })
             }
 
             Spacer(Modifier.height(28.dp))

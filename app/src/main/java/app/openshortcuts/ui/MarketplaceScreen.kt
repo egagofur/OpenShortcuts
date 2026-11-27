@@ -73,6 +73,14 @@ fun MarketplaceScreen(firstRun: Boolean, onBack: () -> Unit, onAdded: (Workspace
     var error by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) { index = Marketplace.load(ctx) }
+    // For workspaces you've added: is the one you have the latest? Checked once per listing.
+    val upToDate = remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>() }
+    LaunchedEffect(index, adapters) {
+        index?.listings.orEmpty().forEach { l ->
+            val mine = adapters.firstOrNull { it.id == l.id || it.id.matches(Regex(Regex.escape(l.id) + "-\\d+")) } ?: return@forEach
+            Marketplace.workspace(ctx, l).getOrNull()?.let { upToDate[l.id] = Marketplace.sameLayout(mine, it) }
+        }
+    }
 
     fun add(l: Listing) {
         if (busy != null) return
@@ -125,7 +133,7 @@ fun MarketplaceScreen(firstRun: Boolean, onBack: () -> Unit, onAdded: (Workspace
                     index?.categories.orEmpty().forEach { cat -> MarketChip(cat, category == cat) { category = cat } }
                 }
             }
-            item { Field(query, { query = it.take(40) }, "Search workspaces", autofocus = false) }
+            item { SearchField(query, { query = it.take(40) }, "Search workspaces") }
 
             if (index == null) {
                 item { SkeletonCard(220) }
@@ -147,7 +155,7 @@ fun MarketplaceScreen(firstRun: Boolean, onBack: () -> Unit, onAdded: (Workspace
                 if (inCat.isEmpty()) return@forEach
                 item(key = "h$cat") { SectionLabel(cat) }
                 items(inCat, key = { cat + it.id }) { l ->
-                    ListingRow(l, added(l, adapters), busy == l.id, onOpen = { open = l }, onAdd = { add(l) })
+                    ListingRow(l, added(l, adapters), upToDate[l.id] == true, busy == l.id, onOpen = { open = l }, onAdd = { add(l) })
                 }
             }
             if (index != null && shown.isEmpty()) item {
@@ -170,7 +178,7 @@ fun MarketplaceScreen(firstRun: Boolean, onBack: () -> Unit, onAdded: (Workspace
         }
     }
 
-    open?.let { l -> ListingDialog(l, added(l, adapters), busy == l.id, onDismiss = { open = null }, onAdd = { add(l) }) }
+    open?.let { l -> ListingDialog(l, added(l, adapters), upToDate[l.id] == true, busy == l.id, onDismiss = { open = null }, onAdd = { add(l) }) }
     error?.let { msg ->
         DuoDialog({ error = null }) {
             DialogTitle("Couldn't add it", msg)
@@ -215,7 +223,7 @@ private fun FeaturedCard(l: Listing, isAdded: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun ListingRow(l: Listing, isAdded: Boolean, busy: Boolean, onOpen: () -> Unit, onAdd: () -> Unit) {
+private fun ListingRow(l: Listing, isAdded: Boolean, latest: Boolean, busy: Boolean, onOpen: () -> Unit, onAdd: () -> Unit) {
     val c = Theme.c
     Card(Modifier.fillMaxWidth().pressable(label = "Open ${l.name}", onClick = onOpen)) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -230,28 +238,35 @@ private fun ListingRow(l: Listing, isAdded: Boolean, busy: Boolean, onOpen: () -
                 Text(l.description, style = Theme.t.small, color = c.ink2, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
             Spacer(Modifier.width(10.dp))
-            AddPill(isAdded, busy, onAdd)
+            AddPill(isAdded, latest, busy, onAdd)
         }
     }
 }
 
 @Composable
-private fun AddPill(isAdded: Boolean, busy: Boolean, onAdd: () -> Unit) {
+private fun AddPill(isAdded: Boolean, latest: Boolean, busy: Boolean, onAdd: () -> Unit) {
     val c = Theme.c
+    // Added and unchanged: nothing to do, so it says so and doesn't press.
+    if (isAdded && latest) {
+        Box(Modifier.heightIn(min = 36.dp).padding(horizontal = 6.dp, vertical = 8.dp), contentAlignment = Alignment.Center) {
+            Text("Up to date", style = Theme.t.small, color = c.ink3, maxLines = 1)
+        }
+        return
+    }
     Box(
         Modifier.heightIn(min = 36.dp).clip(CircleShape)
-            .background(if (isAdded) c.fill else c.ink)
+            .background(if (isAdded) c.accent else c.ink)
             .pressable(scale = 0.96f, label = if (isAdded) "Update" else "Add", onClick = onAdd)
             .padding(horizontal = 16.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(if (busy) "Adding…" else if (isAdded) "Update" else "Add", style = Theme.t.label, color = if (isAdded) c.ink2 else c.bg, maxLines = 1)
+        Text(if (busy) "Adding…" else if (isAdded) "Update" else "Add", style = Theme.t.label, color = if (isAdded) androidx.compose.ui.graphics.Color.White else c.bg, maxLines = 1)
     }
 }
 
 /** What you're adding before you add it: what it needs, where it connects, what's inside. */
 @Composable
-private fun ListingDialog(l: Listing, isAdded: Boolean, busy: Boolean, onDismiss: () -> Unit, onAdd: () -> Unit) {
+private fun ListingDialog(l: Listing, isAdded: Boolean, latest: Boolean, busy: Boolean, onDismiss: () -> Unit, onAdd: () -> Unit) {
     val c = Theme.c
     val ctx = LocalContext.current
     var preview by remember(l.id) { mutableStateOf<WorkspaceAdapter?>(null) }
@@ -279,8 +294,14 @@ private fun ListingDialog(l: Listing, isAdded: Boolean, busy: Boolean, onDismiss
             }
         }
         Spacer(Modifier.height(16.dp))
+        if (isAdded && latest) {
+            Text("You have the latest version.", style = Theme.t.small, color = c.ink3)
+            Spacer(Modifier.height(10.dp))
+            PrimaryButton("Done", Modifier.fillMaxWidth(), onClick = onDismiss)
+            return@DuoDialog
+        }
         if (isAdded) {
-            Text("You have this one. Updating replaces its layout with the latest version; your username and token stay.", style = Theme.t.small, color = c.ink3)
+            Text("A newer version is out. Updating replaces its layout with it; your username and token stay.", style = Theme.t.small, color = c.ink3)
             Spacer(Modifier.height(10.dp))
         }
         PrimaryButton(if (busy) "Adding…" else if (isAdded) "Update to the latest" else "Add workspace", Modifier.fillMaxWidth(), onClick = onAdd)

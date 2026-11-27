@@ -108,6 +108,8 @@ data class ShipSpec(
     val limitStyle: ShipLimitStyle = ShipLimitStyle.Card,
     val limitTop: Boolean = false,
     val limitAction: String? = null,
+    /** Light or dark notice; null is the look's own default. */
+    val limitDark: Boolean? = null,
     /** When the limit resets, e.g. "3:40 PM"; blank works it out (a couple of hours on). */
     val resetAt: String = "",
 ) {
@@ -795,9 +797,13 @@ object ShipCardRenderer {
         val sans = { size: Float, wt: Int, col: Int -> text(size * u, wt, col, shadow = false).apply { letterSpacing = 0f; fontFeatureSettings = null } }
         val action = spec.limitAction ?: when (spec.limitStyle) {
             ShipLimitStyle.Banner -> "View your usage details"
+            ShipLimitStyle.Inline -> "Get more usage"
             ShipLimitStyle.Text -> ""
             else -> "Try again"
         }
+        // Each look has a light and a dark version; by default the card is light and the rest dark.
+        val dark = spec.limitDark ?: (spec.limitStyle != ShipLimitStyle.Card)
+        fun pick(d: Long, l: Long) = (if (dark) d else l).toInt()
         val bottomReserve = when (spec.stamp) { ShipStamp.Off -> 70f; ShipStamp.Frame -> 240f; ShipStamp.Signature -> 190f; else -> 160f } * u
         // Clear of a story's own top bar (and the editor's buttons in the preview).
         fun topOf(height: Float) = if (spec.limitTop) 240 * u else h - bottomReserve - 30 * u - height
@@ -819,24 +825,24 @@ object ShipCardRenderer {
                 subLines.forEach { cv.drawText(it, x, y + 36 * u, t2); y += 46 * u }
             }
             ShipLimitStyle.Card -> {
-                // Light card: gauge + title, the resume time, then View details, Auto-continue and a button.
+                // The card: gauge + title, the resume time, then View details, Auto-continue and a button.
                 val pad = 44 * u
                 val height = pad + 48 * u + 22 * u + 40 * u + 34 * u + 62 * u + pad
                 val top = topOf(height)
                 val r = RectF(x, top, x + cw, top + height)
-                cv.drawRoundRect(r, 34 * u, 34 * u, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFFFFFF.toInt(); setShadowLayer(40 * u, 0f, 10 * u, 0x40000000) })
-                cv.drawRoundRect(r, 34 * u, 34 * u, Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 2 * u; color = 0x14000000 })
+                cv.drawRoundRect(r, 34 * u, 34 * u, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = pick(0xF51E1E1E, 0xFFFFFFFF); setShadowLayer(40 * u, 0f, 10 * u, 0x40000000) })
+                cv.drawRoundRect(r, 34 * u, 34 * u, Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 2 * u; color = pick(0xFF333333, 0x14000000) })
                 var y = top + pad
                 drawGauge(cv, x + pad + 17 * u, y + 24 * u, 15 * u, 0xFFC8483F.toInt(), u)
-                cv.drawText("Usage limit reached", x + pad + 52 * u, y + 37 * u, sans(37f, 600, 0xFF1F1F1F.toInt()))
+                cv.drawText("Usage limit reached", x + pad + 52 * u, y + 37 * u, sans(37f, 600, pick(0xFFF2F2F2, 0xFF1F1F1F)))
                 y += 48 * u + 22 * u
-                cv.drawText("Auto-resuming at $reset", x + pad, y + 31 * u, sans(31f, 400, 0xFF8C8C8C.toInt()))
+                cv.drawText("Auto-resuming at $reset", x + pad, y + 31 * u, sans(31f, 400, pick(0xFF9B9B9B, 0xFF8C8C8C)))
                 y += 40 * u + 34 * u
                 val rowH = 62 * u
-                val small = sans(27f, 500, 0xFF2A2A2A.toInt())
+                val small = sans(27f, 500, pick(0xFFE6E6E6, 0xFF2A2A2A))
                 var bx = x + pad
                 val chipW = small.measureText("View details") + 40 * u
-                cv.drawRoundRect(RectF(bx, y, bx + chipW, y + rowH), 14 * u, 14 * u, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFEDEDEB.toInt() })
+                cv.drawRoundRect(RectF(bx, y, bx + chipW, y + rowH), 14 * u, 14 * u, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = pick(0xFF2E2E2E, 0xFFEDEDEB) })
                 cv.drawText("View details", bx + 20 * u, y + rowH * 0.64f, small)
                 bx += chipW + 26 * u
                 val btnW = if (action.isBlank()) 0f else small.measureText(action) + 40 * u
@@ -849,22 +855,22 @@ object ShipCardRenderer {
                     val tick = Path().apply { moveTo(bx + box * 0.24f, by + box * 0.52f); lineTo(bx + box * 0.43f, by + box * 0.7f); lineTo(bx + box * 0.78f, by + box * 0.3f) }
                     cv.drawPath(tick, Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 4 * u; color = 0xFFFFFFFF.toInt(); strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND })
                     var label = auto
-                    val lp = sans(27f, 400, 0xFF2A2A2A.toInt())
+                    val lp = sans(27f, 400, pick(0xFFE6E6E6, 0xFF2A2A2A))
                     while (lp.measureText(label) > roomForAuto && label.length > 4) label = label.dropLast(2).trimEnd() + "…"
                     cv.drawText(label, bx + box + 14 * u, y + rowH * 0.64f, lp)
                 }
                 if (btnW > 0f) {
                     val rx = x + cw - pad - btnW
                     val br = RectF(rx, y, rx + btnW, y + rowH)
-                    cv.drawRoundRect(br, 14 * u, 14 * u, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFFFFFF.toInt() })
-                    cv.drawRoundRect(br, 14 * u, 14 * u, Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 2 * u; color = 0xFFD6D6D3.toInt() })
+                    cv.drawRoundRect(br, 14 * u, 14 * u, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = pick(0xFF1E1E1E, 0xFFFFFFFF) })
+                    cv.drawRoundRect(br, 14 * u, 14 * u, Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 2 * u; color = pick(0xFF4A4A4A, 0xFFD6D6D3) })
                     cv.drawText(action, rx + 20 * u, y + rowH * 0.64f, small)
                 }
             }
             ShipLimitStyle.Banner -> {
                 // Amber banner: warning sign, the message with an underlined link, and a close ×.
                 val pad = 34 * u
-                val amber = 0xFFF0B45A.toInt()
+                val amber = pick(0xFFF0B45A, 0xFF8A5A0B)
                 val p = sans(31f, 400, amber)
                 val lineH = 46 * u
                 val textX = x + pad + 40 * u + 22 * u
@@ -875,8 +881,8 @@ object ShipCardRenderer {
                 val height = pad * 2 + textH
                 val top = topOf(height)
                 val r = RectF(x, top, x + cw, top + height)
-                cv.drawRoundRect(r, 26 * u, 26 * u, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xF24A2F0B.toInt() })
-                cv.drawRoundRect(r, 26 * u, 26 * u, Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 2.5f * u; color = 0xFFB5822E.toInt() })
+                cv.drawRoundRect(r, 26 * u, 26 * u, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = pick(0xF24A2F0B, 0xFAFFF5E1) })
+                cv.drawRoundRect(r, 26 * u, 26 * u, Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 2.5f * u; color = pick(0xFFB5822E, 0xFFE5B260) })
                 val tx = x + pad; val ty = top + pad + 4 * u; val ts = 38 * u
                 val tri = Path().apply { moveTo(tx + ts / 2, ty); lineTo(tx + ts, ty + ts * 0.88f); lineTo(tx, ty + ts * 0.88f); close() }
                 val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 3 * u; color = amber; strokeJoin = Paint.Join.ROUND; strokeCap = Paint.Cap.ROUND }
@@ -887,31 +893,65 @@ object ShipCardRenderer {
                 val cx = x + cw - pad - 16 * u; val cy = top + pad + 22 * u; val k = 12 * u
                 cv.drawLine(cx - k, cy - k, cx + k, cy + k, stroke); cv.drawLine(cx + k, cy - k, cx - k, cy + k, stroke)
             }
+            ShipLimitStyle.Inline -> Unit // drawn below
             ShipLimitStyle.Dialog -> {
-                // Dark dialog: gauge + "5-hour limit reached", the hint, and a light button bottom right.
+                // The dialog: gauge + "5-hour limit reached", the hint, and a light button bottom right.
                 val pad = 46 * u
-                val hint = sans(32f, 400, 0xFF9B9B9B.toInt())
+                val hint = sans(32f, 400, pick(0xFF9B9B9B, 0xFF7A7A7A))
                 val hintText = if (spec.resetAt.isBlank()) "Try again after your 5-hour limit resets." else "Try again at $reset."
                 val hintLines = wrap(hintText, hint, cw - pad * 2)
                 val btnH = if (action.isBlank()) 0f else 70 * u
                 val height = pad + 50 * u + 28 * u + hintLines.size * 46 * u + (if (btnH > 0) 40 * u + btnH else 0f) + pad
                 val top = topOf(height)
                 val r = RectF(x, top, x + cw, top + height)
-                cv.drawRoundRect(r, 34 * u, 34 * u, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xF51B1B1B.toInt() })
-                cv.drawRoundRect(r, 34 * u, 34 * u, Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 2 * u; color = 0xFF2E2E2E.toInt() })
+                cv.drawRoundRect(r, 34 * u, 34 * u, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = pick(0xF51B1B1B, 0xFAFFFFFF) })
+                cv.drawRoundRect(r, 34 * u, 34 * u, Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 2 * u; color = pick(0xFF2E2E2E, 0x14000000) })
                 var y = top + pad
                 drawGauge(cv, x + pad + 18 * u, y + 25 * u, 16 * u, 0xFFE8685F.toInt(), u)
-                cv.drawText("5-hour limit reached", x + pad + 56 * u, y + 38 * u, sans(38f, 500, 0xFFF2F2F2.toInt()))
+                cv.drawText("5-hour limit reached", x + pad + 56 * u, y + 38 * u, sans(38f, 500, pick(0xFFF2F2F2, 0xFF1F1F1F)))
                 y += 50 * u + 28 * u
                 hintLines.forEach { cv.drawText(it, x + pad, y + 34 * u, hint); y += 46 * u }
                 if (btnH > 0) {
                     y += 40 * u
-                    val bp = sans(32f, 500, 0xFF111111.toInt())
+                    val bp = sans(32f, 500, pick(0xFF111111, 0xFFFFFFFF))
                     val bw = bp.measureText(action) + 52 * u
                     val br = RectF(x + cw - pad - bw, y, x + cw - pad, y + btnH)
-                    cv.drawRoundRect(br, 18 * u, 18 * u, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFF0F0EE.toInt() })
+                    cv.drawRoundRect(br, 18 * u, 18 * u, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = pick(0xFFF0F0EE, 0xFF1F1F1F) })
                     cv.drawText(action, br.left + 26 * u, br.top + btnH * 0.66f, bp)
                 }
+            }
+        }
+        if (spec.limitStyle == ShipLimitStyle.Inline) {
+            // One row, like the notice above a chat box: gauge, red title, a grey line, a button on the
+            // right. Too long for one row, the grey line moves under the title.
+            val pad = 34 * u
+            val title = sans(33f, 500, pick(0xFFE8685F, 0xFFC8483F))
+            val grey = sans(29f, 400, pick(0xFF9B9B9B, 0xFF7A7A7A))
+            val btn = sans(29f, 500, pick(0xFFF2F2F2, 0xFF1F1F1F))
+            val note = "Get more usage to keep working · Resets at $reset"
+            val gauge = 34 * u
+            val titleText = "5-hour limit reached"
+            val btnW = if (action.isBlank()) 0f else btn.measureText(action) + 44 * u
+            val inner = cw - pad * 2
+            val lead = gauge + 16 * u + title.measureText(titleText) + 22 * u
+            val oneRow = lead + grey.measureText(note) + 24 * u + btnW <= inner
+            val rowH = 66 * u
+            val noteLines = if (oneRow) emptyList() else wrap(note, grey, inner - btnW - 20 * u)
+            val height = pad * 2 + if (oneRow) rowH else rowH + noteLines.size * 42 * u
+            val top = topOf(height)
+            val r = RectF(x, top, x + cw, top + height)
+            cv.drawRoundRect(r, 30 * u, 30 * u, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = pick(0xF51C1C1C, 0xFAFFFFFF) })
+            cv.drawRoundRect(r, 30 * u, 30 * u, Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 2 * u; color = pick(0xFF3A3A3A, 0x1F000000) })
+            val cy = top + pad + rowH / 2
+            drawGauge(cv, x + pad + gauge / 2, cy, gauge * 0.42f, pick(0xFFE8685F, 0xFFC8483F), u)
+            val base = cy + 11 * u
+            cv.drawText(titleText, x + pad + gauge + 16 * u, base, title)
+            if (oneRow) cv.drawText(note, x + pad + lead, base, grey)
+            else noteLines.forEachIndexed { i, line -> cv.drawText(line, x + pad + gauge + 16 * u, top + pad + rowH + 30 * u + i * 42 * u, grey) }
+            if (btnW > 0f) {
+                val br = RectF(x + cw - pad + 12 * u - btnW, cy - rowH / 2, x + cw - pad + 12 * u, cy + rowH / 2)
+                cv.drawRoundRect(br, 16 * u, 16 * u, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = pick(0xFF3A3A3A, 0xFFEFEFED) })
+                cv.drawText(action, br.left + 22 * u, base, btn)
             }
         }
         spec.logo?.let { drawLogo(cv, it, if (spec.limitTop) ShipLogoCorner.Bottom else spec.logoCorner, w.toInt(), h.toInt(), u, spec.stamp != ShipStamp.Off) }

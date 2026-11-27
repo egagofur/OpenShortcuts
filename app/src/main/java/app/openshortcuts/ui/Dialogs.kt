@@ -151,6 +151,37 @@ fun Field(value: String, onChange: (String) -> Unit, placeholder: String, number
     if (autofocus) LaunchedEffect(Unit) { runCatching { fr.requestFocus() } }
 }
 
+/**
+ * A search box that reads as one at a glance: a magnifier, a filled surface with a hairline edge
+ * (so it shows on any background), and a clear button once there's text.
+ */
+@Composable
+fun SearchField(value: String, onChange: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier, surface: androidx.compose.ui.graphics.Color = Theme.c.card) {
+    val c = Theme.c
+    Row(
+        modifier.fillMaxWidth().height(50.dp).clip(RoundedCornerShape(16.dp)).background(surface)
+            .border(1.dp, c.hairline, RoundedCornerShape(16.dp)).padding(start = 14.dp, end = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Glyph("search", c.ink2, 20.dp)
+        Spacer(Modifier.width(10.dp))
+        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+            if (value.isEmpty()) Text(placeholder, style = Theme.t.body, color = c.ink3, maxLines = 1)
+            BasicTextField(
+                value = value, onValueChange = onChange, singleLine = true,
+                textStyle = Theme.t.body.copy(color = c.ink), cursorBrush = SolidColor(c.accent),
+                keyboardOptions = KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        if (value.isNotEmpty()) {
+            Box(Modifier.size(40.dp).pressable(scale = 0.9f, label = "Clear search") { onChange("") }, contentAlignment = Alignment.Center) {
+                Glyph("x", c.ink3, 18.dp)
+            }
+        }
+    }
+}
+
 data class AppEntry(val pkg: String, val label: String)
 
 fun launchableApps(ctx: Context): List<AppEntry> {
@@ -174,7 +205,10 @@ fun ParamDialog(a: Action, spec: ParamSpec, owner: Shortcut, index: Int, onDismi
         DialogTitle(a.type.title)
         when (spec.kind) {
             ParamKind.CHOICE -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                spec.choices.forEach { ChoiceRow(it, it == a.p(spec.key)) { done(it) } }
+                // An If can also test any value the shortcut has named: a variable, or a workspace value like "This week".
+                val extra = if (a.type == app.openshortcuts.model.ActionType.IF && spec.key == "subject")
+                    vars.filter { it !in app.openshortcuts.model.BUILT_IN_VARIABLES && it !in spec.choices } else emptyList()
+                (spec.choices + extra).forEach { ChoiceRow(it, it == a.p(spec.key)) { done(it) } }
             }
             ParamKind.NUMBER -> {
                 var v by remember { mutableStateOf(a.p(spec.key)) }
@@ -222,6 +256,7 @@ fun ParamDialog(a: Action, spec: ParamSpec, owner: Shortcut, index: Int, onDismi
                 PrimaryButton("Done", Modifier.fillMaxWidth()) { done(v) }
             }
             ParamKind.WORKSPACE_ACTION -> WorkspaceActionPicker(a.p(spec.key), vars) { done(it) }
+            ParamKind.WORKSPACE_DATA -> WorkspaceDataPicker(a.p(spec.key)) { done(it) }
             ParamKind.SHORTCUT -> {
                 val options = Store.library.value.shortcuts.filter { it.id != owner.id }
                 if (options.isEmpty()) Text("Make another shortcut first.", style = Theme.t.body, color = c.ink2)

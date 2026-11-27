@@ -512,6 +512,7 @@ fun WorkspaceScreen(
                         onRetry = { view.tick(); refreshTick++ },
                         onOpenSettings = { showSettings = true },
                         onRunAction = { act -> activeAction = act to null },
+                        onEditAction = { act, item -> activeAction = act to item },
                         onLiveResult = { act, res ->
                             if (res.ok) {
                                 LiveOverrides.note(curAdapter, act) { w -> endpointCache[w.endpoint.orEmpty()]?.getOrNull() }
@@ -751,6 +752,7 @@ private fun TabDashboardPage(
     onRetry: () -> Unit,
     onOpenSettings: () -> Unit,
     onRunAction: (AdapterAction) -> Unit,
+    onEditAction: (AdapterAction, JSONObject?) -> Unit,
     onLiveResult: (AdapterAction, AdapterResult) -> Unit,
     onSwipeRow: (app.openshortcuts.model.AdapterRowAction, JSONObject) -> Unit,
     onOpenDetail: (widgetId: String, item: WorkspaceItem) -> Unit,
@@ -864,7 +866,7 @@ private fun TabDashboardPage(
                     WidgetType.STAT_GRID -> item(key = w.id) { StaggeredBlock(wIdx) { StatGridWidget(w, payload) } }
                     WidgetType.PROGRESS_RING -> item(key = w.id) { StaggeredBlock(wIdx) { ProgressRingWidget(w, payload) } }
                     WidgetType.TARGET_BAR -> item(key = w.id) { StaggeredBlock(wIdx) { TargetBarWidget(w, payload) } }
-                    WidgetType.LIVE_STATUS -> item(key = w.id) { StaggeredBlock(wIdx) { LiveStatusWidget(w, adapter, payload, onRunAction, onLiveResult) } }
+                    WidgetType.LIVE_STATUS -> item(key = w.id) { StaggeredBlock(wIdx) { LiveStatusWidget(w, adapter, payload, onRunAction, onLiveResult, onEditAction) } }
                     WidgetType.SHARE_CARD -> item(key = w.id) { StaggeredBlock(wIdx) { ShipCardTile(w, adapter.id) } }
                     WidgetType.ACTION_GRID -> item(key = w.id) { StaggeredBlock(wIdx) { ActionGridWidget(w, adapter, runs, onRunAction) } }
                     WidgetType.SENTENCE_BAR -> item(key = w.id) {
@@ -1001,13 +1003,16 @@ internal fun AdapterActionDialog(
                             else -> ""
                         }
                     }
-            } else p.default
+            } else if ("{{" in p.default) AdapterEngine.template(item, p.default) // filled from what's on screen
+            else p.default
             p.key to prefill
         })
     }
     var optionLabels by remember(action.id) {
         mutableStateOf<Map<String, String>>(
-            if (item != null) mapOf("projectId" to AdapterEngine.extractString(item, "project.name")).filterValues { it.isNotBlank() }
+            if (item != null) (mapOf("projectId" to AdapterEngine.extractString(item, "project.name")) +
+                action.params.filter { it.defaultLabel.isNotBlank() }.associate { it.key to AdapterEngine.template(item, it.defaultLabel) })
+                .filterValues { it.isNotBlank() }
             else emptyMap(),
         )
     }

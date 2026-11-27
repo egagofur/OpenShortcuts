@@ -85,12 +85,65 @@
             "urlPath": "html_url",
             "fields": [
               {
-                "label": "Comments",
-                "path": "comments"
+                "label": "Author",
+                "path": "user.login"
+              },
+              {
+                "label": "Branch",
+                "path": "head.ref"
+              },
+              {
+                "label": "Into",
+                "path": "base.ref"
+              },
+              {
+                "label": "Merge status",
+                "path": "{{mergeable_state|map:dirty=Has conflicts;clean=Ready to merge;blocked=Waiting for reviews or checks;unstable=Checks failing;behind=Behind its base branch;unknown=Checking;draft=Draft}}"
+              },
+              {
+                "label": "Changed files",
+                "path": "changed_files"
               },
               {
                 "label": "Updated",
                 "path": "updated_at"
+              }
+            ],
+            "endpoint": "{{pull_request.url}}",
+            "actions": [
+              {
+                "id": "comment_pr",
+                "title": "Comment",
+                "method": "POST",
+                "endpoint": "{{comments_url}}",
+                "bodyTemplate": "{\"body\":\"{{comment}}\"}",
+                "params": [
+                  {
+                    "key": "comment",
+                    "label": "Comment"
+                  }
+                ],
+                "tint": "Blue",
+                "glyph": "quote"
+              },
+              {
+                "id": "merge_pr",
+                "title": "Merge",
+                "method": "PUT",
+                "endpoint": "{{pull_request.url}}/merge",
+                "tint": "Indigo",
+                "glyph": "branch",
+                "confirmMessage": "Merge “{{title}}”? If it has conflicts, GitHub will refuse; fix them first or close it."
+              },
+              {
+                "id": "close_pr",
+                "title": "Close pull request",
+                "method": "PATCH",
+                "endpoint": "{{pull_request.url}}",
+                "bodyTemplate": "{\"state\":\"closed\"}",
+                "tint": "Red",
+                "glyph": "x",
+                "confirmMessage": "Close “{{title}}” without merging? You can reopen it on GitHub."
               }
             ]
           }
@@ -123,8 +176,85 @@
                 "path": "user.login"
               },
               {
+                "label": "Branch",
+                "path": "head.ref"
+              },
+              {
+                "label": "Into",
+                "path": "base.ref"
+              },
+              {
+                "label": "Merge status",
+                "path": "{{mergeable_state|map:dirty=Has conflicts;clean=Ready to merge;blocked=Waiting for reviews or checks;unstable=Checks failing;behind=Behind its base branch;unknown=Checking;draft=Draft}}"
+              },
+              {
+                "label": "Changed files",
+                "path": "changed_files"
+              },
+              {
                 "label": "Updated",
                 "path": "updated_at"
+              }
+            ],
+            "endpoint": "{{pull_request.url}}",
+            "actions": [
+              {
+                "id": "approve_pr",
+                "title": "Approve",
+                "method": "POST",
+                "endpoint": "{{pull_request.url}}/reviews",
+                "bodyTemplate": "{\"event\":\"APPROVE\"}",
+                "tint": "Green",
+                "glyph": "check"
+              },
+              {
+                "id": "request_changes",
+                "title": "Request changes",
+                "method": "POST",
+                "endpoint": "{{pull_request.url}}/reviews",
+                "bodyTemplate": "{\"event\":\"REQUEST_CHANGES\",\"body\":\"{{comment}}\"}",
+                "params": [
+                  {
+                    "key": "comment",
+                    "label": "What needs to change?"
+                  }
+                ],
+                "tint": "Orange",
+                "glyph": "undo"
+              },
+              {
+                "id": "comment_pr",
+                "title": "Comment",
+                "method": "POST",
+                "endpoint": "{{comments_url}}",
+                "bodyTemplate": "{\"body\":\"{{comment}}\"}",
+                "params": [
+                  {
+                    "key": "comment",
+                    "label": "Comment"
+                  }
+                ],
+                "tint": "Blue",
+                "glyph": "quote"
+              },
+              {
+                "id": "merge_pr",
+                "title": "Merge",
+                "method": "PUT",
+                "endpoint": "{{pull_request.url}}/merge",
+                "tint": "Indigo",
+                "glyph": "branch",
+                "confirmMessage": "Merge “{{title}}”? If it has conflicts, GitHub will refuse; fix them first or close it."
+              },
+              {
+                "id": "close_pr",
+                "title": "Close pull request",
+                "method": "PATCH",
+                "endpoint": "{{pull_request.url}}",
+                "bodyTemplate": "{\"state\":\"closed\"}",
+                "tint": "Red",
+                "glyph": "x",
+                "confirmMessage": "Close “{{title}}” without merging? You can reopen it on GitHub."
               }
             ]
           }

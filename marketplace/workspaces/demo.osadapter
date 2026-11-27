@@ -29,7 +29,8 @@
           "holdToStop": true,
           "inactiveText": "No timer running",
           "activeActionId": "stop_timer",
-          "inactiveActionId": "start_timer"
+          "inactiveActionId": "start_timer",
+          "editActionId": "edit_timer"
         },
         {
           "id": "week",
@@ -253,6 +254,34 @@
       "endpoint": "/timer/stop",
       "tint": "Red",
       "glyph": "pause"
+    },
+    {
+      "id": "edit_timer",
+      "title": "Edit running timer",
+      "method": "PUT",
+      "endpoint": "/timer",
+      "bodyTemplate": "{\"description\": \"{{description}}\", \"client\": \"{{client}}\"}",
+      "params": [
+        {
+          "key": "description",
+          "label": "What are you working on?",
+          "default": "{{data.title}}"
+        },
+        {
+          "key": "client",
+          "label": "Client",
+          "default": "{{data.client}}",
+          "choices": [
+            "Acme Labs",
+            "Bluebird Studio",
+            "Northwind",
+            "Internal"
+          ]
+        }
+      ],
+      "tint": "Blue",
+      "glyph": "sliders"
     }
-  ]
+  ],
+  "openApiUrl": "/openapi.json"
 }

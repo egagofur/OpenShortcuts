@@ -54,11 +54,13 @@ object Runner {
         val ask: (suspend (Prompt) -> String?)?,
         val foreground: Boolean,
     ) {
-        fun copyForeground() = State(ctx, actions, blocks, depth, ask, true).also { it.log.addAll(log) }
+        fun copyForeground() = State(ctx, actions, blocks, depth, ask, true).also { it.log.addAll(log); it.steps.addAll(steps) }
         val shown = mutableListOf<String>()
         val log = mutableListOf<String>()
         val vars = HashMap<String, String>()
         var prev = ""
+        /** Each step as it ran, for the run log. */
+        val steps = mutableListOf<app.openshortcuts.model.RunStep>()
     }
 
     private fun structure(actions: List<Action>): Map<Int, Block> {
@@ -85,20 +87,38 @@ object Runner {
         context: Context, shortcut: Shortcut, foreground: Boolean, depth: Int = 0, input: String = "",
         ask: (suspend (Prompt) -> String?)? = null,
         vars: Map<String, String> = emptyMap(),
+        source: String = "In the app",
+        automationId: String? = null,
     ): Result {
         val st = State(context, shortcut.actions, structure(shortcut.actions), depth, ask, foreground)
         st.prev = input
         st.vars.putAll(vars)
         st.vars["Shortcut Input"] = input
+        val started = System.currentTimeMillis()
+        // Only the outer run is logged; a shortcut it runs shows up as one of its steps.
+        fun record(status: app.openshortcuts.model.RunStatus, error: String?) {
+            if (depth > 0) return
+            app.openshortcuts.model.RunLog.add(app.openshortcuts.model.RunRecord(
+                id = java.util.UUID.randomUUID().toString(), shortcutId = shortcut.id, shortcut = shortcut.name, source = source,
+                automationId = automationId, at = started, ms = System.currentTimeMillis() - started, status = status, error = error, steps = st.steps.toList(),
+            ))
+        }
         try {
             exec(st, 0, st.actions.size)
         } catch (_: Stop) {
             st.log += "Stopped"
+            record(app.openshortcuts.model.RunStatus.Stopped, null)
+            if (!foreground) st.shown.forEach { Notifs.result(context, shortcut.name, it) }
+            return Result(shortcut.name, st.shown, st.log)
         } catch (e: kotlinx.coroutines.CancellationException) {
+            record(app.openshortcuts.model.RunStatus.Stopped, "Cancelled")
             throw e
         } catch (e: Exception) {
-            return Result(shortcut.name, st.shown, st.log, e.message ?: e.javaClass.simpleName)
+            val msg = e.message ?: e.javaClass.simpleName
+            record(app.openshortcuts.model.RunStatus.Error, msg)
+            return Result(shortcut.name, st.shown, st.log, msg)
         }
+        record(app.openshortcuts.model.RunStatus.Success, null)
         if (!foreground) st.shown.forEach { Notifs.result(context, shortcut.name, it) }
         return Result(shortcut.name, st.shown, st.log)
     }
@@ -113,7 +133,9 @@ object Runner {
                 ActionType.IF -> {
                     b ?: return
                     val otherwise = b.mids.firstOrNull()
-                    if (evaluate(st, a)) exec(st, i + 1, otherwise ?: b.end)
+                    val yes = evaluate(st, a)
+                    st.steps += app.openshortcuts.model.RunStep("If ${a.p("subject")} ${a.p("op")} ${fill(st, a.p("value"))}".trim(), true, if (yes) "Yes" else "No", 0)
+                    if (yes) exec(st, i + 1, otherwise ?: b.end)
                     else if (otherwise != null) exec(st, otherwise + 1, b.end)
                     i = b.end + 1
                 }
@@ -152,7 +174,19 @@ object Runner {
                 ActionType.OTHERWISE, ActionType.END_IF, ActionType.END_REPEAT, ActionType.CASE, ActionType.END_MENU,
                 ActionType.END_EACH -> i++
                 else -> {
-                    st.prev = step(st, a)
+                    val t0 = SystemClock.elapsedRealtime()
+                    try {
+                        st.prev = step(st, a)
+                        st.steps += app.openshortcuts.model.RunStep(a.type.title, true, st.prev.take(200), SystemClock.elapsedRealtime() - t0)
+                    } catch (e: Stop) {
+                        st.steps += app.openshortcuts.model.RunStep(a.type.title, true, "Stopped here", SystemClock.elapsedRealtime() - t0)
+                        throw e
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        st.steps += app.openshortcuts.model.RunStep(a.type.title, false, e.message ?: e.javaClass.simpleName, SystemClock.elapsedRealtime() - t0)
+                        throw e
+                    }
                     i++
                 }
             }
@@ -344,6 +378,19 @@ object Runner {
                 if (!res.ok) fail("${adapter.name}: ${res.message}")
                 log += "${adapter.name}: ${res.message}"
                 res.message
+            }
+            ActionType.GET_WORKSPACE_DATA -> {
+                val read = app.openshortcuts.model.WorkspaceRead.decode(a.p("data")) ?: fail("Choose what to read from a workspace.")
+                val (adapter, widget) = app.openshortcuts.model.WorkspaceReads.resolve(read) ?: fail("That workspace or widget isn't on this phone anymore.")
+                if (!app.openshortcuts.model.AdapterStore.hasToken(adapter)) fail("Finish setting up ${adapter.name} in its settings.")
+                val ep = app.openshortcuts.model.WorkspaceReads.endpointOf(adapter, widget).ifBlank { fail("${widget.title} has no data to read.") }
+                val res = AdapterEngine.fetchEndpoints(adapter, setOf(ep), mapOf(ep to widget.pages))[ep] ?: fail("${adapter.name} didn't answer.")
+                val payload = res.getOrElse { fail("${adapter.name}: ${it.message}") }
+                val value = app.openshortcuts.model.WorkspaceReads.value(widget, payload, read.output)
+                // Available by name too, so a later step can say {This week}.
+                if (read.label.isNotBlank()) st.vars[read.label] = value
+                log += "${adapter.name} › ${read.label}: $value"
+                value
             }
             ActionType.OPEN_APP -> {
                 val pkg = a.p("app").ifBlank { fail("Choose an app to open.") }
@@ -555,7 +602,9 @@ object Runner {
             "Charging" -> if (charging(ctx)) "yes" else "no"
             "WhatsApp Call" -> if (CallWatcher.callActive) "yes" else "no"
             "Shortcut Input" -> st.vars["Shortcut Input"].orEmpty()
-            else -> prev
+            "Previous Result" -> prev
+            // A named value: a variable, or a workspace value like "This week".
+            else -> st.vars[a.p("subject")] ?: prev
         }
         val rhs = fill(st, a.p("value"))
         fun norm(s: String) = when (s.trim().lowercase()) { "true", "on", "ya", "yes", "active" -> "yes"; "false", "off", "tidak", "no" -> "no"; else -> s.trim().lowercase() }

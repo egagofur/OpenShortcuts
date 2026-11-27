@@ -18,6 +18,7 @@ object DemoApi {
     @Volatile private var running = false
     @Volatile private var runningTitle = ""
     @Volatile private var runningSince: String? = null
+    @Volatile private var runningClient = "Bluebird Studio"
 
     private val clients = listOf("Northwind", "Bluebird Studio", "Acme Labs", "Internal")
     private val tasks = listOf(
@@ -42,7 +43,7 @@ object DemoApi {
             path == "/timer" -> JSONObject().put(
                 "data",
                 JSONObject().put("running", running).put("title", runningTitle.ifBlank { JSONObject.NULL })
-                    .put("client", if (running) "Bluebird Studio" else JSONObject.NULL)
+                    .put("client", if (running) runningClient else JSONObject.NULL)
                     .put("started_at", runningSince ?: JSONObject.NULL),
             )
             path == "/summary" -> summary(today)
@@ -52,10 +53,26 @@ object DemoApi {
             path == "/tasks" -> JSONArray(taskList(today))
             path == "/activity" -> JSONArray(activity(today))
             // One page holds everything; later pages are empty, like a real API at its end.
+            path == "/openapi.json" -> openApi()
             path == "/commits" -> JSONArray(if (Regex("[?&]page=([2-9]|\\d{2,})").containsMatchIn(endpoint)) emptyList() else commits(today))
             else -> return AdapterResult(false, 404, "The demo has no $path.")
         }
         return AdapterResult(true, 200, "OK", json)
+    }
+
+    /** A small OpenAPI description of the demo, so "Browse endpoints" works offline. */
+    private fun openApi(): JSONObject {
+        fun get(summary: String, tag: String) = JSONObject().put("get", JSONObject().put("summary", summary).put("tags", JSONArray().put(tag)))
+        return JSONObject().put("openapi", "3.0.0").put("info", JSONObject().put("title", "Demo").put("version", "1"))
+            .put("paths", JSONObject()
+                .put("/me", get("Your profile", "Account"))
+                .put("/timer", get("The running timer", "Time"))
+                .put("/summary", get("Hours this week and month, with targets", "Time"))
+                .put("/entries", get("Time entries for the last five weeks", "Time"))
+                .put("/entries/{id}", get("One time entry", "Time"))
+                .put("/tasks", get("Tasks with status and project", "Work"))
+                .put("/activity", get("A year of activity, for a heatmap", "Work"))
+                .put("/commits", get("Sixteen weeks of commits", "Code")))
     }
 
     private fun act(path: String, body: String?): AdapterResult = when (path) {
@@ -64,6 +81,12 @@ object DemoApi {
             runningSince = java.time.Instant.now().toString()
             runningTitle = runCatching { JSONObject(body.orEmpty()).optString("description") }.getOrNull().orEmpty().ifBlank { "Demo task" }
             AdapterResult(true, 200, "Timer started (demo)")
+        }
+        "/timer" -> if (!running) AdapterResult(false, 409, "No timer is running.") else {
+            val o = runCatching { JSONObject(body.orEmpty()) }.getOrNull()
+            o?.optString("description")?.takeIf { it.isNotBlank() }?.let { runningTitle = it }
+            o?.optString("client")?.takeIf { it.isNotBlank() }?.let { runningClient = it }
+            AdapterResult(true, 200, "Timer updated (demo)")
         }
         "/timer/stop" -> {
             running = false

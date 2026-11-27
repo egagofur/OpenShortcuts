@@ -109,7 +109,9 @@ fun WorkspaceDetailScreen(
             loading = true
             detailError = null
             AdapterEngine.fetchDetail(adapter, ep, initialRaw)
-                .onSuccess { raw = it }
+                // The detail adds to the row it came from, so fields of both (like a search result's
+                // pull_request.url and the PR's mergeable state) are there for fields and actions.
+                .onSuccess { d -> raw = JSONObject(initialRaw.toString()).also { m -> d.keys().forEach { k -> m.put(k, d.opt(k)) } } }
                 .onFailure { detailError = it.message ?: "Failed to load details" }
             loading = false
         }

@@ -45,6 +45,8 @@ data class AdapterParam(
     val optionsPath: String = "data",
     val optionLabelPath: String = "name",
     val optionValuePath: String = "id",
+    /** The name to show for [default] when it's an id from a list, e.g. "{{data.project.name}}". */
+    val defaultLabel: String = "",
 )
 
 data class AdapterAction(
@@ -155,6 +157,8 @@ data class DashboardWidget(
     val startedAtPath: String = "",
     /** live_status: the stop button needs a press-and-hold instead of a tap. */
     val holdToStop: Boolean = false,
+    /** live_status: an action opened by holding the card while it runs, to change what's running. */
+    val editActionId: String? = null,
     /** share_card: commits to read, filled from the profile at [endpoint] (e.g. "/users/{{login}}/events"). */
     val itemsEndpoint: String = "",
     /** share_card: the commit message, where AI co-author trailers are found. */
@@ -223,6 +227,8 @@ data class WorkspaceAdapter(
     /** Works without a token too; a token only adds more (private repos, higher limits). */
     val tokenOptional: Boolean = false,
     val inputs: List<AdapterInput> = emptyList(),
+    /** Where the API's OpenAPI description is (a path or URL), for picking endpoints from a list. */
+    val openApiUrl: String = "",
 ) {
     fun actionById(actionId: String?): AdapterAction? {
         if (actionId.isNullOrBlank()) return null
@@ -248,6 +254,7 @@ data class WorkspaceAdapter(
         put("authPrefix", authPrefix)
         put("tokenHint", tokenHint)
         if (tokenOptional) put("tokenOptional", true)
+        if (openApiUrl.isNotBlank()) put("openApiUrl", openApiUrl)
         if (inputs.isNotEmpty()) put("inputs", JSONArray(inputs.map { JSONObject().put("key", it.key).put("label", it.label).put("hint", it.hint) }))
         put("tabs", JSONArray(tabs.map { t ->
             JSONObject().apply {
@@ -284,6 +291,7 @@ data class WorkspaceAdapter(
                     if (p.optionsPath != "data") put("optionsPath", p.optionsPath)
                     if (p.optionLabelPath != "name") put("optionLabelPath", p.optionLabelPath)
                     if (p.optionValuePath != "id") put("optionValuePath", p.optionValuePath)
+                    if (p.defaultLabel.isNotBlank()) put("defaultLabel", p.defaultLabel)
                     put("choices", JSONArray(p.choices))
                 }
             }))
@@ -324,6 +332,7 @@ data class WorkspaceAdapter(
             w.inactiveActionId?.let { put("inactiveActionId", it) }
             if (w.startedAtPath.isNotEmpty()) put("startedAtPath", w.startedAtPath)
             if (w.holdToStop) put("holdToStop", true)
+            w.editActionId?.let { put("editActionId", it) }
             if (w.itemsEndpoint.isNotEmpty()) put("itemsEndpoint", w.itemsEndpoint)
             if (w.messagePath.isNotEmpty()) put("messagePath", w.messagePath)
             if (w.actionRefs.isNotEmpty()) put("actionRefs", JSONArray(w.actionRefs.map { r ->
@@ -390,6 +399,7 @@ data class WorkspaceAdapter(
                     optionsPath = p.optString("optionsPath", "data"),
                     optionLabelPath = p.optString("optionLabelPath", "name"),
                     optionValuePath = p.optString("optionValuePath", "id"),
+                    defaultLabel = p.optString("defaultLabel", ""),
                 )
             }
             return AdapterAction(
@@ -486,6 +496,7 @@ data class WorkspaceAdapter(
                 inactiveActionId = if (o.has("inactiveActionId") && !o.isNull("inactiveActionId")) o.getString("inactiveActionId") else null,
                 startedAtPath = o.optString("startedAtPath", ""),
                 holdToStop = o.optBoolean("holdToStop", false),
+                editActionId = o.optString("editActionId").takeIf { it.isNotBlank() },
                 itemsEndpoint = o.optString("itemsEndpoint", ""),
                 messagePath = o.optString("messagePath", ""),
                 actionRefs = refs,
@@ -574,6 +585,7 @@ data class WorkspaceAdapter(
                 tabs = tabs,
                 globalActions = globals,
                 tokenOptional = o.optBoolean("tokenOptional", false),
+                openApiUrl = o.optString("openApiUrl", ""),
                 inputs = o.optJSONArray("inputs")?.let { a ->
                     (0 until a.length()).mapNotNull { i ->
                         val io = a.optJSONObject(i) ?: return@mapNotNull null

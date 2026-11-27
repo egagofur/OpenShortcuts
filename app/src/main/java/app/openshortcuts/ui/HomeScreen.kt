@@ -1,5 +1,9 @@
 package app.openshortcuts.ui
 
+import app.openshortcuts.model.Tint
+
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
@@ -288,6 +292,30 @@ private fun AutomationList(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item { Header("Automation", "Runs shortcuts for you, even while you sleep") }
+        item(key = "activity") {
+            // Every run, by hand or on its own, with each step: the place to look when something didn't happen.
+            val openActivity = LocalOpenActivity.current
+            val runs by app.openshortcuts.model.RunLog.records.collectAsStateWithLifecycle()
+            val errors = runs.count { it.status == app.openshortcuts.model.RunStatus.Error && System.currentTimeMillis() - it.at < 24 * 3600_000L }
+            Card(Modifier.fillMaxWidth().pressable(label = "Open activity") { openActivity(null) }) {
+                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    IconTile("clock", Tint.Indigo.color(), size = 34.dp)
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Activity", style = Theme.t.label, color = c.ink)
+                        Text(
+                            when {
+                                runs.isEmpty() -> "Every run shows up here, step by step"
+                                errors > 0 -> "$errors failed in the last day"
+                                else -> "Last run ${runs.first().shortcut}"
+                            },
+                            style = Theme.t.small, color = if (errors > 0) c.danger else c.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    Glyph("chevronRight", c.ink3, size = 18.dp)
+                }
+            }
+        }
         items(lib.automations, key = { it.id }) { a ->
             val target = lib.shortcuts.firstOrNull { it.id == a.shortcutId }
             SwipeToDelete(a.headline(ctx), onDelete = { onDelete(a) }, modifier = Modifier.animateItem()) {

@@ -324,6 +324,11 @@ object AdapterEngine {
         )
         return placeholder.replace(template) { m ->
             val key = m.groupValues[1].trim()
+            // A whole API URL at the start of an endpoint ("{{pull_request.url}}/reviews") goes in as is.
+            if (escape == Escape.URL && m.range.first == 0) {
+                val v = params[key] ?: item?.let { extractString(it, key) }.orEmpty()
+                if (v.startsWith("https://") || v.startsWith("http://")) return@replace v
+            }
             // {{input.x}} is filled per workspace just before the request goes out.
             if (key.startsWith("input.") && key !in params) return@replace m.value
             val value = params[key] ?: builtIns[key] ?: item?.let { extractString(it, key) }.orEmpty()
@@ -360,7 +365,7 @@ object AdapterEngine {
 
     /**
      * A field written as a template: "{{first_name}} {{last_name}}", or with a pipe:
-     * |upper |lower |trim |date |number |first:20 |default:none.
+     * |upper |lower |trim |date |number |first:20 |default:none |map:a=A;b=B.
      */
     fun template(root: Any?, text: String): String = templatePart.replace(text) { m ->
         val v = extractString(root, m.groupValues[1])
@@ -373,6 +378,8 @@ object AdapterEngine {
             "number" -> v.toDoubleOrNull()?.let { d -> if (d % 1.0 == 0.0) "%,d".format(d.toLong()) else "%,.2f".format(d) } ?: v
             "first" -> v.take(arg.toIntOrNull() ?: 40)
             "default" -> v.ifBlank { arg }
+            // |map:dirty=Has conflicts;clean=Ready: a friendly word for a code, else the value itself.
+            "map" -> arg.split(';').firstNotNullOfOrNull { kv -> kv.split('=', limit = 2).takeIf { it.size == 2 && it[0].trim() == v }?.get(1)?.trim() } ?: v
             else -> v
         }
     }

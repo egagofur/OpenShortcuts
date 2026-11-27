@@ -49,6 +49,8 @@
         </intent>
         <package android:name="com.whatsapp" />
         <package android:name="com.whatsapp.w4b" />
+        <!-- Stracode: hand a card straight to an Instagram story. -->
+        <package android:name="com.instagram.android" />
     </queries>
 
     <application

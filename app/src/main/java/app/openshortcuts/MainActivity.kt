@@ -44,6 +44,7 @@ sealed interface Route {
     data class WorkspaceItem(val adapterId: String, val widgetId: String, val itemJson: String) : Route
     data class ShipCard(val adapterId: String, val widgetId: String) : Route
     data class Marketplace(val firstRun: Boolean = false) : Route
+    data class Activity(val automationId: String? = null) : Route
 }
 
 class MainActivity : ComponentActivity() {
@@ -122,6 +123,7 @@ private fun App() {
         app.openshortcuts.ui.LocalGoHome provides if (nav.stack.size > 1) ({ nav.popToRoot() }) else null,
         app.openshortcuts.ui.LocalOpenShipCard provides { a, w -> push(Route.ShipCard(a, w)) },
         app.openshortcuts.ui.LocalOpenMarketplace provides { push(Route.Marketplace()) },
+        app.openshortcuts.ui.LocalOpenActivity provides { id -> push(Route.Activity(id)) },
     ) {
     app.openshortcuts.ui.NavHost(nav) { route ->
         when (val r = route) {
@@ -172,6 +174,10 @@ private fun App() {
                 onBack = ::pop,
             )
             is Route.ShipCard -> app.openshortcuts.ui.ShipStudioScreen(r.adapterId, r.widgetId, onBack = ::pop)
+            is Route.Activity -> app.openshortcuts.ui.ActivityScreen(
+                r.automationId, onBack = ::pop,
+                onRunAgain = { id -> lib.shortcuts.firstOrNull { it.id == id }?.let { runs.run(it) } },
+            )
             is Route.Marketplace -> app.openshortcuts.ui.MarketplaceScreen(
                 r.firstRun, onBack = ::pop,
                 onAdded = { a -> nav.reset(listOf(Route.Home)); tab = 2; push(Route.Workspace(a.id)) },

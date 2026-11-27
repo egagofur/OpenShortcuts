@@ -20,6 +20,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -166,19 +168,55 @@ private fun rows(root: Any?, open: Set<String>, limit: Int): List<Node> {
     return out
 }
 
+private val ISO_DATE = Regex("""^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}.*)?$""")
+
+/** What kind of value this is, in a word: text, number, date, yes/no, list, group. */
+private fun kind(v: Any?): String = when (v) {
+    is JSONArray -> "list"
+    is JSONObject -> "group"
+    is Boolean -> "yes/no"
+    is Number -> "number"
+    is String -> if (ISO_DATE.matches(v)) "date" else "text"
+    else -> "empty"
+}
+
+/** Every field under [root] (lists read through their first item), with its full path, for searching. */
+private fun flatten(root: Any?, limit: Int): List<Node> {
+    val out = ArrayList<Node>()
+    fun walk(node: Any?, path: String, depth: Int) {
+        if (out.size >= limit || depth > 4) return
+        when (node) {
+            is JSONObject -> for (k in node.keys()) {
+                val v = node.opt(k)
+                val p = if (path.isEmpty()) k else "$path.$k"
+                out += Node(p, p, v, 0)
+                if (v is JSONObject || v is JSONArray) walk(v, p, depth + 1)
+            }
+            is JSONArray -> node.optJSONObject(0)?.let { walk(it, path, depth) }
+        }
+    }
+    walk(root, "", 0)
+    return out
+}
+
 /**
- * The response as a tap-to-pick tree. Lists show their first item; tapping a field fills [active] (the
- * slot being picked) with its path, tapping a list or object opens it.
+ * The response as a tap-to-pick list. Each field shows its value and what kind it is; fields already used
+ * are ticked. Search finds any field by name, path or value, however deep. Lists show their first item.
  */
 @Composable
-fun JsonPicker(root: Any?, active: DataSlot?, onPick: (String) -> Unit) {
+fun JsonPicker(root: Any?, active: DataSlot?, used: Set<String> = emptySet(), onPick: (String) -> Unit) {
     val c = Theme.c
     val open = remember(root) { mutableStateMapOf<String, Boolean>() }
-    val shown = rows(root, open.filterValues { it }.keys, 80)
+    var query by remember(root) { androidx.compose.runtime.mutableStateOf("") }
+    val q = query.trim()
+    val shown = if (q.isEmpty()) rows(root, open.filterValues { it }.keys, 80)
+        else flatten(root, 400).filter { n -> n.path.contains(q, true) || (n.value !is JSONObject && n.value !is JSONArray && preview(n.value).contains(q, true)) }.take(60)
+    SearchField(query, { query = it }, "Search fields", surface = c.fill)
+    Spacer(Modifier.height(8.dp))
     Column(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(c.fill).padding(vertical = 6.dp),
     ) {
-        if (shown.isEmpty()) Text(preview(root), style = Theme.t.small, color = c.ink2, modifier = Modifier.padding(12.dp))
+        if (shown.isEmpty()) Text(if (q.isEmpty()) preview(root) else "No field matches “$q”.", style = Theme.t.small, color = c.ink2, modifier = Modifier.padding(12.dp))
         shown.forEach { n ->
             val container = n.value is JSONObject || n.value is JSONArray
             val pickable = when {
@@ -186,28 +224,36 @@ fun JsonPicker(root: Any?, active: DataSlot?, onPick: (String) -> Unit) {
                 active.wantsList -> n.value is JSONArray
                 else -> !container || n.value is JSONObject
             }
+            val isUsed = n.path in used
             Row(
-                Modifier.fillMaxWidth().heightIn(min = 40.dp)
+                Modifier.fillMaxWidth().heightIn(min = 48.dp)
                     .pressable(scale = 0.98f, label = n.path) {
-                        if (pickable && (!container || active?.wantsList == true || open[n.path] == true)) onPick(n.path)
+                        if (pickable && (!container || active?.wantsList == true || open[n.path] == true || q.isNotEmpty())) onPick(n.path)
                         else if (container) open[n.path] = open[n.path] != true
                         else if (pickable) onPick(n.path)
                     }
-                    .padding(start = (12 + n.depth * 14).dp, end = 10.dp, top = 6.dp, bottom = 6.dp),
+                    .padding(start = (12 + n.depth * 16).dp, end = 10.dp, top = 6.dp, bottom = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box(Modifier.width(16.dp)) {
-                    if (container) Glyph(if (open[n.path] == true) "chevronDown" else "chevronRight", c.ink3, 14.dp)
+                Box(Modifier.width(18.dp)) {
+                    when {
+                        isUsed -> Glyph("check", c.positive, 15.dp)
+                        container && q.isEmpty() -> Glyph(if (open[n.path] == true) "chevronDown" else "chevronRight", c.ink3, 14.dp)
+                    }
                 }
-                Text(n.key, style = Theme.t.small.copy(fontFamily = FontFamily.Monospace), color = if (pickable) c.ink else c.ink2, maxLines = 1)
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    preview(n.value), style = Theme.t.small.copy(fontFamily = FontFamily.Monospace, fontSize = 12.sp), color = c.ink3,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
-                )
+                Column(Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(n.key, style = Theme.t.small.copy(fontFamily = FontFamily.Monospace), color = if (pickable) c.ink else c.ink2,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                        Spacer(Modifier.width(8.dp))
+                        Text(kind(n.value), style = Theme.t.small.copy(fontSize = 11.sp), color = c.ink3, maxLines = 1)
+                    }
+                    if (!container) Text(preview(n.value), style = Theme.t.small.copy(fontSize = 12.sp), color = c.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    else Text(preview(n.value), style = Theme.t.small.copy(fontSize = 12.sp), color = c.ink3, maxLines = 1)
+                }
                 if (pickable) {
-                    Spacer(Modifier.width(6.dp))
-                    Box(Modifier.clip(RoundedCornerShape(8.dp)).background(c.accent.copy(alpha = 0.14f)).padding(horizontal = 8.dp, vertical = 2.dp)) {
+                    Spacer(Modifier.width(8.dp))
+                    Box(Modifier.clip(RoundedCornerShape(8.dp)).background(c.accent.copy(alpha = 0.14f)).padding(horizontal = 10.dp, vertical = 4.dp)) {
                         Text("Use", style = Theme.t.small, color = c.accent)
                     }
                 }

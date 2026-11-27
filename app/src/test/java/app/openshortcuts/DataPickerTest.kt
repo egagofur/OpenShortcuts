@@ -38,4 +38,14 @@ class DataPickerTest {
         assertEquals("title", w.titlePath)
         assertEquals("state", w.badgePath)
     }
+
+    @Test
+    fun mapPipeAndRawUrlPlaceholders() {
+        val pr = JSONObject("""{"mergeable_state":"dirty","pull_request":{"url":"https://api.github.com/repos/o/r/pulls/7"},"title":"A & B"}""")
+        assertEquals("Has conflicts", AdapterEngine.extractString(pr, "{{mergeable_state|map:dirty=Has conflicts;clean=Ready}}"))
+        assertEquals("draft", AdapterEngine.extractString(JSONObject("""{"s":"draft"}"""), "{{s|map:dirty=X}}"))
+        assertEquals("https://api.github.com/repos/o/r/pulls/7/reviews", AdapterEngine.interpolateUrl("{{pull_request.url}}/reviews", pr, emptyMap()))
+        // Elsewhere in a URL, values are still encoded.
+        assertEquals("/search?q=A%20%26%20B", AdapterEngine.interpolateUrl("/search?q={{title}}", pr, emptyMap()))
+    }
 }

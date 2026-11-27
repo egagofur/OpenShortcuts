@@ -21,6 +21,7 @@ class ShortcutsApp : Application() {
         super.onCreate()
         Store.init(this)
         AdapterStore.init(this)
+        app.openshortcuts.model.RunLog.init(this)
         app.openshortcuts.engine.AdapterEngine.init(this)
         app.openshortcuts.ui.Tour.init(this, freshInstall = Store.fresh)
         Notifs.channels(this)

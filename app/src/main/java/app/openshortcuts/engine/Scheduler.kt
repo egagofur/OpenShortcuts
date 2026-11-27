@@ -181,9 +181,19 @@ object Scheduler {
         val vars = saved.optJSONObject("vars")?.let { o -> o.keys().asSequence().associateWith { o.getString(it) } }.orEmpty()
         val app = ctx.applicationContext as ShortcutsApp
         return app.scope.launch {
-            val r = Runner.run(ctx, s, foreground = app.inForeground, input = input, vars = vars)
+            val r = Runner.run(ctx, s, foreground = app.inForeground, input = input, vars = vars, source = sourceOf(a), automationId = a.id)
             Notifs.ran(ctx, r)
         }
+    }
+
+    /** How an automation's run reads in the run log: "At 17:00", "Every 60 min", "Charger". */
+    fun sourceOf(a: Automation): String = when {
+        a.kind == app.openshortcuts.model.TriggerKind.Time -> when (a.timeMode) {
+            app.openshortcuts.model.TimeMode.Every -> "Every ${a.every} min"
+            app.openshortcuts.model.TimeMode.Sunrise, app.openshortcuts.model.TimeMode.Sunset -> a.timeMode.label
+            else -> "At %02d:%02d".format(a.timeOfDay.hour, a.timeOfDay.minute)
+        }
+        else -> a.kind.title
     }
 
     fun snooze(ctx: Context, a: Automation) {

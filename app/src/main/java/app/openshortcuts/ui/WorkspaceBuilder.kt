@@ -157,6 +157,8 @@ fun AddWidgetDialog(
                             .padding(horizontal = 16.dp, vertical = 12.dp),
                     ) { Text(if (loadingData) "…" else "Load", style = Theme.t.label, color = c.bg) }
                 }
+                Spacer(Modifier.height(8.dp))
+                EndpointPicker(adapter) { picked -> endpoint = picked; load() }
                 Spacer(Modifier.height(6.dp))
                 val err = response?.exceptionOrNull()?.message
                 Text(
@@ -188,7 +190,7 @@ fun AddWidgetDialog(
                             style = Theme.t.small, color = c.ink2,
                         )
                         Spacer(Modifier.height(8.dp))
-                        JsonPicker(rootFor(slot), slot) { path ->
+                        JsonPicker(rootFor(slot), slot, paths.values.toSet()) { path ->
                             paths[slot.key] = path
                             if (slot.key == DataSlots.ITEMS) {
                                 // A new list: re-guess its fields from its first item.
@@ -260,6 +262,76 @@ fun AddWidgetDialog(
             Spacer(Modifier.height(8.dp))
             QuietButton("Back", Modifier.fillMaxWidth()) { selectedType = null; paths.clear(); response = null; active = null }
         }
+    }
+}
+
+/**
+ * The API's GET endpoints, from its OpenAPI description, as a searchable list. Tap one to use it; the
+ * endpoint field above still takes anything typed.
+ */
+@Composable
+private fun EndpointPicker(adapter: app.openshortcuts.model.WorkspaceAdapter, onPick: (String) -> Unit) {
+    val c = Theme.c
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var list by remember(adapter.id) { mutableStateOf(app.openshortcuts.model.OpenApi.cached(adapter.id)) }
+    var open by remember { mutableStateOf(false) }
+    var loading by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var docsUrl by remember { mutableStateOf("") }
+    var query by remember { mutableStateOf("") }
+    fun fetch(url: String? = null) {
+        loading = true; error = null
+        scope.launch {
+            app.openshortcuts.model.OpenApi.load(adapter, url).onSuccess { list = it; open = true }.onFailure { error = it.message }
+            loading = false
+        }
+    }
+    val l = list
+    if (!open) {
+        Text(
+            if (l != null) "Browse ${l.size} endpoints" else if (loading) "Looking for API docs…" else "Browse endpoints from the API docs",
+            style = Theme.t.small, color = c.accent,
+            modifier = Modifier.pressable(label = "Browse endpoints") { if (l != null) open = true else fetch() }.padding(vertical = 6.dp),
+        )
+        error?.let { e ->
+            Text(e, style = Theme.t.small, color = c.ink3)
+            Spacer(Modifier.height(6.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f)) { BuilderInput(docsUrl, { docsUrl = it }, "https://…/openapi.json or /docs.json") }
+                Spacer(Modifier.width(8.dp))
+                QuietButton("Load", onClick = { fetch(docsUrl) })
+            }
+        }
+        return
+    }
+    if (l == null) return
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text("${l.size} endpoints", style = Theme.t.small, color = c.ink2, modifier = Modifier.weight(1f))
+        Text("Hide", style = Theme.t.small, color = c.accent, modifier = Modifier.pressable(label = "Hide endpoints") { open = false }.padding(6.dp))
+    }
+    Spacer(Modifier.height(6.dp))
+    SearchField(query, { query = it }, "Search endpoints", surface = c.fill)
+    Spacer(Modifier.height(6.dp))
+    val q = query.trim()
+    val shown = l.filter { q.isEmpty() || "${it.path} ${it.summary} ${it.tag}".contains(q, ignoreCase = true) }
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(c.fill)) {
+        shown.take(8).forEach { e ->
+            Column(
+                Modifier.fillMaxWidth().pressable(scale = 0.98f, label = e.path) { onPick(e.path); open = false }
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("GET", style = Theme.t.small.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontSize = 11.sp), color = c.positive)
+                    Spacer(Modifier.width(8.dp))
+                    Text(e.path, style = Theme.t.small.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace), color = c.ink, maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    if (e.tag.isNotBlank()) Text(e.tag, style = Theme.t.small, color = c.ink3, maxLines = 1)
+                }
+                if (e.summary.isNotBlank()) Text(e.summary, style = Theme.t.small, color = c.ink2, maxLines = 2)
+            }
+        }
+        if (shown.isEmpty()) Text("No endpoint matches “$q”. You can still type it above.", style = Theme.t.small, color = c.ink3, modifier = Modifier.padding(14.dp))
+        if (shown.size > 8) Text("${shown.size - 8} more: keep typing to narrow it down", style = Theme.t.small, color = c.ink3, modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp))
     }
 }
 

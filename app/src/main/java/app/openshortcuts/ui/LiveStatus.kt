@@ -131,6 +131,8 @@ fun LiveStatusWidget(
     payload: Any?,
     onRunAction: (AdapterAction) -> Unit,
     onDirectResult: (AdapterAction, AdapterResult) -> Unit,
+    /** Holding the card while it runs opens [DashboardWidget.editActionId], filled from what's running. */
+    onEdit: (AdapterAction, org.json.JSONObject?) -> Unit = { _, _ -> },
 ) {
     val c = Theme.c
     val reduced = Theme.reduced
@@ -178,7 +180,16 @@ fun LiveStatusWidget(
         ).value
     } else 1f
 
-    Card(Modifier.fillMaxWidth()) {
+    val editAction = adapter.actionById(widget.editActionId)
+    val editable = active && editAction != null
+    Card(
+        Modifier.fillMaxWidth().then(
+            if (editable) Modifier.pressable(scale = 0.98f, label = "Edit what's running", onLongClick = {
+                view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+                onEdit(editAction!!, payload as? org.json.JSONObject)
+            }) {} else Modifier,
+        ),
+    ) {
         Column(Modifier.padding(20.dp).animateContentSize(if (reduced) tween(0) else tween(250, easing = easeOut))) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
@@ -193,7 +204,9 @@ fun LiveStatusWidget(
                     modifier = Modifier.weight(1f),
                 )
                 if (active && widget.holdToStop && action != null) {
-                    EnterBlock(delayMs = 0) { Text("Hold Stop to finish", style = Theme.t.small, color = c.ink3, maxLines = 1) }
+                    EnterBlock(delayMs = 0) { Text(if (editable) "Hold card to edit · Hold Stop to finish" else "Hold Stop to finish", style = Theme.t.small, color = c.ink3, maxLines = 1) }
+                } else if (editable) {
+                    EnterBlock(delayMs = 0) { Text("Hold to edit", style = Theme.t.small, color = c.ink3, maxLines = 1) }
                 }
             }
             Spacer(Modifier.height(2.dp))

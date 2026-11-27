@@ -90,6 +90,14 @@ object Marketplace {
         }
     }
 
+    /**
+     * Is [installed] already the same as [template]? Compared without the id and name you gave it, so a
+     * workspace you added and haven't changed reads as up to date.
+     */
+    fun sameLayout(installed: WorkspaceAdapter, template: WorkspaceAdapter): Boolean =
+        template.copy(id = installed.id, name = installed.name, baseUrl = installed.baseUrl).toJson().toString() ==
+            installed.toJson().toString()
+
     /** The host a workspace talks to, for the "Talks to" line before you add it. */
     fun host(adapter: WorkspaceAdapter): String =
         if (adapter.baseUrl.startsWith("demo://")) "Nothing, it runs on the phone" else runCatching { java.net.URI(adapter.baseUrl).host }.getOrNull() ?: adapter.baseUrl

@@ -4,7 +4,7 @@ import java.time.LocalTime
 import java.time.DayOfWeek
 import java.util.UUID
 
-enum class ParamKind { TEXT, NUMBER, CHOICE, TIME, APP, SHORTCUT, INPUT, PHONE, EMAIL, DATETIME, WORKSPACE_ACTION }
+enum class ParamKind { TEXT, NUMBER, CHOICE, TIME, APP, SHORTCUT, INPUT, PHONE, EMAIL, DATETIME, WORKSPACE_ACTION, WORKSPACE_DATA }
 
 data class ParamSpec(
     val key: String,
@@ -352,6 +352,12 @@ enum class ActionType(
         output = "Result",
         summary = "Runs an action from one of your workspaces, like Clock In. If the workspace shows it's already running, it's skipped.",
     ),
+    GET_WORKSPACE_DATA(
+        "Get Workspace Data", "Get {data}", Category.Apps, Tint.Indigo, "grid",
+        listOf(ParamSpec("data", ParamKind.WORKSPACE_DATA, "", placeholder = "Workspace data")),
+        output = "Workspace Data",
+        summary = "Reads a value from one of your workspaces, like this week's hours or open pull requests, to use in an If or a message. It's also saved under its own name.",
+    ),
     OPEN_URL(
         "Open URL", "Open {url}", Category.Apps, Tint.Blue, "link",
         listOf(ParamSpec("url", ParamKind.TEXT, "https://", placeholder = "URL")),
@@ -392,7 +398,8 @@ enum class ActionType(
 val BUILT_IN_VARIABLES = listOf("Shortcut Input", "Shared Subject", "Message Sender", "Message Chat", "Notification Title", "Notification App", "Previous Result", "Current Date", "Current Time", "Clipboard", "Repeat Index", "Repeat Item", "Menu Result")
 
 fun variableNames(actions: List<Action>): List<String> =
-    (BUILT_IN_VARIABLES + actions.filter { it.type == ActionType.SET_VARIABLE }.map { it.p("name").trim() })
+    (BUILT_IN_VARIABLES + actions.filter { it.type == ActionType.SET_VARIABLE }.map { it.p("name").trim() } +
+        actions.filter { it.type == ActionType.GET_WORKSPACE_DATA }.mapNotNull { WorkspaceRead.decode(it.p("data"))?.label?.trim() })
         .filter { it.isNotEmpty() }.distinct()
 
 data class Action(

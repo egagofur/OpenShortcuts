@@ -119,7 +119,7 @@ object Launchers {
     fun launch(ctx: Context, s: Shortcut, onDone: (Runner.Result) -> Unit = {}) {
         val app = ctx.applicationContext as ShortcutsApp
         app.scope.launch {
-            val r = Runner.run(app, s, foreground = false)
+            val r = Runner.run(app, s, foreground = false, source = "Home screen")
             if (r.error != null) Notifs.ran(app, r)
             onDone(r)
         }

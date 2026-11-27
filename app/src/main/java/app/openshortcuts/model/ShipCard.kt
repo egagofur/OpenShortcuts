@@ -121,7 +121,7 @@ data class ShipStats(
 enum class ShipLayout { Stack, Recap, Hackathon, Heatmap, Limit }
 
 /** How the AI-limit notice looks: plain words, or one of three app-style notices. */
-enum class ShipLimitStyle(val label: String) { Text("Text"), Card("Card"), Banner("Banner"), Dialog("Dialog") }
+enum class ShipLimitStyle(val label: String) { Text("Text"), Card("Card"), Banner("Banner"), Dialog("Dialog"), Inline("Inline") }
 
 /**
  * A card's personality: its layout and its words. Every line can be edited; {tokens} are filled
