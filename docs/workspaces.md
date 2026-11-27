@@ -36,10 +36,14 @@ Tap **Edit** to add or remove widgets and tabs. Hold a row and drag it to change
 }
 ```
 
-- `authKind`: `bearer` (sends `Authorization: Bearer <token>`), `private_token` (sends `PRIVATE-TOKEN: <token>`) or `none`. `authHeader` and `authPrefix` change the header if your API differs.
+- `authKind`: `bearer` (sends `Authorization: Bearer <token>`), `private_token` (sends `PRIVATE-TOKEN: <token>`), `custom` (the token in the header named by `authHeader`, after `authPrefix`) or `none`. `authHeader` and `authPrefix` change the header for any kind.
+- `tokenOptional: true` lets the workspace work without a token (a token then adds more, like private repos).
+- `inputs`: things to ask for besides a token, like `[{ "key": "username", "label": "GitHub username" }]`. Endpoints use them as `{{input.username}}`. They're kept on the phone with the token.
+- `openApiUrl`: where the API's OpenAPI (JSON) description is, so endpoints can be picked from a list when adding a widget.
 - `allowedDomains`: other hosts the workspace may call. The token is only sent to `baseUrl`'s host and these.
 - Paths such as `data.items[*].name` pick values out of JSON responses. `[*]` walks every item of a list.
-- `{{field}}` in an endpoint or body is filled from the row you tapped or from an action's fields. `{{today}}` and `{{month}}` are built in.
+- `{{field}}` in an endpoint or body is filled from the row you tapped or from an action's fields. `{{today}}`, `{{month}}`, `{{since_7d}}` and `{{since_120d}}` are built in. A whole URL at the start of an endpoint (`{{pull_request.url}}/reviews`) is used as is.
+- Any path can also be a template: `{{first_name}} {{last_name}}`, with pipes `|upper`, `|lower`, `|trim`, `|date`, `|number`, `|first:20`, `|default:none` and `|map:dirty=Has conflicts;clean=Ready`.
 
 ## Widgets
 
@@ -53,14 +57,14 @@ Every widget has `id`, `type`, `title`, `tint` and usually an `endpoint`.
 | `bar_chart` | Bars per day or week; counts items or sums a field | `itemsPath`, `metaPath` (date), `valuePath`, `bucket` (`day`/`week`), `range` (`rolling`/`thisWeek`), `count`, `target`, `unit` |
 | `breakdown` | Totals per group, largest first, with an Other row | `itemsPath`, `groupPath`, `valuePath`, `unit`, `count` |
 | `heatmap_chart` | A year of activity, one square per day | `itemsPath`, `metaPath` |
-| `live_status` | Whether something is running, with a start or stop button. Running, it counts up from `startedAtPath` (or from when it started, if the API has no start time); `holdToStop: true` makes the stop button press-and-hold | `activePath`, `activeTitlePath`, `subtitlePath`, `startedAtPath`, `holdToStop`, `activeActionId`, `inactiveActionId` |
+| `live_status` | Whether something is running, with a start or stop button. Running, it counts up from `startedAtPath` (or from when it started, if the API has no start time); `holdToStop: true` makes the stop button press-and-hold; holding the card opens `editActionId` to change what's running | `activePath`, `activeTitlePath`, `subtitlePath`, `startedAtPath`, `holdToStop`, `activeActionId`, `inactiveActionId`, `editActionId` |
 | `share_card` | Stracode: a photo card of your recent commits to share, with a route line of your day and the AIs credited in `Co-Authored-By` trailers. Reads a profile at `endpoint`, then commits at `itemsEndpoint` with the profile's fields filled in (`{{login}}`) | `endpoint`, `titlePath` (your handle), `itemsEndpoint`, `itemsPath`, `metaPath` (commit time), `messagePath`, `groupPath` (repo), `valuePath` (commits per item, e.g. a push) |
 | `action_grid` | Colored tiles that run actions or your shortcuts | `actionRefs[]` |
 | `profile_card` | The signed-in user | `titlePath`, `subtitlePath`, `metaPath`, `badgePath` |
 | `note_card` | A short note | `body` |
 | `list` / `grouped_list` | Rows you can search, swipe and open | `itemsPath`, `titlePath`, `subtitlePath`, `badgePath`, `metaPath`, `valuePath`, `groupPath` or `groupBy: "week"`, `badgeTints`, `rowActions`, `detail` |
 
-A row's `detail` can show the item's Markdown body, extra fields, comments, commits and file changes from their own endpoints.
+A row's `detail` can show the item's Markdown body, extra fields, comments, commits and file changes from their own endpoints. `merge` adds more reads to the item under a key, e.g. `{ "repo": "{{base.repo.url}}" }` for your permissions on a repository. After an action works, the detail and the list behind it are read again.
 
 ## Actions
 
@@ -75,9 +79,11 @@ A row's `detail` can show the item's Markdown body, extra fields, comments, comm
 }
 ```
 
-A param with `optionsEndpoint` shows a list to pick from (a project, a label). `confirmMessage` asks before running.
+A param with `optionsEndpoint` shows a list to pick from (a project, a label). A `default` can be a template filled from what's on screen (`"{{data.title}}"`), with `defaultLabel` for the name of a picked id. `confirmMessage` asks before running. `showIf: ["repo.permissions.push", "mergeable"]` shows the action only when every path reads true, so people only see what they're allowed to do.
 
 ## From shortcuts and automations
+
+Add **Get Workspace Data** to read a value from any widget you have: a metric, how many items a list has, whether a timer runs. It's saved under its own name (`{This week}`) and an **If** can test it. The same values can go on the home screen with the **Workspace value** widget.
 
 Add **Run Workspace Action** to a shortcut, pick the action and fill in its fields once. Text fields can use shortcut variables. If a `live_status` widget starts or stops with that action, its state is checked first: starting something already running, or stopping nothing, is skipped. The result shows in the automation's notification.
 

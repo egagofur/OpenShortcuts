@@ -288,6 +288,13 @@ object AdapterEngine {
                 "Hit the API's hourly limit" + (at?.let { ". It resets at $it" } ?: "") + "." + if (noToken) " Adding a token in settings raises it." else "", parsed)
         }
 
+        // Changing something you can't: many servers (GitHub among them) answer 404, not 403, to hide it.
+        if ((code == 403 || code == 404) && method.uppercase() != "GET") {
+            val why = (parsed as? JSONObject)?.optString("message")?.takeIf { it.isNotBlank() && it != "Not Found" }
+            return AdapterResult(false, code,
+                "Not allowed (HTTP $code). Your token may not be able to change this: check it has write access here." + (why?.let { " Server says: $it" } ?: ""), parsed)
+        }
+
         if (code !in 200..299) {
             val errMsg = (parsed as? JSONObject)?.optString("message")?.takeIf { it.isNotBlank() }
                 ?: (parsed as? JSONObject)?.optString("error")?.takeIf { it.isNotBlank() }

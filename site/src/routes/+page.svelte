@@ -136,6 +136,23 @@
 		</p>
 	</Split>
 
+	<section class="section wrap">
+		<div use:reveal>
+			<p class="eyebrow">Your data in your routines</p>
+			<h2 class="h2">From a dashboard to a shortcut to your home screen.</h2>
+			<p class="lede">
+				Read a value from any workspace widget, test it, act on it, and see exactly what ran.
+			</p>
+		</div>
+		<Cards
+			items={[
+				{ glyph: 'layers', tint: 'indigo', title: 'Get Workspace Data', body: 'Pick “This week” or “Open pull requests” from a widget you have, no paths. Then: if this week is below 40 hours, message me at 17:00.' },
+				{ glyph: 'home', tint: 'green', title: 'On your home screen', body: 'The Workspace value widget shows one number, updated every half hour. Tap it to open the workspace.' },
+				{ glyph: 'clock', tint: 'orange', title: 'Activity', body: 'Every run with what started it, each step and its result, and where it failed. Run it again in a tap.' }
+			]}
+		/>
+	</section>
+
 	<section class="section wrap design">
 		<div use:reveal>
 			<p class="eyebrow">Designed like a phone’s own app</p>

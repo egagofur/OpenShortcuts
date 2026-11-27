@@ -100,6 +100,8 @@ fun WorkspaceDetailScreen(
     var sectionTab by remember { mutableIntStateOf(0) } // 0 = Details, 1 = Commits, 2 = Code
 
     val detail = widget.detail
+    // An action that needs something (write access, no conflicts) only shows when the item says so.
+    val visibleActions: List<app.openshortcuts.model.AdapterAction>? = detail?.actions?.filter { act -> act.showIf.all { AdapterEngine.extractBool(raw, it) } }
     val hasCommits = !detail?.commitsEndpoint.isNullOrBlank()
     val hasChanges = !detail?.changesEndpoint.isNullOrBlank()
 
@@ -111,7 +113,12 @@ fun WorkspaceDetailScreen(
             AdapterEngine.fetchDetail(adapter, ep, initialRaw)
                 // The detail adds to the row it came from, so fields of both (like a search result's
                 // pull_request.url and the PR's mergeable state) are there for fields and actions.
-                .onSuccess { d -> raw = JSONObject(initialRaw.toString()).also { m -> d.keys().forEach { k -> m.put(k, d.opt(k)) } } }
+                .onSuccess { d ->
+                    val merged = JSONObject(initialRaw.toString()).also { m -> d.keys().forEach { k -> m.put(k, d.opt(k)) } }
+                    // Extra reads, like the repository with your permissions, so actions can show only when allowed.
+                    detail.merge.forEach { (key, ep) -> AdapterEngine.fetchDetail(adapter, ep, merged).onSuccess { merged.put(key, it) } }
+                    raw = merged
+                }
                 .onFailure { detailError = it.message ?: "Failed to load details" }
             loading = false
         }
@@ -367,8 +374,8 @@ fun WorkspaceDetailScreen(
 
                 item {
                     DetailActionsBlock(
-                        primary = detail?.actions?.firstOrNull() ?: widget.primaryAction,
-                        extraActions = detail?.actions?.drop(1).orEmpty(),
+                        primary = visibleActions?.firstOrNull() ?: widget.primaryAction,
+                        extraActions = visibleActions?.drop(1).orEmpty(),
                         rowActions = widget.rowActions,
                         webUrl = webUrl,
                         raw = raw,
@@ -400,8 +407,8 @@ fun WorkspaceDetailScreen(
                 }
                 item {
                     DetailActionsBlock(
-                        primary = detail?.actions?.firstOrNull() ?: widget.primaryAction,
-                        extraActions = detail?.actions?.drop(1).orEmpty(),
+                        primary = visibleActions?.firstOrNull() ?: widget.primaryAction,
+                        extraActions = visibleActions?.drop(1).orEmpty(),
                         rowActions = widget.rowActions,
                         webUrl = webUrl,
                         raw = raw,
@@ -444,10 +451,10 @@ fun WorkspaceDetailScreen(
                 }
                 Spacer(Modifier.height(14.dp))
             }
-            val primary = detail?.actions?.firstOrNull() ?: widget.primaryAction
+            val primary = visibleActions?.firstOrNull() ?: widget.primaryAction
             val shownTitles = buildSet {
                 primary?.let { add(it.title.lowercase()) }
-                detail?.actions?.drop(1)?.forEach { add(it.title.lowercase()) }
+                visibleActions?.drop(1)?.forEach { add(it.title.lowercase()) }
             }
             primary?.let { act ->
                 PrimaryButton(act.title, Modifier.fillMaxWidth().padding(bottom = 8.dp), color = act.tint.color()) {
@@ -455,7 +462,7 @@ fun WorkspaceDetailScreen(
                     activeAction = act
                 }
             }
-            detail?.actions?.drop(1)?.forEach { act ->
+            visibleActions?.drop(1)?.forEach { act ->
                 QuietButton(act.title, Modifier.fillMaxWidth().padding(bottom = 8.dp), color = act.tint.color()) {
                     showQuickActions = false
                     activeAction = act
@@ -487,7 +494,12 @@ fun WorkspaceDetailScreen(
             onDismiss = { activeAction = null },
             onResult = { res ->
                 activeAction = null
-                if (res.ok) { view.confirm(); refreshTick++ }
+                if (res.ok) {
+                    view.confirm()
+                    refreshTick++
+                    // The list behind this changed too (a closed PR leaves "Open"): read it again on the way back.
+                    app.openshortcuts.model.AdapterStore.fetchedAt(adapter.id).clear()
+                }
                 toast = res
             },
         )

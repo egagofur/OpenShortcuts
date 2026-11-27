@@ -85,6 +85,10 @@
             "urlPath": "html_url",
             "fields": [
               {
+                "label": "State",
+                "path": "{{state|map:open=Open;closed=Closed}}"
+              },
+              {
                 "label": "Author",
                 "path": "user.login"
               },
@@ -133,7 +137,11 @@
                 "endpoint": "{{pull_request.url}}/merge",
                 "tint": "Indigo",
                 "glyph": "branch",
-                "confirmMessage": "Merge “{{title}}”? If it has conflicts, GitHub will refuse; fix them first or close it."
+                "confirmMessage": "Merge “{{title}}” into {{base.ref}}?",
+                "showIf": [
+                  "repo.permissions.push",
+                  "mergeable"
+                ]
               },
               {
                 "id": "close_pr",
@@ -145,7 +153,10 @@
                 "glyph": "x",
                 "confirmMessage": "Close “{{title}}” without merging? You can reopen it on GitHub."
               }
-            ]
+            ],
+            "merge": {
+              "repo": "{{base.repo.url}}"
+            }
           }
         }
       ]
@@ -171,6 +182,10 @@
             "bodyPath": "body",
             "urlPath": "html_url",
             "fields": [
+              {
+                "label": "State",
+                "path": "{{state|map:open=Open;closed=Closed}}"
+              },
               {
                 "label": "Author",
                 "path": "user.login"
@@ -244,7 +259,11 @@
                 "endpoint": "{{pull_request.url}}/merge",
                 "tint": "Indigo",
                 "glyph": "branch",
-                "confirmMessage": "Merge “{{title}}”? If it has conflicts, GitHub will refuse; fix them first or close it."
+                "confirmMessage": "Merge “{{title}}” into {{base.ref}}?",
+                "showIf": [
+                  "repo.permissions.push",
+                  "mergeable"
+                ]
               },
               {
                 "id": "close_pr",
@@ -256,7 +275,10 @@
                 "glyph": "x",
                 "confirmMessage": "Close “{{title}}” without merging? You can reopen it on GitHub."
               }
-            ]
+            ],
+            "merge": {
+              "repo": "{{base.repo.url}}"
+            }
           }
         }
       ]

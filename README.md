@@ -69,9 +69,11 @@ A workspace turns an API you already use into a small app inside OpenShortcuts: 
 
 - **Start in seconds from the Marketplace.** Add **Stracode**, **GitHub**, **GitLab** or a **Demo** with sample data in one tap; you see what it needs and which server it talks to first. New workspaces arrive by being added to [`marketplace/`](marketplace) on GitHub, no app update needed.
 - **Or let an AI build it.** Tap **Build with AI**: ChatGPT, Gemini or any AI chat interviews you about your API one question at a time and writes the workspace, which you paste back into the app. There's a separate prompt for coding agents that can read your API docs and test it themselves. You never give the AI your token.
-- **Build it from your real data.** Adding a widget calls your endpoint right away and shows the response as a tree: tap the list, tap the fields, and the widget previews with your data. Paths and `{{field}}` templates (with `|date`, `|number`, `|upper`…) are there when you want to type.
+- **Build it from your real data.** Adding a widget calls your endpoint right away and shows the response as a searchable list of fields: tap the list, tap the fields, and the widget previews with your data. Pick endpoints from the API's OpenAPI description (found on the server, uploaded from your phone or linked), or type them. Paths and `{{field}}` templates (with `|date`, `|number`, `|map:…`) are there when you want to type.
+- **Act on what you see.** GitHub pull requests can be approved, commented on, merged (only when you have write access and there are no conflicts) or closed; the screen reads itself again afterwards. Hold a running timer to change what it's tracking.
 - **Build it your way.** Add widgets: metric cards, a target bar, bar charts by day or week with a goal line, a breakdown by project or client, a contribution heatmap, live status, action tiles, and lists you can search, group by week and open for details. Hold and drag to reorder tabs and widgets.
-- **Run actions from automations.** The **Run Workspace Action** step calls a workspace action from any shortcut, like starting a timer when you reach the office. If the workspace shows it's already running, it's skipped.
+- **Use it in shortcuts.** **Get Workspace Data** reads a value from a widget you already have, no paths ("This week" from your time tracker, open pull requests from GitHub), and **If** can test it: "If This week is below 40, message me at 17:00". **Run Workspace Action** calls an action, like starting a timer when you reach the office.
+- **On your home screen.** The **Workspace value** widget shows one of those values, updated every half hour; tap it to open the workspace.
 - **Your token stays on the phone.** It's stored on the device, left out of backups and exports, and only sent to the workspace's own server.
 - **Share with your team, not the world.** A workspace is one `.osadapter` file. Export it (without your token) and send it to a colleague; it never has to be public.
 
@@ -90,6 +92,10 @@ A card of your coding day or week to post on your story, made from your commits.
 - **Shares sharp.** Exports at 2160 × 3840 for stories, or as a transparent sticker.
 
 <p align="center"><img src="docs/images/stracode.png" alt="Stracode cards: commits, focus span and AI pair share; a 16-week contribution heatmap; and an AI usage-limit notice" width="100%"></p>
+
+## Activity: every run, step by step
+
+Every run, by hand, from the home screen or on its own, is kept for a week on the phone: what started it, whether it worked, how long it took, and each step with what it returned or why it failed, like executions in n8n. Each automation shows its recent runs, with **Run again**.
 
 ## Designed like a phone's own app
 

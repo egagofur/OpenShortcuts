@@ -69,6 +69,52 @@ import org.json.JSONObject
 
 private const val FRESH_MS = 60_000L
 
+/**
+ * A one-tap start for Stracode, shown until it's added or put away: your commits as a story card,
+ * from just a GitHub username. Adding it opens the workspace, which asks for the username.
+ */
+@Composable
+private fun StracodeIntro(adapters: List<WorkspaceAdapter>, onOpen: (WorkspaceAdapter) -> Unit) {
+    val c = Theme.c
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val prefs = remember { ctx.getSharedPreferences("tour", android.content.Context.MODE_PRIVATE) }
+    var hidden by remember { mutableStateOf(prefs.getBoolean("stracode_intro_hidden", false)) }
+    if (hidden || adapters.any { it.id == "stracode" || it.id.startsWith("stracode-") }) return
+    val green = Tint.Green.color()
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(Dimens.cardRadius))
+            .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(green.copy(alpha = 0.30f), c.card)))
+            .padding(18.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconTile("laptopRun", green, size = 44.dp)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text("New: Stracode", style = Theme.t.small, color = green)
+                Text("Strava for your commits", style = Theme.t.title, color = c.ink)
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        Text(
+            "Turn your week of code into a card for your story: commits, a 16-week heatmap, or the AI Limit card. Just your GitHub username, no sign-in.",
+            style = Theme.t.small, color = c.ink2,
+        )
+        Spacer(Modifier.height(14.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PrimaryButton("Add Stracode", Modifier.weight(1f), color = green) {
+                val t = app.openshortcuts.model.WorkspaceTemplates.load(ctx, "stracode") ?: return@PrimaryButton
+                val a = app.openshortcuts.model.WorkspaceTemplates.instantiate(t, AdapterStore.adapters.value)
+                AdapterStore.upsert(a)
+                onOpen(a)
+            }
+            QuietButton("Not now", Modifier.weight(1f)) {
+                prefs.edit().putBoolean("stracode_intro_hidden", true).apply()
+                hidden = true
+            }
+        }
+    }
+}
+
 @Composable
 fun WorkspaceHub(
     adapters: List<WorkspaceAdapter>,
@@ -112,6 +158,7 @@ fun WorkspaceHub(
                 )
             }
         }
+        item(key = "stracode-intro") { StracodeIntro(adapters, onOpen) }
         item(key = "market") {
             val openMarket = LocalOpenMarketplace.current
             Card(Modifier.fillMaxWidth().pressable(label = "Open the marketplace", onClick = openMarket)) {

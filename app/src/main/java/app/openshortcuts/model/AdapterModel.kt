@@ -61,6 +61,8 @@ data class AdapterAction(
     val tint: Tint = Tint.Blue,
     val glyph: String = "bolt",
     val confirmMessage: String? = null,
+    /** Shown only when every path here reads true on the item, e.g. "repo.permissions.push", "mergeable". */
+    val showIf: List<String> = emptyList(),
 )
 
 /**
@@ -130,6 +132,8 @@ data class DetailSpec(
     val commentTimePath: String = "created_at",
     val commitsEndpoint: String? = null,
     val changesEndpoint: String? = null,
+    /** More reads added to the item under a key, e.g. "repo" from "{{base.repo.url}}" for your permissions. */
+    val merge: Map<String, String> = emptyMap(),
     val fields: List<DetailField> = emptyList(),
     val actions: List<AdapterAction> = emptyList(),
 )
@@ -282,6 +286,7 @@ data class WorkspaceAdapter(
             put("tint", a.tint.name)
             put("glyph", a.glyph)
             a.confirmMessage?.let { put("confirmMessage", it) }
+            if (a.showIf.isNotEmpty()) put("showIf", JSONArray(a.showIf))
             put("params", JSONArray(a.params.map { p ->
                 JSONObject().apply {
                     put("key", p.key)
@@ -374,6 +379,7 @@ data class WorkspaceAdapter(
                     if (d.commentBodyPath != "body") put("commentBodyPath", d.commentBodyPath)
                     if (d.commentTimePath != "created_at") put("commentTimePath", d.commentTimePath)
                     d.commitsEndpoint?.let { put("commitsEndpoint", it) }
+                    if (d.merge.isNotEmpty()) put("merge", JSONObject(d.merge))
                     d.changesEndpoint?.let { put("changesEndpoint", it) }
                     if (d.fields.isNotEmpty()) put("fields", JSONArray(d.fields.map { f ->
                         JSONObject().apply { put("label", f.label); put("path", f.path) }
@@ -414,6 +420,7 @@ data class WorkspaceAdapter(
                 tint = runCatching { Tint.valueOf(o.optString("tint", "Blue")) }.getOrDefault(Tint.Blue),
                 glyph = o.optString("glyph", "bolt"),
                 confirmMessage = if (o.has("confirmMessage") && !o.isNull("confirmMessage")) o.getString("confirmMessage") else null,
+                showIf = o.optJSONArray("showIf")?.let { a -> (0 until a.length()).map { a.getString(it) } }.orEmpty(),
             )
         }
 
@@ -466,6 +473,7 @@ data class WorkspaceAdapter(
                     commentBodyPath = d.optString("commentBodyPath", "body"),
                     commentTimePath = d.optString("commentTimePath", "created_at"),
                     commitsEndpoint = if (d.has("commitsEndpoint") && !d.isNull("commitsEndpoint")) d.getString("commitsEndpoint") else null,
+                    merge = d.optJSONObject("merge")?.let { m -> m.keys().asSequence().associateWith { m.getString(it) } }.orEmpty(),
                     changesEndpoint = if (d.has("changesEndpoint") && !d.isNull("changesEndpoint")) d.getString("changesEndpoint") else null,
                     fields = (0 until fArr.length()).map { i ->
                         val f = fArr.getJSONObject(i)
