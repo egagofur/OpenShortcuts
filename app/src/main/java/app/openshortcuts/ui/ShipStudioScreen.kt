@@ -1,5 +1,7 @@
 package app.openshortcuts.ui
 
+import androidx.compose.ui.unit.sp
+
 import androidx.compose.ui.semantics.onClick
 
 import androidx.compose.ui.semantics.contentDescription
@@ -661,7 +663,7 @@ private fun StylePanel(
 ) {
     val c = Theme.c
     var showHow by remember { mutableStateOf(false) }
-    if (showHow) HowCountedDialog(sourceKind, stats, data?.complete ?: true) { showHow = false }
+    if (showHow) HowCountedDialog(sourceKind, stats, data?.complete ?: true, spec.period) { showHow = false }
     if (data == null && error == null) SkeletonLine(0.45f)
     else Row(verticalAlignment = Alignment.CenterVertically) {
         Text(error ?: "$source · ${stats.commits}${if (stats.partial) "+" else ""} commits", style = Theme.t.small, color = if (error != null) c.danger else c.ink2, modifier = Modifier.weight(1f))
@@ -741,50 +743,111 @@ private fun StylePanel(
     }
 }
 
+/** A short fact about the data source, with a mark for "counts" (check) or "good to know" (info). */
+private class SourceFact(val ok: Boolean, val text: String)
+
 /**
- * Where the numbers come from and what each one means, so a card can be stood behind: the source and
- * its limits, then a plain definition of every stat. No number is estimated.
+ * Where the numbers come from and what each one means, so a card can be stood behind. Scannable: the
+ * source as a few short facts, then each number on this card with its value and a one-line meaning.
  */
 @Composable
-private fun HowCountedDialog(baseUrl: String, stats: ShipStats, complete: Boolean, onDismiss: () -> Unit) {
+private fun HowCountedDialog(baseUrl: String, stats: ShipStats, complete: Boolean, period: ShipPeriod, onDismiss: () -> Unit) {
     val c = Theme.c
-    val source = when {
-        baseUrl.startsWith("demo://") -> "Sample commits made on this phone for the demo. Nothing is fetched."
-        "api.github.com" in baseUrl -> "GitHub's commit search: commits you authored, by author date, in public repositories (with a token, also the private ones it can see). GitHub only searches each repository's default branch, so commits that live only on other branches aren't counted. The newest 500 are read."
-        "/api/v4" in baseUrl -> "Your GitLab push events: each push counts the commits it carried, on any branch. Pushing the same commits to two branches counts them twice. The newest 500 events are read."
-        else -> "The items this workspace's endpoint returns, by the date field it points to."
+    val zone = remember { ZoneId.systemDefault() }
+    val (name, glyph, facts) = when {
+        baseUrl.startsWith("demo://") -> Triple("Demo", "layers", listOf(
+            SourceFact(true, "Sample commits made on this phone"), SourceFact(true, "Nothing is fetched"),
+        ))
+        "api.github.com" in baseUrl -> Triple("GitHub commit search", "braces", listOf(
+            SourceFact(true, "Commits you authored, by author date"),
+            SourceFact(true, "Public repos; private ones too with a token"),
+            SourceFact(false, "Default branch only: commits only on other branches aren't seen"),
+            SourceFact(false, "The newest 500 commits are read"),
+        ))
+        "/api/v4" in baseUrl -> Triple("GitLab push events", "braces", listOf(
+            SourceFact(true, "Each push counts the commits it carried, on any branch"),
+            SourceFact(false, "The same commits pushed to two branches count twice"),
+            SourceFact(false, "The newest 500 events are read"),
+        ))
+        else -> Triple("This workspace", "layers", listOf(SourceFact(true, "The items its endpoint returns, by their date")))
     }
+    fun v(token: String) = ShipPersona.fill(token, stats, "", zone, perDay = period == ShipPeriod.Week)
+    val rows = listOf(
+        Triple("Commits", v("{commits}"), "In this period, each counted once"),
+        Triple("Active days", v("{days}"), "Days with at least one commit"),
+        Triple("Commit window", v("{span}"), "First to last commit. Not time worked"),
+        Triple("AI co-authored", v("{ai}"), "Commits with an AI in Co-Authored-By"),
+        Triple("Repos", v("{repos}"), "Different repositories"),
+        Triple("Best streak", "${stats.streak}d", "Most days in a row with a commit"),
+        Triple("Best day", "${stats.bestDay}", "Most commits on one day"),
+        Triple("Last commit", v("{last}"), "Time of the newest commit"),
+    )
     DuoDialog(onDismiss) {
-        DialogTitle("How it's counted", "Every number is counted from your commits; nothing is estimated.")
-        Text("Source", style = Theme.t.label, color = c.ink)
-        Spacer(Modifier.height(4.dp))
-        Text(source, style = Theme.t.small, color = c.ink2)
+        Text("How it's counted", style = Theme.t.title, color = c.ink)
+        Spacer(Modifier.height(2.dp))
+        Text("Counted from your commits. Nothing is estimated.", style = Theme.t.small, color = c.ink2)
+        Spacer(Modifier.height(16.dp))
+
+        // Where it comes from.
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(c.fill).padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconTile(glyph, c.accent, size = 28.dp)
+                Spacer(Modifier.width(10.dp))
+                Column {
+                    Text("Source", style = Theme.t.small, color = c.ink3)
+                    Text(name, style = Theme.t.label, color = c.ink)
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            facts.forEach { f ->
+                Row(Modifier.padding(vertical = 3.dp), verticalAlignment = Alignment.Top) {
+                    Box(Modifier.padding(top = 2.dp)) { Glyph(if (f.ok) "check" else "info", if (f.ok) c.positive else c.ink3, 15.dp) }
+                    Spacer(Modifier.width(8.dp))
+                    Text(f.text, style = Theme.t.small, color = c.ink2)
+                }
+            }
+        }
+
         if (!complete) {
             Spacer(Modifier.height(10.dp))
-            Text(
-                "You have more commits than the source hands out, so periods that reach past the oldest one read are shown as \"at least\", with a +." +
-                    if (stats.partial) " This card's period is one of them." else "",
-                style = Theme.t.small, color = c.danger,
-            )
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(c.accent.copy(alpha = 0.10f)).padding(12.dp),
+                verticalAlignment = Alignment.Top,
+            ) {
+                Box(Modifier.padding(top = 2.dp)) { Glyph("info", c.accent, 15.dp) }
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    if (stats.partial) "You have more commits than the source hands out, so this period's counts are at least what's shown (N+)."
+                    else "You have more commits than the source hands out. This period is fully covered, so its counts are exact.",
+                    style = Theme.t.small, color = c.ink,
+                )
+            }
         }
-        Spacer(Modifier.height(14.dp))
-        Text("What each number means", style = Theme.t.label, color = c.ink)
+
+        Spacer(Modifier.height(16.dp))
+        Text("On this card", style = Theme.t.small, color = c.ink3, modifier = Modifier.padding(start = 2.dp))
         Spacer(Modifier.height(6.dp))
-        listOf(
-            "Commits" to "Commits in the period, each counted once even if it appears twice.",
-            "Active days" to "Days in the period with at least one commit, in your phone's time zone.",
-            "Commit window" to "Time from the first to the last commit of the period (for a week, averaged per active day). It isn't time worked.",
-            "AI co-authored" to "Share of commits with an AI in a Co-Authored-By line (Claude, Copilot, Gemini…). AIs that don't sign commits aren't seen.",
-            "Repos" to "Different repositories the commits are in.",
-            "Best streak · Best day" to "Most days in a row with a commit; most commits on one day.",
-            "Last commit" to "Time of the newest commit in the period.",
-        ).forEach { (k, v) ->
-            Text(k, style = Theme.t.small.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold), color = c.ink)
-            Text(v, style = Theme.t.small, color = c.ink2)
-            Spacer(Modifier.height(8.dp))
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(c.fill)) {
+            rows.forEachIndexed { i, (label, value, meaning) ->
+                if (i > 0) Box(Modifier.padding(start = 14.dp).fillMaxWidth().height(1.dp).background(c.hairline))
+                Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(label, style = Theme.t.label, color = c.ink)
+                        Text(meaning, style = Theme.t.small, color = c.ink3)
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Text(value, style = Theme.t.title.copy(fontFeatureSettings = "tnum", fontSize = 18.sp), color = c.ink, maxLines = 1)
+                }
+            }
         }
-        Text("Only reads (GET). Nothing about you is sent anywhere else.", style = Theme.t.small, color = c.ink3)
+
         Spacer(Modifier.height(12.dp))
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 2.dp)) {
+            Glyph("lock", c.ink3, 14.dp)
+            Spacer(Modifier.width(6.dp))
+            Text("Read-only. Nothing about you is sent anywhere else.", style = Theme.t.small, color = c.ink3)
+        }
+        Spacer(Modifier.height(16.dp))
         PrimaryButton("Got it", Modifier.fillMaxWidth(), onClick = onDismiss)
     }
 }
