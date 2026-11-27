@@ -99,6 +99,16 @@ object WorkspaceReads {
         return a to w
     }
 
+    /** Fetches [read] fresh from its workspace: the value, or why it couldn't be read. */
+    suspend fun fetch(read: WorkspaceRead): Result<String> = runCatching {
+        val (adapter, widget) = resolve(read) ?: error("That workspace or widget isn't on this phone anymore.")
+        if (!AdapterStore.hasToken(adapter)) error("Finish setting up ${adapter.name} in its settings.")
+        val ep = endpointOf(adapter, widget).ifBlank { error("${widget.title} has no data to read.") }
+        val res = AdapterEngine.fetchEndpoints(adapter, setOf(ep), mapOf(ep to widget.pages))[ep] ?: error("${adapter.name} didn't answer.")
+        val payload = res.getOrElse { error("${adapter.name}: ${it.message}") }
+        value(widget, payload, read.output)
+    }
+
     /** The endpoint a widget reads (its own, or its tab's). */
     fun endpointOf(a: WorkspaceAdapter, w: DashboardWidget): String =
         w.endpoint?.takeIf { it.isNotBlank() } ?: a.tabs.firstOrNull { t -> t.widgets.any { it.id == w.id } }?.endpoint.orEmpty()

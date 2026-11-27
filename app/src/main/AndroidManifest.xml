@@ -120,6 +120,30 @@
             </intent-filter>
         </activity>
 
+        <!-- Home-screen widget: one value from a workspace. -->
+        <receiver
+            android:name=".engine.ValueWidget"
+            android:exported="true"
+            android:label="Workspace value">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_value_info" />
+        </receiver>
+
+        <activity
+            android:name=".ui.WidgetConfigActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Shortcuts">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
         <activity
             android:name=".engine.RunActivity"
             android:exported="true"

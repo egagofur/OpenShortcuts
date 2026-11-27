@@ -43,7 +43,11 @@ private class Choice(val workspace: String, val glyph: String, val tint: android
  * how many items, whether a timer runs), with the value it has right now. Searchable.
  */
 @Composable
-fun WorkspaceDataPicker(current: String, onDone: (String) -> Unit) {
+fun WorkspaceDataPicker(
+    current: String,
+    hint: String = "From the widgets on your workspaces. It's read fresh each time the shortcut runs.",
+    onDone: (String) -> Unit,
+) {
     val c = Theme.c
     val picked = remember(current) { WorkspaceRead.decode(current) }
     var query by remember { mutableStateOf("") }
@@ -61,7 +65,7 @@ fun WorkspaceDataPicker(current: String, onDone: (String) -> Unit) {
     }
     Text("Choose a value", style = Theme.t.label, color = c.ink)
     Spacer(Modifier.height(4.dp))
-    Text("From the widgets on your workspaces. It's read fresh each time the shortcut runs.", style = Theme.t.small, color = c.ink2)
+    Text(hint, style = Theme.t.small, color = c.ink2)
     Spacer(Modifier.height(10.dp))
     if (choices.isEmpty()) {
         Text("Add a workspace with some widgets first, from the Marketplace or your own API.", style = Theme.t.body, color = c.ink2)

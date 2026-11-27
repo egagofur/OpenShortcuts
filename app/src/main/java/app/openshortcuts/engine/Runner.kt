@@ -381,12 +381,8 @@ object Runner {
             }
             ActionType.GET_WORKSPACE_DATA -> {
                 val read = app.openshortcuts.model.WorkspaceRead.decode(a.p("data")) ?: fail("Choose what to read from a workspace.")
-                val (adapter, widget) = app.openshortcuts.model.WorkspaceReads.resolve(read) ?: fail("That workspace or widget isn't on this phone anymore.")
-                if (!app.openshortcuts.model.AdapterStore.hasToken(adapter)) fail("Finish setting up ${adapter.name} in its settings.")
-                val ep = app.openshortcuts.model.WorkspaceReads.endpointOf(adapter, widget).ifBlank { fail("${widget.title} has no data to read.") }
-                val res = AdapterEngine.fetchEndpoints(adapter, setOf(ep), mapOf(ep to widget.pages))[ep] ?: fail("${adapter.name} didn't answer.")
-                val payload = res.getOrElse { fail("${adapter.name}: ${it.message}") }
-                val value = app.openshortcuts.model.WorkspaceReads.value(widget, payload, read.output)
+                val adapter = app.openshortcuts.model.WorkspaceReads.resolve(read)?.first ?: fail("That workspace or widget isn't on this phone anymore.")
+                val value = app.openshortcuts.model.WorkspaceReads.fetch(read).getOrElse { fail(it.message ?: "Couldn't read ${adapter.name}.") }
                 // Available by name too, so a later step can say {This week}.
                 if (read.label.isNotBlank()) st.vars[read.label] = value
                 log += "${adapter.name} › ${read.label}: $value"

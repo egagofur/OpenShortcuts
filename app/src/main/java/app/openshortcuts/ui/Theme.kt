@@ -1,5 +1,7 @@
 package app.openshortcuts.ui
 
+import androidx.compose.ui.graphics.toArgb
+
 import android.provider.Settings
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Spring
@@ -138,3 +140,6 @@ fun ShortcutsTheme(content: @Composable () -> Unit) {
         content = content,
     )
 }
+
+/** A tint as a plain ARGB int, for places outside Compose like home-screen widgets. */
+fun tintArgb(t: app.openshortcuts.model.Tint): Int = t.color().toArgb()

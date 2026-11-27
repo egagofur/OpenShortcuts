@@ -48,6 +48,12 @@ sealed interface Route {
 }
 
 class MainActivity : ComponentActivity() {
+    companion object {
+        /** Opens a workspace on launch, e.g. from its home-screen widget. */
+        const val EXTRA_WORKSPACE = "app.openshortcuts.WORKSPACE"
+        val openWorkspace = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
@@ -65,6 +71,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun receive(intent: android.content.Intent?) {
+        intent?.getStringExtra(EXTRA_WORKSPACE)?.let { openWorkspace.value = it; return }
         val uri = when (intent?.action) {
             android.content.Intent.ACTION_VIEW -> intent.data
             android.content.Intent.ACTION_SEND -> androidx.core.content.IntentCompat.getParcelableExtra(
@@ -278,6 +285,12 @@ private fun App() {
                 app.openshortcuts.model.AdapterStore.importError.value = null
             }
         }
+    }
+    val wantWorkspace by MainActivity.openWorkspace.collectAsStateWithLifecycle()
+    androidx.compose.runtime.LaunchedEffect(wantWorkspace) {
+        val id = wantWorkspace ?: return@LaunchedEffect
+        MainActivity.openWorkspace.value = null
+        if (app.openshortcuts.model.AdapterStore.get(id) != null) { nav.reset(listOf(Route.Home)); tab = 2; push(Route.Workspace(id)) }
     }
     // A new install gets the marketplace once, when the tour is over (finished or skipped).
     androidx.compose.runtime.LaunchedEffect(app.openshortcuts.ui.Tour.step) {
