@@ -204,7 +204,7 @@ fun LiveStatusWidget(
                     modifier = Modifier.weight(1f),
                 )
                 if (active && widget.holdToStop && action != null) {
-                    EnterBlock(delayMs = 0) { Text(if (editable) "Hold card to edit · Hold Stop to finish" else "Hold Stop to finish", style = Theme.t.small, color = c.ink3, maxLines = 1) }
+                    EnterBlock(delayMs = 0) { Text(if (editable) "Hold to edit or stop" else "Hold Stop to finish", style = Theme.t.small, color = c.ink3, maxLines = 1) }
                 } else if (editable) {
                     EnterBlock(delayMs = 0) { Text("Hold to edit", style = Theme.t.small, color = c.ink3, maxLines = 1) }
                 }
