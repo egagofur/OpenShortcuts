@@ -174,6 +174,16 @@ fun SetupScreen(tick: Int, onBack: () -> Unit) {
                         }
                     }) { Glyph("chevronRight", c.ink3, size = 16.dp) }
             }
+            // Which build this is, for checking you have the latest and for bug reports.
+            val version = remember {
+                runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).let { "${it.versionName} (${it.longVersionCode})" } }.getOrDefault("")
+            }
+            if (version.isNotBlank()) Text(
+                "OpenShortcuts $version",
+                style = Theme.t.small, color = c.ink3,
+                modifier = Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 8.dp),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            )
         }
         Rail({ GlassCircle("chevronLeft", "Back", onClick = onBack) })
     }
