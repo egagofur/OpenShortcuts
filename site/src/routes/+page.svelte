@@ -96,8 +96,43 @@
 			that works offline or a blank page, or let ChatGPT or Gemini interview you and build it. Then hold and drag to arrange it.
 		</p>
 		<p class="lede">
+			Adding a widget calls your API right away: tap the list and the fields you want in the response, and see the widget
+			with your real data before it goes on the dashboard.
+		</p>
+		<p class="lede">
 			A shortcut can run a workspace action too, like starting your work timer when you reach the office. Your token stays on
 			the phone, and a workspace is one file you can share with your team without sharing access.
+		</p>
+	</Split>
+
+	<Split
+		id="marketplace"
+		eyebrow="Marketplace"
+		title="Ready-made workspaces, one tap away."
+		shot="marketplace"
+		alt="The Marketplace with Stracode, GitHub and GitLab workspaces"
+	>
+		<p class="lede">
+			Pick a workspace and see what it needs and which server it talks to before you add it. New ones are published to the
+			open-source repo, so they show up without an app update.
+		</p>
+	</Split>
+
+	<Split
+		id="stracode"
+		eyebrow="Stracode · Strava for your commits"
+		title="Your week of code, ready for your story."
+		shot="stracode"
+		alt="A Stracode card with a 16-week contribution heatmap, streak and best day"
+		flip
+	>
+		<p class="lede">
+			Enter your GitHub username and Stracode turns your commits into a card: commits, focus time and the AIs you paired with,
+			a 16-week heatmap, or the <b>AI Limit</b> card for when your AI needs a break and you take one too.
+		</p>
+		<p class="lede">
+			Add a photo in full resolution, move text stickers, pick a font or import your own, then share at 2160 × 3840 or as a
+			transparent sticker.
 		</p>
 	</Split>
 

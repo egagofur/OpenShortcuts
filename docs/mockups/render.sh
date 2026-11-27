@@ -5,7 +5,7 @@ CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 tmp=$(mktemp -d)
 img() { echo "<img src=\"file://$PWD/$1\">"; }
 if [[ $1 == hero ]]; then
-  sed -e "s#SHOT1#file://$PWD/$2#" -e "s#SHOT2#file://$PWD/$3#" -e "s#SHOT3#file://$PWD/$4#" docs/mockups/hero.html > "$tmp/p.html"
+  sed -e "s#SHOT1#file://$PWD/$2#" -e "s#SHOT2#file://$PWD/$3#" -e "s#SHOT3#file://$PWD/$4#" -e "s#LOGO#file://$PWD/docs/logo/icon.svg#" docs/mockups/hero.html > "$tmp/p.html"
   out=hero; size=1600,900
 else
   out=$2; size=1600,1000

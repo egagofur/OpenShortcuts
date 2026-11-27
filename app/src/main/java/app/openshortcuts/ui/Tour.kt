@@ -146,7 +146,7 @@ fun TourOverlay() {
         val cardW = minOf(with(density) { 300.dp.toPx() }, w - 2 * margin)
         var cardH by remember(step) { mutableStateOf(0) }
         val below = anchor.center.y < h / 2
-        val x = (anchor.center.x - cardW / 2).coerceIn(margin, w - margin - cardW)
+        val x = (anchor.center.x - cardW / 2).coerceIn(margin, (w - margin - cardW).coerceAtLeast(margin))
         val y = if (below) anchor.bottom + gap else anchor.top - gap - cardH
         val arrowX = (anchor.center.x - x).coerceIn(with(density) { 22.dp.toPx() }, cardW - with(density) { 22.dp.toPx() })
 

@@ -85,8 +85,8 @@ fun AddWidgetDialog(
     val slots = selectedType?.let { DataSlots.forType(it) }.orEmpty()
     val payload = response?.getOrNull()
     // Fields of a list are picked inside one item; the rest from the whole response.
-    fun rootFor(slot: DataSlot): Any? =
-        if (slot.perItem) AdapterEngine.extractList(payload, paths[DataSlots.ITEMS].orEmpty()).firstOrNull() else payload
+    fun rootFor(slot: DataSlot, data: Any? = payload): Any? =
+        if (slot.perItem) AdapterEngine.extractList(data, paths[DataSlots.ITEMS].orEmpty()).firstOrNull() else data
     fun nextEmpty(after: String?): String? {
         val order = slots.map { it.key }
         val start = after?.let { order.indexOf(it) + 1 } ?: 0
@@ -104,9 +104,9 @@ fun AddWidgetDialog(
             // Guess the obvious: the first list of objects, then the usual field names.
             if (slots.any { it.key == DataSlots.ITEMS } && paths[DataSlots.ITEMS] == null) DataSlots.guessList(data)?.let { paths[DataSlots.ITEMS] = it }
             slots.filter { it.key != DataSlots.ITEMS && paths[it.key].isNullOrBlank() }.forEach { s ->
-                DataSlots.guessField(rootFor(s), s)?.let { paths[s.key] = it }
+                DataSlots.guessField(rootFor(s, data), s)?.let { paths[s.key] = it }
             }
-            active = nextEmpty(null) ?: slots.firstOrNull()?.key
+            active = nextEmpty(null) ?: slots.firstOrNull { it.key != DataSlots.ITEMS }?.key ?: slots.firstOrNull()?.key
         }
     }
     androidx.compose.runtime.LaunchedEffect(selectedType) { if (selectedType != null) load() }
@@ -240,7 +240,8 @@ fun AddWidgetDialog(
                 }
             }
             Spacer(Modifier.height(16.dp))
-            val missing = slots.filter { !it.optional && paths[it.key] == null && it.key != DataSlots.ITEMS || (!it.optional && it.key != DataSlots.ITEMS && paths[it.key].isNullOrBlank()) }
+            // The list may be the whole response (an empty path); every other required field needs a path.
+            val missing = slots.filter { !it.optional && it.key != DataSlots.ITEMS && paths[it.key].isNullOrBlank() }
             PrimaryButton(if (missing.isEmpty()) "Add to Dashboard" else "Pick ${missing.first().label} first", Modifier.fillMaxWidth(), color = selectedTint.color()) {
                 if (missing.isNotEmpty()) { active = missing.first().key; return@PrimaryButton }
                 val id = UUID.randomUUID().toString().take(8)

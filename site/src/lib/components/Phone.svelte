@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { asset, resolve } from '$app/paths';
 
-	let { src, alt, eager = false }: { src: 'editor' | 'gallery' | 'sunset' | 'triggers' | 'catalog' | 'welcome' | 'workspace'; alt: string; eager?: boolean } = $props();
+	let { src, alt, eager = false }: { src: 'editor' | 'gallery' | 'sunset' | 'triggers' | 'catalog' | 'welcome' | 'workspace' | 'marketplace' | 'stracode' | 'picker' | 'ailimit'; alt: string; eager?: boolean } = $props();
 </script>
 
 <div class="phone">

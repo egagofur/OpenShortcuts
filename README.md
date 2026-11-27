@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/logo/icon.svg" alt="" width="88" height="88"></p>
+
 <h1 align="center">OpenShortcuts</h1>
 
 <p align="center"><b>The Shortcuts app Android was missing.</b><br>
@@ -65,16 +67,29 @@ Pick contacts, apps, times and dates from real pickers: a contact list with What
 
 A workspace turns an API you already use into a small app inside OpenShortcuts: numbers, charts, lists and one-tap actions, laid out in tabs.
 
-- **Start in seconds.** Pick **GitHub**, **GitLab** (gitlab.com or your company's own), a **Demo** with sample data that works offline, or start **blank** with your own API address.
+- **Start in seconds from the Marketplace.** Add **Stracode**, **GitHub**, **GitLab** or a **Demo** with sample data in one tap; you see what it needs and which server it talks to first. New workspaces arrive by being added to [`marketplace/`](marketplace) on GitHub, no app update needed.
 - **Or let an AI build it.** Tap **Build with AI**: ChatGPT, Gemini or any AI chat interviews you about your API one question at a time and writes the workspace, which you paste back into the app. There's a separate prompt for coding agents that can read your API docs and test it themselves. You never give the AI your token.
+- **Build it from your real data.** Adding a widget calls your endpoint right away and shows the response as a tree: tap the list, tap the fields, and the widget previews with your data. Paths and `{{field}}` templates (with `|date`, `|number`, `|upper`…) are there when you want to type.
 - **Build it your way.** Add widgets: metric cards, a target bar, bar charts by day or week with a goal line, a breakdown by project or client, a contribution heatmap, live status, action tiles, and lists you can search, group by week and open for details. Hold and drag to reorder tabs and widgets.
 - **Run actions from automations.** The **Run Workspace Action** step calls a workspace action from any shortcut, like starting a timer when you reach the office. If the workspace shows it's already running, it's skipped.
 - **Your token stays on the phone.** It's stored on the device, left out of backups and exports, and only sent to the workspace's own server.
 - **Share with your team, not the world.** A workspace is one `.osadapter` file. Export it (without your token) and send it to a colleague; it never has to be public.
 
-<p align="center"><img src="docs/images/workspaces.png" alt="The Demo workspace: a weekly target bar, hours per day against a goal, a breakdown by client, and the time log grouped by week" width="100%"></p>
+<p align="center"><img src="docs/images/marketplace.png" alt="The Marketplace with Stracode, GitHub and GitLab, the Demo workspace dashboard, and the Add Widget screen with the API response as a tap-to-pick tree" width="100%"></p>
 
 The file format and every widget are described in [docs/workspaces.md](docs/workspaces.md).
+
+## Stracode: Strava for your commits
+
+A card of your coding day or week to post on your story, made from your commits.
+
+- **Just a GitHub username.** No sign-in: Stracode reads your public commits. Add a token for private repos, or use the GitHub and GitLab workspaces.
+- **Styles with something to say.** Classic, Vibe Coder, Reluctant Pro, Night Owl, Hackathon, a **16-week heatmap**, and **AI Limit**: your photo with a usage-limit notice from your AI app, for when it needs a break and so do you.
+- **The AIs you paired with.** Claude, Copilot, Gemini and others are read from `Co-Authored-By` lines in your commits, or picked by hand.
+- **Make it yours.** Take or pick a photo in full resolution, add text stickers you can move and pinch, choose fonts (or import your own, kept on the phone), add your logo, and pick a signature, frame or stamp watermark, or none.
+- **Shares sharp.** Exports at 2160 × 3840 for stories, or as a transparent sticker.
+
+<p align="center"><img src="docs/images/stracode.png" alt="Stracode cards: commits, focus span and AI pair share; a 16-week contribution heatmap; and an AI usage-limit notice" width="100%"></p>
 
 ## Designed like a phone's own app
 

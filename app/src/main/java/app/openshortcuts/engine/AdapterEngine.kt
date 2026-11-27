@@ -213,7 +213,7 @@ object AdapterEngine {
      * unchanged response costs no download (and, when signed in, no GitHub rate limit).
      */
     private val etags = object : LinkedHashMap<String, Pair<String, Any?>>(64, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Pair<String, Any?>>?) = size > 96
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Pair<String, Any?>>?) = size > 32
     }
 
     private fun send(

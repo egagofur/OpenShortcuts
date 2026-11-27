@@ -933,15 +933,23 @@ object ShipCardRenderer {
         cv.drawBitmap(logo, Rect(0, 0, logo.width, logo.height), RectF(x, y, x + lw, y + lh), Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG))
     }
 
-    /** The OpenShortcuts mark: a rounded square with a play notch cut out, drawn at [size]. */
+    /**
+     * The OpenShortcuts mark at [size]: the app tile in [color] with the token (the blue word in a
+     * sentence) cut out of it, so the photo shows through, the same shape as the app icon.
+     */
     private fun drawMark(cv: Canvas, x: Float, y: Float, size: Float, color: Int) {
         val layer = cv.saveLayer(x - 1, y - 1, x + size + 1, y + size + 1, null)
-        cv.drawRoundRect(RectF(x, y, x + size, y + size), size * 0.28f, size * 0.28f, Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color })
+        cv.drawRoundRect(RectF(x, y, x + size, y + size), size * 0.23f, size * 0.23f, Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color })
+        // The 256-unit mark, scaled to fill two thirds of the tile.
+        val s = size / 256f * 0.66f
+        fun gx(v: Float) = x + size / 2 + (v - 128f) * s
+        fun gy(v: Float) = y + size / 2 + (v - 128f) * s
         val cut = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = 0xFF000000.toInt(); blendMode = android.graphics.BlendMode.DST_OUT }
-        val tri = Path().apply {
-            moveTo(x + size * 0.38f, y + size * 0.28f); lineTo(x + size * 0.72f, y + size * 0.5f); lineTo(x + size * 0.38f, y + size * 0.72f); close()
-        }
-        cv.drawPath(tri, cut)
+        val line = Paint(cut).apply { style = Paint.Style.STROKE; strokeWidth = 20f * s; strokeCap = Paint.Cap.ROUND; alpha = 0x6B }
+        cv.drawLine(gx(52f), gy(82f), gx(204f), gy(82f), line)
+        cv.drawLine(gx(52f), gy(128f), gx(82f), gy(128f), line)
+        cv.drawLine(gx(52f), gy(174f), gx(164f), gy(174f), line)
+        cv.drawRoundRect(RectF(gx(104f), gy(104f), gx(208f), gy(152f)), 24f * s, 24f * s, cut)
         cv.restoreToCount(layer)
     }
 

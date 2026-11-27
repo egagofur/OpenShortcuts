@@ -348,7 +348,9 @@ fun ShipStudioScreen(adapterId: String, widgetId: String, onBack: () -> Unit) {
                 withContext(Dispatchers.Default) {
                     val w = (full.aspect.w * EXPORT_SCALE).toInt(); val h = (full.aspect.h * EXPORT_SCALE).toInt()
                     // Decode enough pixels for the zoomed-in framing, never more than the original has.
-                    val src = if (full.sticker) null else photoUri?.let { ShipCardRenderer.loadPhoto(ctx, it, (w * full.zoom).toInt(), (h * full.zoom).toInt()) }
+                    // Enough pixels for the zoomed framing, capped near 24 MP so a 50 MP photo can't run the phone out of memory.
+                    val z = full.zoom.coerceAtMost(kotlin.math.sqrt(24_000_000f / (w * h)).coerceAtLeast(1f))
+                    val src = if (full.sticker) null else photoUri?.let { ShipCardRenderer.loadPhoto(ctx, it, (w * z).toInt(), (h * z).toInt()) }
                     val bmp = ShipCardRenderer.render(full, stats(), src, EXPORT_SCALE, zone)
                     withContext(Dispatchers.IO) { if (share) shareImage(ctx, bmp, full.sticker) else saveImage(ctx, bmp, full.sticker) }
                 }
