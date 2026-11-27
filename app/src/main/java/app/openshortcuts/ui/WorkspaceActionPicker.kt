@@ -121,7 +121,7 @@ private fun OptionList(adapter: WorkspaceAdapter, p: AdapterParam, onPick: (Stri
     Spacer(Modifier.height(10.dp))
     val list = options
     when {
-        list == null -> Text("Loading from ${adapter.name}…", style = Theme.t.body, color = c.ink2)
+        list == null -> SkeletonRows(4)
         list.isEmpty() -> Text(error ?: "${adapter.name} returned nothing to choose from.", style = Theme.t.body, color = c.ink2)
         else -> Column {
             Field(query, { query = it }, "Search", autofocus = false)

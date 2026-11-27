@@ -356,8 +356,30 @@ object AdapterEngine {
         }
     }
 
+    private val templatePart = Regex("""\{\{\s*([^}|]+?)\s*(?:\|\s*([a-z]+)(?::([^}]*))?\s*)?\}\}""")
+
+    /**
+     * A field written as a template: "{{first_name}} {{last_name}}", or with a pipe:
+     * |upper |lower |trim |date |number |first:20 |default:none.
+     */
+    fun template(root: Any?, text: String): String = templatePart.replace(text) { m ->
+        val v = extractString(root, m.groupValues[1])
+        val arg = m.groupValues[3]
+        when (m.groupValues[2]) {
+            "upper" -> v.uppercase()
+            "lower" -> v.lowercase()
+            "trim" -> v.trim()
+            "date" -> formatIfTimestamp(v)
+            "number" -> v.toDoubleOrNull()?.let { d -> if (d % 1.0 == 0.0) "%,d".format(d.toLong()) else "%,.2f".format(d) } ?: v
+            "first" -> v.take(arg.toIntOrNull() ?: 40)
+            "default" -> v.ifBlank { arg }
+            else -> v
+        }
+    }
+
     fun extractString(root: Any?, path: String): String {
         if (root == null || path.isBlank()) return ""
+        if ("{{" in path) return template(root, path)
         val nodes = resolvePath(root, path.split('.'))
         val first = nodes.firstOrNull { it != null && it != JSONObject.NULL } ?: return ""
         return when (first) {

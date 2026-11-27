@@ -127,7 +127,10 @@ fun MarketplaceScreen(firstRun: Boolean, onBack: () -> Unit, onAdded: (Workspace
             }
             item { Field(query, { query = it.take(40) }, "Search workspaces", autofocus = false) }
 
-            if (index == null) item { Text("Loading…", style = Theme.t.small, color = c.ink3, modifier = Modifier.padding(6.dp)) }
+            if (index == null) {
+                item { SkeletonCard(220) }
+                items(3) { SkeletonCard(84) }
+            }
 
             val featured = shown.filter { it.featured }
             if (q.isEmpty() && category == null && featured.isNotEmpty()) {

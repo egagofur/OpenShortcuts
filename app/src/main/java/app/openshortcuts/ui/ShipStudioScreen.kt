@@ -581,7 +581,8 @@ private fun StylePanel(
     onChange: (ShipSpec) -> Unit, onHours: (Int) -> Unit,
 ) {
     val c = Theme.c
-    Text(error ?: if (data == null) "Reading your commits…" else "$source · ${stats.commits} commits", style = Theme.t.small, color = if (error != null) c.danger else c.ink2)
+    if (data == null && error == null) SkeletonLine(0.45f)
+    else Text(error ?: "$source · ${stats.commits} commits", style = Theme.t.small, color = if (error != null) c.danger else c.ink2)
     Section("Style")
     Chips(ShipPersona.entries.map { it.label }, spec.persona.ordinal) {
         val p = ShipPersona.entries[it]
@@ -596,17 +597,41 @@ private fun StylePanel(
             },
         ))
     }
-    Section("Period")
-    Chips(ShipPeriod.entries.map { it.label }, spec.period.ordinal) { onChange(spec.copy(period = ShipPeriod.entries[it])) }
-    if (spec.period == ShipPeriod.Hackathon) {
+    if (spec.persona.layout == app.openshortcuts.model.ShipLayout.Limit) {
+        // AI Limit comes in four looks; they're picked right here, with the style.
+        Section("Look")
+        Chips(app.openshortcuts.model.ShipLimitStyle.entries.map { it.label }, spec.limitStyle.ordinal) {
+            onChange(spec.copy(limitStyle = app.openshortcuts.model.ShipLimitStyle.entries[it], limitAction = null))
+        }
         Spacer(Modifier.height(8.dp))
-        val hs = listOf(24, 36, 48, 72)
-        Chips(hs.map { "${it}h" }, hs.indexOf(hackHours)) { onHours(hs[it]) }
+        Chips(listOf("Bottom", "Top"), if (spec.limitTop) 1 else 0) { onChange(spec.copy(limitTop = it == 1)) }
+        Spacer(Modifier.height(6.dp))
+        Text("Button, reset time and wording are in Text.", style = Theme.t.small, color = c.ink3)
+    }
+    // Only settings that change this style's card are shown: the AI Limit notice has no commit numbers
+    // or route line, and the heatmap always covers sixteen weeks.
+    val layout = spec.persona.layout
+    when (layout) {
+        app.openshortcuts.model.ShipLayout.Limit -> Unit
+        app.openshortcuts.model.ShipLayout.Heatmap -> {
+            Spacer(Modifier.height(10.dp))
+            Text("Covers the last 16 weeks.", style = Theme.t.small, color = c.ink3)
+        }
+        else -> {
+            Section("Period")
+            val periods = ShipPeriod.entries.filter { it != ShipPeriod.Months }
+            Chips(periods.map { it.label }, periods.indexOf(spec.period)) { onChange(spec.copy(period = periods[it])) }
+            if (spec.period == ShipPeriod.Hackathon) {
+                Spacer(Modifier.height(8.dp))
+                val hs = listOf(24, 36, 48, 72)
+                Chips(hs.map { "${it}h" }, hs.indexOf(hackHours)) { onHours(hs[it]) }
+            }
+        }
     }
     Section("Size")
     Chips(ShipAspect.entries.map { it.label }, spec.aspect.ordinal) { onChange(spec.copy(aspect = ShipAspect.entries[it])) }
-    Section("Line color")
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    if (layout != app.openshortcuts.model.ShipLayout.Limit) Section(if (layout == app.openshortcuts.model.ShipLayout.Heatmap) "Color" else "Line color")
+    if (layout != app.openshortcuts.model.ShipLayout.Limit) Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         ShipAccent.entries.forEach { a ->
             Box(
                 Modifier.size(36.dp).clip(CircleShape).background(Color(a.argb))
@@ -780,22 +805,41 @@ private fun ColorDots(selected: Int, accent: Int, onPick: (Int) -> Unit) {
 @Composable
 private fun PhotoPanel(spec: ShipSpec, hasPhoto: Boolean, onChange: (ShipSpec) -> Unit, onCamera: () -> Unit, onGallery: () -> Unit) {
     val c = Theme.c
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        QuietButton("Camera", Modifier.weight(1f), onClick = onCamera)
-        QuietButton("Gallery", Modifier.weight(1f), onClick = onGallery)
+    // Two clear sources first, then the card's setup as its own section: the same 16dp rhythm as every
+    // other section, so the buttons don't sit on the chips.
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        PhotoSource("camera", "Take photo", Modifier.weight(1f), onCamera)
+        PhotoSource("image", "Choose photo", Modifier.weight(1f), onGallery)
     }
-    Spacer(Modifier.height(8.dp))
-    Chips(listOf("Photo card", "Sticker (no photo)"), if (spec.sticker) 1 else 0) { onChange(spec.copy(sticker = it == 1)) }
     if (hasPhoto && !spec.sticker) {
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(10.dp))
         Text("Pinch and drag on the card to frame it. Double-tap resets.", style = Theme.t.small, color = c.ink3)
     }
+    Section("Card")
+    Chips(listOf("With photo", "Sticker, no photo"), if (spec.sticker) 1 else 0) { onChange(spec.copy(sticker = it == 1)) }
     if (!spec.sticker) {
         Section("Filter")
         Chips(ShipFilter.entries.map { it.label }, spec.filter.ordinal) { onChange(spec.copy(filter = ShipFilter.entries[it])) }
         Section("Dim photo")
         val dims = listOf(0f, 0.2f, 0.4f, 0.6f)
         Chips(listOf("Off", "Low", "Medium", "High"), dims.indexOfFirst { kotlin.math.abs(it - spec.dim) < 0.01f }) { onChange(spec.copy(dim = dims[it])) }
+    }
+}
+
+/** A tall, icon-first button for a photo source; presses to 0.96 like every control in the editor. */
+@Composable
+private fun PhotoSource(glyph: String, label: String, modifier: Modifier, onClick: () -> Unit) {
+    val c = Theme.c
+    Column(
+        modifier.heightIn(min = 84.dp).pressable(scale = 0.96f, label = label, onClick = onClick)
+            .clip(RoundedCornerShape(20.dp)).background(c.fill)
+            .padding(horizontal = 12.dp, vertical = 14.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Glyph(glyph, c.ink, 24.dp)
+        Spacer(Modifier.height(8.dp))
+        Text(label, style = Theme.t.label, color = c.ink, maxLines = 1)
     }
 }
 

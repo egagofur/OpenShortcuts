@@ -75,6 +75,40 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+/** The one loading look: pulsing bars, here as rows for lists and pickers (no card around them). */
+@Composable
+fun SkeletonRows(count: Int = 4) {
+    val c = Theme.c
+    val alpha = if (!Theme.reduced) {
+        rememberInfiniteTransition(label = "skelRows").animateFloat(
+            0.35f, 0.72f, infiniteRepeatable(tween(950, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "a",
+        ).value
+    } else 0.5f
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        repeat(count) { i ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(32.dp).clip(RoundedCornerShape(9.dp)).background(c.fill.copy(alpha = alpha)))
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Box(Modifier.fillMaxWidth(listOf(0.7f, 0.55f, 0.8f, 0.6f)[i % 4]).height(12.dp).clip(RoundedCornerShape(6.dp)).background(c.fill.copy(alpha = alpha)))
+                    Box(Modifier.fillMaxWidth(0.38f).height(10.dp).clip(RoundedCornerShape(5.dp)).background(c.fill.copy(alpha = alpha * 0.8f)))
+                }
+            }
+        }
+    }
+}
+
+/** A single pulsing bar standing in for a line of text that's on its way. */
+@Composable
+fun SkeletonLine(widthFrac: Float = 0.5f, heightDp: Int = 12) {
+    val alpha = if (!Theme.reduced) {
+        rememberInfiniteTransition(label = "skelLine").animateFloat(
+            0.35f, 0.72f, infiniteRepeatable(tween(950, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "a",
+        ).value
+    } else 0.5f
+    Box(Modifier.fillMaxWidth(widthFrac).height(heightDp.dp).clip(RoundedCornerShape((heightDp / 2).dp)).background(Theme.c.fill.copy(alpha = alpha)))
+}
+
 @Composable
 fun SkeletonCard(heightDp: Int = 78) {
     val c = Theme.c

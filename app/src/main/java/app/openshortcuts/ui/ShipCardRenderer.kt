@@ -136,8 +136,9 @@ object ShipCardRenderer {
         val s = max(w / photoW, h / photoH) * spec.zoom.coerceIn(1f, 4f)
         val dw = photoW * s
         val dh = photoH * s
-        val left = ((w - dw) / 2f + spec.panX * w).coerceIn(w - dw, 0f)
-        val top = ((h - dh) / 2f + spec.panY * h).coerceIn(h - dh, 0f)
+        // Rounding can leave the photo a hair narrower than the card; never let the range invert.
+        val left = ((w - dw) / 2f + spec.panX * w).coerceIn(min(w - dw, 0f), 0f)
+        val top = ((h - dh) / 2f + spec.panY * h).coerceIn(min(h - dh, 0f), 0f)
         return RectF(left, top, left + dw, top + dh)
     }
 
@@ -950,7 +951,8 @@ object ShipCardRenderer {
         val ink = 0xE6FFFFFF.toInt()
         val name = spec.stampText.trim().ifBlank { "OpenShortcuts" }
         val meta = listOfNotNull(
-            if (stats.commits > 0) "${stats.commits} commits" else null,
+            // The AI Limit card isn't about commits, so its mark leaves the count out.
+            if (stats.commits > 0 && spec.persona.layout != ShipLayout.Limit) "${stats.commits} commits" else null,
             spec.handle.takeIf { it.isNotBlank() }?.let { "@$it" },
             date,
         ).joinToString("  ·  ")

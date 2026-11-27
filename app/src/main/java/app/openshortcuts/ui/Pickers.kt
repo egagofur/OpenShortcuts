@@ -195,7 +195,7 @@ fun ContactPicker(
             }) { onPick(typed, null) }
         }
         if (allowed && people == null) item(key = "loading") {
-            Text("Loading contacts…", style = Theme.t.small, color = c.ink2, modifier = Modifier.padding(12.dp))
+            Box(Modifier.padding(12.dp)) { SkeletonRows(5) }
         }
         if (allowed && people != null && shown.isEmpty()) item(key = "none") {
             Text(

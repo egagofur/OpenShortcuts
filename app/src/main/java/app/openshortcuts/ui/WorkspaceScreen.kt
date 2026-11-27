@@ -622,6 +622,7 @@ fun WorkspaceScreen(
 
     if (showAddWidget && currentTab != null) {
         AddWidgetDialog(
+            adapter = curAdapter,
             defaultEndpoint = currentTab.endpoint,
             onDismiss = { showAddWidget = false },
             onAdd = { w ->
@@ -1147,7 +1148,7 @@ internal fun AdapterActionDialog(
             loadingOpts = false
         }
         DuoDialog(onDismiss = { pickingOptionFor = null }) {
-            DialogTitle("Select ${p.label}", if (loadingOpts) "Loading from ${adapter.name}…" else "${options.size} available")
+            DialogTitle("Select ${p.label}", if (loadingOpts) "From ${adapter.name}" else "${options.size} available")
             Box(
                 Modifier
                     .fillMaxWidth()
@@ -1171,7 +1172,7 @@ internal fun AdapterActionDialog(
             val filtered = remember(options, query) {
                 if (query.isBlank()) options else options.filter { it.second.contains(query, ignoreCase = true) || it.first.contains(query, ignoreCase = true) }
             }
-            LazyColumn(
+            if (loadingOpts) SkeletonRows(4) else LazyColumn(
                 Modifier.fillMaxWidth().heightIn(max = if (isShort) 150.dp else 280.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
